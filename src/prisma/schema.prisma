@@ -11,10 +11,11 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id           String    @id @default(cuid())
+  id           String    @id @default(uuid())
   email        String    @unique
   passwordHash String
   isVerified   Boolean   @default(false)
@@ -25,7 +26,7 @@ model User {
 }
 
 model Settings {
-  id           String   @id @default(cuid())
+  id           String   @id @default(uuid())
   userId       String   @unique
   baseCurrency String   @default("NIS")
   darkMode     Boolean  @default(false)
@@ -33,7 +34,7 @@ model Settings {
 }
 
 model Investment {
-  id          String            @id @default(cuid())
+  id          String            @id @default(uuid())
   userId      String
   type        InvestmentType
   assetName   String
@@ -46,7 +47,7 @@ model Investment {
 }
 
 model InvestmentSnapshot {
-  id           String     @id @default(cuid())
+  id           String     @id @default(uuid())
   investmentId String
   date         DateTime
   valueInNIS   Float
