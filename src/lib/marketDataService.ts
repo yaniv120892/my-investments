@@ -34,12 +34,6 @@ export async function getStockPrice(
   }
 }
 
-export async function getCryptoPrice(
-  symbol: string
-): Promise<MarketData | null> {
-  return cryptoPriceProvider.getPrice(symbol);
-}
-
 export async function getUSDToNISRate(): Promise<MarketData | null> {
   const cacheKey = generateMarketDataKey("usd", "currency");
 
@@ -91,7 +85,7 @@ export async function getMarketData(
     case InvestmentType.STOCK:
       return getStockPrice(symbol);
     case InvestmentType.CRYPTO:
-      return getCryptoPrice(symbol);
+      return cryptoPriceProvider.getPrice(symbol);
     case InvestmentType.FOREIGN_CURRENCY:
       if (symbol.toLowerCase() === "usd") {
         return getUSDToNISRate();
