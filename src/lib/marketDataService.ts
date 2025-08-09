@@ -1,8 +1,8 @@
 import { MarketData } from "@/types";
 import { InvestmentType } from "@prisma/client";
 import { getCachedData, setCachedData, generateMarketDataKey } from "./redis";
+import * as cheerio from "cheerio";
 
-const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
 
 export async function getStockPrice(
@@ -16,52 +16,12 @@ export async function getStockPrice(
   }
 
   try {
-    const response = await fetch(
-      `https://yahoo-finance15.p.rapidapi.com/api/v1/markets/quote?ticker=${symbol}&type=STOCKS`,
-      {
-        headers: {
-          "X-RapidAPI-Key": RAPIDAPI_KEY!,
-          "X-RapidAPI-Host": "yahoo-finance15.p.rapidapi.com",
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    // Extract price from known Yahoo responses without falling back to 0
-    let price: number | undefined;
-    let currency = "USD";
-
-    if (data.body && data.body.primaryData) {
-      const priceString = data.body.primaryData.lastSalePrice as string | undefined;
-      if (priceString) {
-        const cleanPrice = priceString.replace(/[$,]/g, "");
-        const parsed = parseFloat(cleanPrice);
-        if (Number.isFinite(parsed) && parsed > 0) price = parsed;
-      }
-      currency = data.body.primaryData.currency || "USD";
-    } else if (Array.isArray(data)) {
-      const stockData = data.find((item: any) => item.symbol === symbol);
-      if (stockData && typeof stockData.regularMarketPrice === "number") {
-        const parsed = Number(stockData.regularMarketPrice);
-        if (Number.isFinite(parsed) && parsed > 0) price = parsed;
-      }
-      currency = (stockData && stockData.currency) || "USD";
-    }
-
-    if (!Number.isFinite(price) || !price || price <= 0) {
-      throw new Error(`Missing or invalid stock price for ${symbol}`);
-    }
-
+    const price = await getTickerPrice(symbol);
     const marketData: MarketData = {
       price,
-      currency,
+      currency: "USD",
       lastUpdated: new Date(),
-      source: "Yahoo Finance",
+      source: "Google Finance",
     };
 
     await setCachedData(cacheKey, marketData);
@@ -198,4 +158,60 @@ export function convertToNIS(
     return price * usdToNISRate;
   }
   return price;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+export async function getTickerPrice(ticker: string): Promise<number> {
+  const url = `https://www.google.com/finance/quote/${encodeURIComponent(
+    ticker
+  )}`;
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load Google Finance page for ${ticker}`);
+  }
+
+  const html = await response.text();
+  const $ = cheerio.load(html);
+
+  // Google Finance main price element usually has classes 'YMlKec fxKbKc'
+  const priceText = $(".YMlKec.fxKbKc").first().text().trim();
+  if (!priceText) {
+    throw new Error(`Price element not found for ${ticker}`);
+  }
+
+  const numeric = parseFloat(priceText.replace(/[^0-9.\-]/g, ""));
+  if (!Number.isFinite(numeric)) {
+    throw new Error(`Could not parse price for ${ticker}`);
+  }
+
+  return numeric;
+}
+
+export async function getMultipleTickerPrices(
+  tickers: string[]
+): Promise<Record<string, number>> {
+  const result: Record<string, number> = {};
+  for (const ticker of tickers) {
+    const price = await getTickerPrice(ticker);
+    result[ticker] = price;
+    await sleep(randomInt(1000, 2000));
+  }
+  return result;
 }
