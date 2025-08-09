@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getMarketData, convertToNIS } from "@/lib/marketDataService";
+import {
+  getMarketData,
+  convertToNIS,
+  getUSDToNISRate,
+} from "@/lib/marketDataService";
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,6 +21,10 @@ export async function GET(request: NextRequest) {
     const categoryTotals: Record<string, number> = {};
     let totalValue = 0;
     const assetCount = investments.length;
+    const prices: Record<string, { unitPrice: number; currency: string }> = {};
+
+    // Fetch USD->NIS rate once when needed
+    let usdToNISRate = 0;
 
     for (const investment of investments) {
       let currentValue = 0;
@@ -27,22 +35,30 @@ export async function GET(request: NextRequest) {
           investment.type
         );
         if (marketData && marketData.price > 0) {
+          prices[investment.id] = {
+            unitPrice: marketData.price,
+            currency: marketData.currency,
+          };
           currentValue = investment.quantity * marketData.price;
           if (marketData.currency !== "NIS") {
-            const usdToNISRate = 3.65;
-            currentValue = convertToNIS(
-              currentValue,
-              marketData.currency,
-              usdToNISRate
-            );
+            if (!usdToNISRate) {
+              const rateData = await getUSDToNISRate();
+              if (rateData && rateData.price > 0) {
+                usdToNISRate = rateData.price;
+              }
+            }
+            if (usdToNISRate) {
+              currentValue = convertToNIS(
+                currentValue,
+                marketData.currency,
+                usdToNISRate
+              );
+            }
           }
-        } else {
-          // Fallback to estimated value when market data is unavailable
-          currentValue = investment.quantity * 100;
         }
       } else {
-        // No ticker, use estimated value
-        currentValue = investment.quantity * 100;
+        // No ticker, no price
+        currentValue = 0;
       }
 
       const category = investment.type;
@@ -60,6 +76,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       investments,
       summary,
+      prices,
     });
   } catch (error) {
     console.error("Error fetching investments:", error);

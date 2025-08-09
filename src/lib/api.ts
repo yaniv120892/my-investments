@@ -47,6 +47,7 @@ export interface PortfolioResponse {
     assetCount: number;
     lastUpdated: string;
   };
+  prices: Record<string, { unitPrice: number; currency: string }>;
 }
 
 export interface InvestmentHistoryData {
