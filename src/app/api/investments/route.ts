@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     }
 
     const summary = {
-      totalValue: totalValue > 0 ? totalValue : null,
+      totalValue,
       categoryTotals,
       assetCount,
       lastUpdated: new Date(),
