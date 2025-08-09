@@ -15,7 +15,6 @@ import EditInvestmentModal from "@/components/EditInvestmentModal";
 import AssetAllocation from "@/components/AssetAllocation";
 import PortfolioChart from "@/components/PortfolioChart";
 
-
 export default function DashboardPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -111,13 +110,11 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Asset Allocation Overview */}
             <AssetAllocation
               categoryTotals={portfolioSummary.categoryTotals}
               totalValue={portfolioSummary.totalValue}
             />
 
-            {/* Portfolio Performance Chart */}
             <div className="mt-8">
               <PortfolioChart />
             </div>
