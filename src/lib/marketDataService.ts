@@ -2,7 +2,7 @@ import { MarketData } from "@/types";
 import { InvestmentType } from "@prisma/client";
 import { getCachedData, setCachedData, generateMarketDataKey } from "./redis";
 import * as cheerio from "cheerio";
-
+import { cryptoPriceProvider } from "@/lib/providers/CryptoPriceProvider";
 
 export async function getStockPrice(
   symbol: string
@@ -37,58 +37,7 @@ export async function getStockPrice(
 export async function getCryptoPrice(
   symbol: string
 ): Promise<MarketData | null> {
-  const cacheKey = generateMarketDataKey(symbol, "crypto");
-
-  const cached = await getCachedData<MarketData>(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  const toBinancePair = (s: string): string => {
-    const t = String(s)
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, "");
-    if (t.endsWith("USDT")) return t;
-    if (t.endsWith("USD")) return t.replace(/USD$/, "USDT");
-    return `${t}USDT`;
-  };
-
-  try {
-    const pair = toBinancePair(symbol);
-    const response = await fetch(
-      `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(
-        pair
-      )}`
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data: { symbol?: string; price?: string } = await response.json();
-    const parsed =
-      data && typeof data.price === "string" ? parseFloat(data.price) : NaN;
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      throw new Error(`Missing or invalid Binance price for ${pair}`);
-    }
-
-    const marketData: MarketData = {
-      price: parsed,
-      // Treat USDT as USD for downstream conversion logic
-      currency: "USD",
-      lastUpdated: new Date(),
-      source: "Binance",
-    };
-
-    await setCachedData(cacheKey, marketData);
-    return marketData;
-  } catch (error) {
-    console.warn(
-      `Warning: Unable to fetch crypto price for symbol ${symbol}:`,
-      error
-    );
-    return null;
-  }
+  return cryptoPriceProvider.getPrice(symbol);
 }
 
 export async function getUSDToNISRate(): Promise<MarketData | null> {
