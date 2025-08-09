@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Navigation from "@/components/Navigation";
 import type { Investment } from "@prisma/client";
+import type { PortfolioResponse } from "@/lib/api";
 import {
   formatCurrency,
   formatNumber,
@@ -14,16 +15,6 @@ import EditInvestmentModal from "@/components/EditInvestmentModal";
 import AssetAllocation from "@/components/AssetAllocation";
 import PortfolioChart from "@/components/PortfolioChart";
 
-// Interface for the actual API response
-interface PortfolioResponse {
-  investments: Investment[];
-  summary: {
-    totalValue: number | null;
-    categoryTotals: Record<string, number>;
-    assetCount: number;
-    lastUpdated: string;
-  };
-}
 
 export default function DashboardPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -38,7 +29,6 @@ export default function DashboardPage() {
   } = usePortfolio();
   const deleteInvestmentMutation = useDeleteInvestment();
 
-  // Fix data access - API returns data directly, not wrapped in data property
   const portfolioResponse = portfolioData as PortfolioResponse | undefined;
   const investments = portfolioResponse?.investments || [];
   const portfolioSummary = portfolioResponse?.summary;
@@ -98,9 +88,7 @@ export default function DashboardPage() {
                   Total Value
                 </h3>
                 <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                  {portfolioSummary.totalValue
-                    ? formatCurrency(portfolioSummary.totalValue)
-                    : "Calculating..."}
+                  {formatCurrency(portfolioSummary.totalValue ?? 0)}
                 </p>
               </div>
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
