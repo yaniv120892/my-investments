@@ -127,25 +127,52 @@ export default function LoginPage() {
                   placeholder="Password"
                 />
               </div>
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => setStep("verification")}
+                  className="text-sm text-blue-600 hover:text-blue-500"
+                >
+                  I already have a code
+                </button>
+              </div>
             </>
           ) : (
-            <div>
-              <label htmlFor="code" className="sr-only">
-                Verification code
-              </label>
-              <input
-                id="code"
-                name="code"
-                type="text"
-                autoComplete="one-time-code"
-                required
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm text-center text-2xl tracking-widest"
-                placeholder="000000"
-                maxLength={6}
-              />
-            </div>
+            <>
+              <div>
+                <label htmlFor="email" className="sr-only">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  placeholder="Email"
+                />
+              </div>
+              <div>
+                <label htmlFor="code" className="sr-only">
+                  Verification code
+                </label>
+                <input
+                  id="code"
+                  name="code"
+                  type="text"
+                  autoComplete="one-time-code"
+                  required
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm text-center text-2xl tracking-widest"
+                  placeholder="000000"
+                  maxLength={6}
+                />
+              </div>
+            </>
           )}
 
           <div>
