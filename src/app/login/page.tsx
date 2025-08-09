@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
+  const [lockEmail, setLockEmail] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
 
@@ -26,6 +27,7 @@ export default function LoginPage() {
       if (result.error) {
         setError(result.error);
       } else if (result.data?.verificationRequired) {
+        setLockEmail(true);
         setStep("verification");
       } else {
         router.push("/dashboard");
@@ -130,7 +132,10 @@ export default function LoginPage() {
               <div className="text-right">
                 <button
                   type="button"
-                  onClick={() => setStep("verification")}
+                  onClick={() => {
+                    setLockEmail(false);
+                    setStep("verification");
+                  }}
                   className="text-sm text-blue-600 hover:text-blue-500"
                 >
                   I already have a code
@@ -151,6 +156,8 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={lockEmail}
+                  readOnly={lockEmail}
                   className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                   placeholder="Email"
                 />
