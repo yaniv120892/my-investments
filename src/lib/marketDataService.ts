@@ -32,34 +32,33 @@ export async function getStockPrice(
 
     const data = await response.json();
 
-    // Handle the actual API response format
-    let price: number | string = 0;
+    // Extract price from known Yahoo responses without falling back to 0
+    let price: number | undefined;
     let currency = "USD";
 
     if (data.body && data.body.primaryData) {
-      // Extract price from the lastSalePrice string (remove $ and convert to number)
-      const priceString = data.body.primaryData.lastSalePrice;
+      const priceString = data.body.primaryData.lastSalePrice as string | undefined;
       if (priceString) {
         const cleanPrice = priceString.replace(/[$,]/g, "");
-        price = parseFloat(cleanPrice) || 0;
+        const parsed = parseFloat(cleanPrice);
+        if (Number.isFinite(parsed) && parsed > 0) price = parsed;
       }
       currency = data.body.primaryData.currency || "USD";
     } else if (Array.isArray(data)) {
-      // Fallback to the original Yahoo Finance format
-      const stockData = data.find((item) => item.symbol === symbol);
-      if (stockData) {
-        price = stockData.regularMarketPrice || 0;
-        currency = stockData.currency || "USD";
+      const stockData = data.find((item: any) => item.symbol === symbol);
+      if (stockData && typeof stockData.regularMarketPrice === "number") {
+        const parsed = Number(stockData.regularMarketPrice);
+        if (Number.isFinite(parsed) && parsed > 0) price = parsed;
       }
+      currency = (stockData && stockData.currency) || "USD";
     }
 
-    // Ensure price is a valid number
-    if (typeof price === "string") {
-      price = parseFloat(price.replace(/[$,]/g, "")) || 0;
+    if (!Number.isFinite(price) || !price || price <= 0) {
+      throw new Error(`Missing or invalid stock price for ${symbol}`);
     }
 
     const marketData: MarketData = {
-      price: typeof price === "number" ? price : 0,
+      price,
       currency,
       lastUpdated: new Date(),
       source: "Yahoo Finance",
@@ -101,7 +100,11 @@ export async function getCryptoPrice(
     }
 
     const data = await response.json();
-    const price = data[symbol]?.usd || 0;
+    const raw = data?.[symbol]?.usd;
+    const price = typeof raw === "number" ? Number(raw) : NaN;
+    if (!Number.isFinite(price) || price <= 0) {
+      throw new Error(`Missing or invalid crypto price for ${symbol}`);
+    }
 
     const marketData: MarketData = {
       price,
@@ -140,19 +143,14 @@ export async function getUSDToNISRate(): Promise<MarketData | null> {
     );
 
     if (!response.ok) {
-      const fallbackRate = 3.65;
-      const marketData: MarketData = {
-        price: fallbackRate,
-        currency: "NIS",
-        lastUpdated: new Date(),
-        source: "Bank of Israel (fallback)",
-      };
-      await setCachedData(cacheKey, marketData);
-      return marketData;
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
-    const rate = data.rate || 3.65;
+    const rate = typeof data?.rate === "number" ? Number(data.rate) : NaN;
+    if (!Number.isFinite(rate) || rate <= 0) {
+      throw new Error("Missing or invalid USD/NIS exchange rate");
+    }
 
     const marketData: MarketData = {
       price: rate,
