@@ -1,36 +1,275 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Investment Tracker - Personal Investment Management App
 
-## Getting Started
+A comprehensive web application for tracking personal investments with real-time market data, portfolio management, and performance analytics.
 
-First, run the development server:
+## 🚀 Features
+
+### 🔐 Authentication & Security
+
+- Email/password registration and login
+- Two-factor authentication with email verification codes
+- Secure password hashing with bcrypt
+- JWT-based session management
+- Automatic session expiration
+
+### 📱 Responsive Design
+
+- Mobile-first responsive design with Tailwind CSS
+- Dark mode toggle with user preferences
+- Hebrew RTL support
+- Optimized for desktop, tablet, and mobile
+
+### 💼 Investment Categories
+
+- **Stocks/ETFs** - Track individual stocks and ETFs
+- **Cryptocurrencies** - Monitor crypto investments
+- **Pension Funds** - Israeli pension fund tracking
+- **Education Funds** - Education fund management
+- **Investment Provident Funds** - Provident fund tracking
+- **Money Market Funds** - Money market investments
+- **Foreign Currencies** - USD and other currency tracking
+
+### 📊 Portfolio Management
+
+- Add, edit, and delete investments
+- Real-time market data integration
+- Portfolio value calculations in NIS
+- Category-based investment grouping
+- Performance tracking over time
+
+### 🔗 Live Market Data
+
+- **Stocks/ETFs**: Yahoo Finance via RapidAPI
+- **Cryptocurrencies**: CoinGecko API
+- **USD/NIS**: Bank of Israel exchange rates
+- Redis caching with 1-hour TTL
+- Automatic currency conversion to NIS
+
+### 📈 Performance Analytics
+
+- Portfolio snapshots with historical data
+- Performance tracking over time
+- Telegram notifications for portfolio updates
+- Manual snapshot triggers via API
+
+### ⚙️ User Settings
+
+- Dark mode toggle
+- Base currency selection (NIS, USD, EUR)
+- User preferences persistence
+
+## 🛠️ Tech Stack
+
+- **Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Database**: PostgreSQL with Prisma ORM
+- **Caching**: Redis via Upstash
+- **Authentication**: Custom JWT-based system
+- **Email**: Nodemailer for verification codes
+- **Notifications**: Telegram Bot API
+- **Deployment**: Vercel
+
+## 📦 Installation
+
+### Prerequisites
+
+- Node.js 18+
+- PostgreSQL database
+- Redis instance (Upstash recommended)
+- Email service (Gmail SMTP recommended)
+- Telegram Bot (for notifications)
+
+### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd my-investments
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Environment Setup
+
+Create a `.env` file in the root directory:
+
+```env
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/my_investments"
+
+# Session Management
+SESSION_TTL_MINUTES=60
+JWT_SECRET="your-super-secret-jwt-key-change-this"
+
+# Redis (Upstash)
+UPSTASH_REDIS_REST_URL="https://your-redis-url.upstash.io"
+UPSTASH_REDIS_REST_TOKEN="your-redis-token"
+
+# Email Configuration
+EMAIL_HOST="smtp.gmail.com"
+EMAIL_PORT=587
+EMAIL_USER="your-email@gmail.com"
+EMAIL_PASS="your-app-password"
+
+# Telegram Bot
+TELEGRAM_BOT_TOKEN="your-telegram-bot-token"
+TELEGRAM_CHAT_ID="your-chat-id"
+
+# Market Data APIs
+RAPIDAPI_KEY="your-rapidapi-key"
+COINGECKO_API_KEY="your-coingecko-api-key"
+
+# Bank of Israel API (optional)
+BOI_API_KEY="your-boi-api-key"
+```
+
+### 4. Database Setup
+
+```bash
+# Generate Prisma client
+npx prisma generate
+
+# Run database migrations
+npx prisma migrate dev
+
+# (Optional) Seed database
+npx prisma db seed
+```
+
+### 5. Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The application will be available at `http://localhost:3000`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🚀 Deployment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Vercel Deployment
 
-## Learn More
+1. **Push to GitHub**
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   git add .
+   git commit -m "Initial commit"
+   git push origin main
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. **Connect to Vercel**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   - Go to [Vercel](https://vercel.com)
+   - Import your GitHub repository
+   - Add environment variables in Vercel dashboard
 
-## Deploy on Vercel
+3. **Environment Variables in Vercel**
+   Add all the environment variables from your `.env` file to the Vercel project settings.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+4. **Database Setup**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   - Set up a PostgreSQL database (recommended: Supabase, PlanetScale, or Railway)
+   - Update `DATABASE_URL` in Vercel environment variables
+   - Run migrations: `npx prisma migrate deploy`
+
+5. **Redis Setup**
+   - Create an Upstash Redis instance
+   - Update Redis environment variables in Vercel
+
+### Manual Snapshot Trigger
+
+To trigger portfolio snapshots manually:
+
+```bash
+curl -X POST https://your-app.vercel.app/api/snapshot
+```
+
+## 📁 Project Structure
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── api/               # API routes
+│   │   ├── auth/          # Authentication endpoints
+│   │   ├── investments/   # Investment management
+│   │   ├── snapshot/      # Portfolio snapshots
+│   │   └── user/          # User settings
+│   ├── dashboard/         # Main dashboard page
+│   ├── login/             # Login page
+│   ├── settings/          # User settings page
+│   └── signup/            # Registration page
+├── components/            # Reusable components
+├── lib/                   # Core utilities
+│   ├── auth.ts           # Authentication utilities
+│   ├── db.ts             # Database connection
+│   ├── emailService.ts   # Email functionality
+│   ├── marketDataService.ts # Market data integration
+│   ├── redis.ts          # Redis utilities
+│   └── telegramNotifier.ts # Telegram notifications
+├── types/                 # TypeScript type definitions
+└── utils/                 # Utility functions
+    └── format.ts         # Formatting utilities
+```
+
+## 🔧 API Endpoints
+
+### Authentication
+
+- `POST /api/auth/signup` - User registration
+- `POST /api/auth/login` - User login
+- `POST /api/auth/verify` - Email verification
+- `POST /api/auth/logout` - User logout
+
+### Investments
+
+- `GET /api/investments` - Get user investments
+- `POST /api/investments` - Create new investment
+- `PUT /api/investments/[id]` - Update investment
+- `DELETE /api/investments/[id]` - Delete investment
+
+### User Settings
+
+- `GET /api/user/settings` - Get user settings
+- `PATCH /api/user/settings` - Update user settings
+
+### Snapshots
+
+- `POST /api/snapshot` - Trigger portfolio snapshot
+
+## 🧪 Testing
+
+Currently, no testing framework is implemented. The application focuses on core functionality and can be extended with testing libraries like Jest and Cypress in the future.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 🆘 Support
+
+For support and questions:
+
+- Create an issue in the GitHub repository
+- Check the documentation
+- Review the code comments for implementation details
+
+## 🔮 Future Enhancements
+
+- [ ] Investment performance charts
+- [ ] Export portfolio data
+- [ ] Multiple currency support
+- [ ] Investment recommendations
+- [ ] Tax reporting features
+- [ ] Mobile app version
+- [ ] Advanced analytics
+- [ ] Social features (portfolio sharing)
