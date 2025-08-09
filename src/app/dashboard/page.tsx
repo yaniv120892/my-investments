@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const portfolioResponse = portfolioData as PortfolioResponse | undefined;
   const investments = portfolioResponse?.investments || [];
   const portfolioSummary = portfolioResponse?.summary;
+  const pricesMap = portfolioResponse?.prices || {};
 
   const groupedInvestments = investments.reduce(
     (acc: Record<string, Investment[]>, investment: Investment) => {
@@ -155,12 +156,33 @@ export default function DashboardPage() {
                         </p>
                       </div>
                       <div className="text-right mr-4">
-                        <p className="text-lg font-medium text-gray-900 dark:text-white">
-                          {formatCurrency(investment.quantity * 100)}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          $100 per unit (estimated)
-                        </p>
+                        {pricesMap[investment.id]?.unitPrice ? (
+                          <>
+                            <p className="text-lg font-medium text-gray-900 dark:text-white">
+                              {formatCurrency(
+                                investment.quantity *
+                                  pricesMap[investment.id].unitPrice,
+                                pricesMap[investment.id].currency
+                              )}
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {formatCurrency(
+                                pricesMap[investment.id].unitPrice,
+                                pricesMap[investment.id].currency
+                              )}{" "}
+                              per unit
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-lg font-medium text-gray-900 dark:text-white">
+                              N/A
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              No live price
+                            </p>
+                          </>
+                        )}
                       </div>
                       <div className="flex space-x-2">
                         <button
