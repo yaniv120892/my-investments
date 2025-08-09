@@ -39,6 +39,16 @@ export interface PortfolioData {
   };
 }
 
+export interface PortfolioResponse {
+  investments: Investment[];
+  summary: {
+    totalValue: number;
+    categoryTotals: Record<string, number>;
+    assetCount: number;
+    lastUpdated: string;
+  };
+}
+
 export interface InvestmentHistoryData {
   date: string;
   totalValue: number;
@@ -100,7 +110,7 @@ export const api = {
   },
 
   investments: {
-    getAll: async (): Promise<ApiResponse<PortfolioData>> => {
+    getAll: async (): Promise<PortfolioResponse> => {
       const response = await fetch(`${API_BASE}/investments`);
       return response.json();
     },

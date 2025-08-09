@@ -5,7 +5,7 @@ import { formatCurrency, getInvestmentTypeLabel } from "@/utils/format";
 
 interface AssetAllocationProps {
   categoryTotals: Record<string, number>;
-  totalValue: number | null;
+  totalValue: number;
 }
 
 const COLORS = [
@@ -23,7 +23,7 @@ export default function AssetAllocation({
   totalValue,
 }: AssetAllocationProps) {
   const allocationData = useMemo(() => {
-    if (!totalValue || totalValue <= 0) return [];
+    if (totalValue <= 0) return [];
 
     return Object.entries(categoryTotals)
       .map(([type, value], index) => ({
@@ -36,7 +36,7 @@ export default function AssetAllocation({
       .sort((a, b) => b.value - a.value);
   }, [categoryTotals, totalValue]);
 
-  if (!totalValue || totalValue <= 0) {
+  if (totalValue <= 0) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
