@@ -3,7 +3,6 @@ import { InvestmentType } from "@prisma/client";
 import { getCachedData, setCachedData, generateMarketDataKey } from "./redis";
 import * as cheerio from "cheerio";
 
-const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
 
 export async function getStockPrice(
   symbol: string
@@ -45,32 +44,40 @@ export async function getCryptoPrice(
     return cached;
   }
 
+  const toBinancePair = (s: string): string => {
+    const t = String(s)
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+    if (t.endsWith("USDT")) return t;
+    if (t.endsWith("USD")) return t.replace(/USD$/, "USDT");
+    return `${t}USDT`;
+  };
+
   try {
+    const pair = toBinancePair(symbol);
     const response = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${symbol}&vs_currencies=usd`,
-      {
-        headers: {
-          "X-CG-API-KEY": COINGECKO_API_KEY || "",
-        },
-      }
+      `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(
+        pair
+      )}`
     );
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const data = await response.json();
-    const raw = data?.[symbol]?.usd;
-    const price = typeof raw === "number" ? Number(raw) : NaN;
-    if (!Number.isFinite(price) || price <= 0) {
-      throw new Error(`Missing or invalid crypto price for ${symbol}`);
+    const data: { symbol?: string; price?: string } = await response.json();
+    const parsed =
+      data && typeof data.price === "string" ? parseFloat(data.price) : NaN;
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      throw new Error(`Missing or invalid Binance price for ${pair}`);
     }
 
     const marketData: MarketData = {
-      price,
+      price: parsed,
+      // Treat USDT as USD for downstream conversion logic
       currency: "USD",
       lastUpdated: new Date(),
-      source: "CoinGecko",
+      source: "Binance",
     };
 
     await setCachedData(cacheKey, marketData);
