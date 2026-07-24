@@ -2,6 +2,7 @@ import { MarketData } from "@/types";
 import { InvestmentType } from "@prisma/client";
 import { getCachedData, setCachedData, generateMarketDataKey } from "./redis";
 import { cryptoPriceProvider } from "@/lib/providers/CryptoPriceProvider";
+import { fxRateProvider } from "@/lib/providers/FxRateProvider";
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
@@ -49,47 +50,8 @@ export async function getStockPrice(
   }
 }
 
-export async function getUSDToNISRate(): Promise<MarketData | null> {
-  const cacheKey = generateMarketDataKey("usd", "currency");
-
-  const cached = await getCachedData<MarketData>(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  try {
-    const response = await fetch(
-      "https://api.boi.gov.il/currency/rate?currency=USD",
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.BOI_API_KEY}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const rate = typeof data?.rate === "number" ? Number(data.rate) : NaN;
-    if (!Number.isFinite(rate) || rate <= 0) {
-      throw new Error("Missing or invalid USD/NIS exchange rate");
-    }
-
-    const marketData: MarketData = {
-      price: rate,
-      currency: "NIS",
-      lastUpdated: new Date(),
-      source: "Bank of Israel",
-    };
-
-    await setCachedData(cacheKey, marketData);
-    return marketData;
-  } catch (error) {
-    console.warn(`Warning: Unable to fetch USD/NIS exchange rate:`, error);
-    return null;
-  }
+export async function getUSDToNISRate(): Promise<MarketData> {
+  return fxRateProvider.getUsdToNisRate();
 }
 
 export async function getMarketData(
@@ -116,11 +78,14 @@ export function convertToNIS(
   fromCurrency: string,
   usdToNISRate: number
 ): number {
-  if (fromCurrency === "NIS") {
-    return price;
+  switch (fromCurrency) {
+    case "NIS":
+      return price;
+    case "USD":
+      return price * usdToNISRate;
+    default:
+      throw new Error(
+        `Cannot convert to NIS from unsupported currency (currency: ${fromCurrency}, price: ${price})`
+      );
   }
-  if (fromCurrency === "USD") {
-    return price * usdToNISRate;
-  }
-  return price;
 }
