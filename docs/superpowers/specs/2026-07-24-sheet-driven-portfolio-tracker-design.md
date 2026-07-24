@@ -110,30 +110,44 @@ Matched live quotes against the sheet's own prices; all within 0.3%:
 redirects. Prices are quoted in agorot; multiply by 0.01 — independently confirmed
 by the sheet's own `=IL_FUND(5109889)*0.01` formula.
 
-**Two page types with different markup.** Bizportal redirects between them in both
-directions, so the provider can request either path and follow the redirect, but
-it must then parse whichever page it lands on:
+**Two page types with genuinely different markup.** Bizportal redirects between
+them in both directions, so the provider may request either path and follow the
+redirect, but it must then detect and parse whichever layout it lands on. Parsing
+uses `cheerio`, already a dependency.
 
-| Type | Path | Price label | Markup |
-|---|---|---|---|
-| Traded fund (ETF) | `/tradedfund/` | `שער אחרון` | inline text |
-| Mutual fund (קרן נאמנות) | `/mutualfunds/` | `מחיר פדיון` (redemption), `מחיר קנייה` (purchase) | `.top-area-cube > .num` |
+*Traded fund (ETF)* — `/tradedfund/`. A definition list; the price is the **last
+`<span>`** of the `<dd>` following the `<dt>` whose text is `שער נעילה`:
 
-Use the **redemption** price (`מחיר פדיון`) for mutual funds — that is realisable
-value on exit. On 5109889 both quotes were equal.
+```html
+<dt>שער נעילה</dt><dd><span class="drop" dir="ltr">-1.32%</span><span>244,290</span></dd>
+```
 
-Verified against the sheet:
+The first span is the daily change (class `drop`/`rise`), the last is the price.
+Taking `dd.text()` concatenates them into `-1.32%244,290` and must be avoided.
+
+*Mutual fund (קרן נאמנות)* — `/mutualfunds/`. Price is in
+`.top-area-cube` blocks, matching `.label` = `מחיר פדיון` and reading `.num`.
+Use the **redemption** price (`מחיר פדיון`) — realisable value on exit. On 5109889
+redemption and purchase were equal.
+
+**The correct field is `שער נעילה` (closing), not `שער בסיס` (base).** The traded
+fund pages carry no `שער אחרון` label at all. An earlier extraction attempt fell
+through to `שער בסיס`, producing an apparent ~1% drift that was an artifact of
+reading the wrong field. Verified against the sheet with the correct field:
 
 | Security | Type | Agorot | ×0.01 | Sheet | Drift |
 |---|---|---|---|---|---|
-| 1159250 | traded | 247,550 | 2475.50 | 2442.90 | +1.3% |
-| 1159094 | traded | 36,700 | 367.00 | 363.40 | +1.0% |
-| 1159169 | traded | 16,240 | 162.40 | 160.90 | +0.9% |
-| 5109889 (TLV 125) | mutual | 459.21 | **4.5921** | **4.5921** | **0.00%** |
+| 1159250 | traded | 244,290 | 2442.90 | 2442.90 | **0.000%** |
+| 1159094 | traded | 36,290 | 362.90 | 363.40 | −0.138% |
+| 1159169 | traded | 16,090 | 160.90 | 160.90 | **0.000%** |
+| 5109889 (TLV 125) | mutual | 459.21 | 4.5921 | 4.5921 | **0.000%** |
 
-The uniform ~1% drift on the traded funds is consistent with a sheet refreshed a
-few days ago; TLV 125 matches to four decimal places because the sheet pulls it
-live via `IL_FUND`.
+Three of four match to four decimal places; the three traded funds together price
+at 524,113 against the sheet's 524,284 (−0.03%).
+
+Note that a traded-fund page *also* contains one `.top-area-cube`, labelled
+`שווי יחידה` and always empty (`--`). Layout detection must therefore not rely on
+the presence of `.top-area-cube` alone — key on which price label is present.
 
 This is an HTML scrape and will break when the markup changes. It is therefore
 covered by a contract test (below), parses both layouts, and fails loudly rather
