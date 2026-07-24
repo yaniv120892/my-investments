@@ -83,12 +83,12 @@ All verified live against the actual holdings:
 | Segment | Value | % | Provider | Verified |
 |---|---|---|---|---|
 | IBKR US-listed | 719,874 | 48.0% | Finnhub (existing key) | 7/7 within 0.3% |
-| Excellence Pro TASE | 524,284 | 35.0% | Bizportal | 3/3 within 1.3% |
+| Excellence Pro TASE | 585,083 | 39.0% | Bizportal | 4/4, incl. TLV 125 |
 | Binance crypto | 85,743 | 5.7% | Binance | 13/13 |
 | USD→NIS | affects 55.3% | — | frankfurter.dev | 3.0541, free, no key |
 
-**88.7% automated with free providers and no new API keys.** With the TLV 125
-security number, 92.8%.
+**92.8% automated with free providers and no new API keys.** The remaining 7.2%
+(שרה 5.7%, Irish UCITS 1.6%) has no free source and stays manual.
 
 ### Ticker mapping (resolved empirically)
 
@@ -106,15 +106,38 @@ Matched live quotes against the sheet's own prices; all within 0.3%:
 
 ### Bizportal
 
-`GET https://www.bizportal.co.il/tradedfund/quote/generalview/<securityId>`
-(the `/mutualfunds/` path 301s to `/tradedfund/`). Prices are quoted in agorot;
-divide by 100. Verified: 1159250 → 2475.50 (sheet 2442.90), 1159094 → 367.00
-(363.40), 1159169 → 162.40 (160.90) — a uniform ~1% drift consistent with a sheet
-updated a few days ago.
+`GET https://www.bizportal.co.il/<type>/quote/generalview/<securityId>`, following
+redirects. Prices are quoted in agorot; multiply by 0.01 — independently confirmed
+by the sheet's own `=IL_FUND(5109889)*0.01` formula.
+
+**Two page types with different markup.** Bizportal redirects between them in both
+directions, so the provider can request either path and follow the redirect, but
+it must then parse whichever page it lands on:
+
+| Type | Path | Price label | Markup |
+|---|---|---|---|
+| Traded fund (ETF) | `/tradedfund/` | `שער אחרון` | inline text |
+| Mutual fund (קרן נאמנות) | `/mutualfunds/` | `מחיר פדיון` (redemption), `מחיר קנייה` (purchase) | `.top-area-cube > .num` |
+
+Use the **redemption** price (`מחיר פדיון`) for mutual funds — that is realisable
+value on exit. On 5109889 both quotes were equal.
+
+Verified against the sheet:
+
+| Security | Type | Agorot | ×0.01 | Sheet | Drift |
+|---|---|---|---|---|---|
+| 1159250 | traded | 247,550 | 2475.50 | 2442.90 | +1.3% |
+| 1159094 | traded | 36,700 | 367.00 | 363.40 | +1.0% |
+| 1159169 | traded | 16,240 | 162.40 | 160.90 | +0.9% |
+| 5109889 (TLV 125) | mutual | 459.21 | **4.5921** | **4.5921** | **0.00%** |
+
+The uniform ~1% drift on the traded funds is consistent with a sheet refreshed a
+few days ago; TLV 125 matches to four decimal places because the sheet pulls it
+live via `IL_FUND`.
 
 This is an HTML scrape and will break when the markup changes. It is therefore
-covered by a contract test (below) and fails loudly rather than returning a
-stale or zero price.
+covered by a contract test (below), parses both layouts, and fails loudly rather
+than returning a stale or zero price.
 
 ### Sources rejected
 
@@ -196,9 +219,9 @@ later without migrating anything.
 
 ### Migration
 
-Destructive: `Investment` and `InvestmentSnapshot` are replaced. The user has
-confirmed a one-time import, so existing rows are treated as disposable. **Confirm
-the database holds nothing worth keeping before the migration runs.**
+Destructive: `Investment` and `InvestmentSnapshot` are replaced. Confirmed that
+the database holds nothing worth preserving, so the migration drops and recreates
+rather than backfilling.
 
 ## Import
 
@@ -218,9 +241,11 @@ analysis, so the expected values are known: 1,499,009 grand total, 743,264 IBKR,
 Two known data issues, carried as explicit import decisions rather than silently
 resolved:
 
-- **MATIC** appears in the Binance block (698.03 units, ~516 NIS) but has no
-  summary row, so it is currently excluded from the user's totals. Import only if
-  confirmed still held.
+- **MATIC — confirmed still held, so it is imported.** It is missing from the
+  sheet's summary block, meaning the user's own totals currently understate the
+  portfolio. Its sheet price (0.242556) is also stale against a live 0.3794, so
+  importing it both adds a missing position and corrects it. MATIC and POL are
+  imported as separate holdings, since both are held.
 - **`Irish NASDAQ` carries QQQ's exact price** (682.99), which cannot be right for
   an Irish-domiciled UCITS. Imported as a manual holding with a stale-value flag.
 
@@ -280,7 +305,6 @@ sync; multi-user.
 
 ## Open items
 
-- **TLV 125 security number** — required to price it via Bizportal (60,799 NIS,
-  4.1%). Without it, it becomes a manual holding.
-- **MATIC** — still held?
-- **Database contents** — confirm nothing in the existing tables needs preserving.
+None blocking. All three prior open items are resolved: TLV 125 is security
+5109889 (verified, exact match), MATIC is still held and will be imported, and the
+database contains nothing worth preserving.
