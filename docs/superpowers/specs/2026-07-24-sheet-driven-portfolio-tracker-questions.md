@@ -197,3 +197,32 @@ forgotten it was there?
 > 
 
 ---
+
+---
+
+## Answers (recorded 2026-07-24)
+
+- **Q1** — A: extend this repo; audit providers; free providers only.
+- **Q2** — Resolved empirically by matching live quotes against sheet prices:
+  `S&P→SPY`, `NASDAQ→QQQ`, `Dow Jones→DIA`, `VNQ→VNQ`, `Boaing→BA`,
+  `Disney→DIS`, `MSCI→EEM` (63.33 live vs 63.27 sheet). All within 0.3%.
+- **Q3** — A: scrape TASE by security number. Bizportal verified working
+  (`/tradedfund/quote/generalview/<id>`, prices in agorot, ÷100).
+- **Q4** — A: one-time import; app becomes source of truth.
+- **Q5** — A: no cost basis; track value forward from import.
+- **Q6** — A: Platform is first-class.
+- **Q7** — Delegated. Chosen: target-vs-actual drift, allocation
+  (class / liquidity / platform), currency exposure, value over time.
+  Cut: per-holding P&L, XIRR, dividends.
+- **Q8** — Currency toggle NIS/USD; hosting unchanged; keep auth.
+- **Q9** — Root-caused: dead FX provider silently understating the portfolio
+  by 37%. See design doc.
+- **Follow-up decisions** — Provider architecture A (explicit per-holding
+  routing); failure mode: refuse the total and flag the holding; Sara + Irish
+  UCITS handled as manual values with a last-updated date.
+
+### Still open
+
+- **TLV 125 security number** — needed to price it via Bizportal (60,799 NIS, 4.1%).
+- **Do you still hold MATIC?** It is in your Binance block (~516 NIS) but absent
+  from the summary table, so it is currently excluded from your totals.
