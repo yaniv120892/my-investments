@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const investments = portfolioResponse?.investments || [];
   const portfolioSummary = portfolioResponse?.summary;
   const pricesMap = portfolioResponse?.prices || {};
+  const pricingFailures = portfolioResponse?.failures || [];
 
   const groupedInvestments = investments.reduce(
     (acc: Record<string, Investment[]>, investment: Investment) => {
@@ -87,9 +88,21 @@ export default function DashboardPage() {
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                   Total Value
                 </h3>
-                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                  {formatCurrency(portfolioSummary.totalValue ?? 0)}
-                </p>
+                {portfolioSummary.totalValue === null ? (
+                  <>
+                    <p className="text-3xl font-bold text-gray-400 dark:text-gray-500">
+                      —
+                    </p>
+                    <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+                      Unavailable: {portfolioSummary.pricedCount} of{" "}
+                      {portfolioSummary.assetCount} assets could be priced
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                    {formatCurrency(portfolioSummary.totalValue)}
+                  </p>
+                )}
               </div>
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -111,9 +124,33 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {pricingFailures.length > 0 && (
+              <div className="mb-8 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-6">
+                <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300 mb-3">
+                  {pricingFailures.length} asset
+                  {pricingFailures.length === 1 ? "" : "s"} could not be priced
+                </h3>
+                <p className="text-sm text-amber-700 dark:text-amber-400 mb-3">
+                  The portfolio total is hidden rather than shown understated.
+                </p>
+                <ul className="space-y-1">
+                  {pricingFailures.map((failure) => (
+                    <li
+                      key={failure.investmentId}
+                      className="text-sm text-amber-800 dark:text-amber-300"
+                    >
+                      <span className="font-medium">{failure.assetName}</span>
+                      {failure.ticker ? ` (${failure.ticker})` : ""} —{" "}
+                      {failure.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <AssetAllocation
               categoryTotals={portfolioSummary.categoryTotals}
-              totalValue={portfolioSummary.totalValue}
+              totalValue={portfolioSummary.pricedValue}
             />
 
             <div className="mt-8">
