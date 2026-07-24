@@ -2,10 +2,60 @@
 
 Please answer each question below and let me know when done.
 
-Context: `my-investments` (this repo) already exists and covers a lot of the ask —
-Next.js 15 + Prisma/Postgres + Redis, auth, live prices (Finnhub / Binance / Bank of
-Israel), NIS normalization, allocation pie, portfolio line chart, daily snapshots.
-The two things it does NOT have are Google Sheet ingestion and cost basis.
+**Update (after reading the sheet):** Q2 (access), Q4 (cost basis) and Q5 (asset
+types) from the first draft are now answered by the data itself — see "What the
+sheet actually contains" below. The remaining open questions start at Q1.
+
+Context: `my-investments` (this repo) already exists — Next.js 15 + Prisma/Postgres
++ Redis, auth, live prices (Finnhub / Binance / Bank of Israel), NIS normalization,
+allocation pie, portfolio line chart, daily snapshots. Missing: sheet ingestion and
+cost basis.
+
+---
+
+## What the sheet actually contains
+
+The sheet is one tab with three stacked blocks. Only the third is real input;
+everything above it is computed.
+
+**Block A (rows 1-7) — headline totals.** Derived. Equity 1,352,466 / crypto 85,743
+/ non-equity 0; liquid 1,414,089 (94.335%) vs illiquid 84,919 (5.665%); grand
+total 1,499,009.
+
+**Block B (rows 10-36) — per-position summary.** Derived. Columns: פלטפורמה,
+נזילות, אחוז מנייתי, אחוז קריפטו, אחוז לא מנייתי, סכום בש״ח, אחוז מסה״כ השקעות,
+plus an unlabelled "% within its own platform" column.
+
+**Block C (rows 38-52) — the actual source data.** Three broker blocks, each
+`name / כמות / מחיר`, plus a USD→NIS rate of 3.04635:
+
+| Platform | Holdings | Currency |
+|---|---|---|
+| אינטראקטיב ברוקרס (IBKR) | Dow Jones, MSCI, S&P, NASDAQ, Boaing, Disney, VNQ, Irish MSCI, Irish S&P, Irish NASDAQ | USD |
+| Binance | BTC, ETH, ADA, 1INCH, SHIB, BNB, DOGE, DOT, CAKE, MATIC, SOL, DAR, POL | USD |
+| אקסלנס פרו (Excellence Pro) | iShares CORE S&P 500 (1159250), iShares CORE MSCI EUROPE (1159094), iShares CORE MSCI EM IMI (1159169), TLV 125 — plus מצוי/רצוי target columns | NIS |
+
+Two positions have no quantity or price and are typed in by hand: **שרה** (84,919,
+illiquid) and **BTB – הלוואות חברתיות** (0, illiquid).
+
+I verified the arithmetic: every value in Blocks A and B is `quantity × price ×
+FX`. All 27 positions reconcile to the reported totals within rounding. So the
+importer only ever needs to read Block C plus the two manual rows — the app
+recomputes the rest.
+
+**Three data-quality issues found:**
+
+1. **MATIC is orphaned.** It sits in the Binance block (698.03 units, ~516 NIS)
+   but has no row in the summary table, so it is silently excluded from your
+   totals. POL is there and counted. This looks like a leftover from the
+   MATIC→POL migration.
+2. **`Irish NASDAQ` and `NASDAQ` carry the identical price** (682.99). Those are
+   different instruments — a US-listed ETF and an Irish-domiciled UCITS one — so
+   one of them is almost certainly a stale copy-paste.
+3. **Crypto prices look far staler than the equity prices.** The equity numbers
+   are plausibly current, but BTC at $64,114 and ETH at $1,862 are well below
+   where they have been recently. Your 1,499,009 total is therefore not a number
+   you should be trusting today. (This is the whole argument for the project.)
 
 ---
 
@@ -15,7 +65,7 @@ You asked for a "new project", but `my-investments` already implements most of i
 Starting fresh means rebuilding auth, price providers, caching, and charts.
 
 **Options:**
-- Option A (recommended): Extend `my-investments`. Add sheet import + cost basis + richer charts on top of what works.
+- Option A (recommended): Extend `my-investments`. Add sheet import + cost basis + platform modeling on top of what works.
 - Option B: New repo, but lift the price providers / market data service from `my-investments`.
 - Option C: New repo, clean slate, different stack (say which).
 - Option D: Extend, but treat it as a heavy rewrite — keep the repo, replace the data model and dashboard.
@@ -24,94 +74,124 @@ Starting fresh means rebuilding auth, price providers, caching, and charts.
 
 ---
 
-## 2. How do I get at your sheet?
+## 2. Confirm the ticker mapping
 
-The CSV export URL returns 401 because the sheet is private, and the Chrome
-extension isn't connected. I need the actual columns and a few sample rows to
-design the importer.
+This is the one thing I cannot infer reliably, and the importer is worthless
+without it. Your sheet uses informal names; live price APIs need real symbols.
+My best guesses are pre-filled — correct the ones I got wrong.
+
+| Sheet name | Qty | Sheet price | My guess | Confidence |
+|---|---|---|---|---|
+| Dow Jones | 68 | 518.52 | `DIA` | medium |
+| S&P | 148 | 741.20 | `SPY` | medium |
+| NASDAQ | 89 | 682.99 | `QQQ` | medium |
+| MSCI | 239 | 63.27 | `IEMG`? `ACWI`? | **low — please specify** |
+| VNQ | 137 | 100.92 | `VNQ` | high |
+| Boaing | 5 | 209.61 | `BA` (Boeing) | high |
+| Disney | 6 | 94.77 | `DIS` | high |
+| Irish MSCI | 18 | 52.15 | UCITS — ISIN needed | **low** |
+| Irish S&P | 5 | 801.39 | `CSPX`? | **low** |
+| Irish NASDAQ | 4 | 682.99 | `CNDX`? | **low** |
+
+Crypto symbols (BTC, ETH, ADA, BNB, DOGE, DOT, SHIB, CAKE, 1INCH, SOL, DAR, POL)
+map cleanly to Binance pairs already — no action needed, except: **do you still
+hold MATIC, or should it be folded into POL?**
+
+The Excellence Pro holdings are TASE-listed and identified by Israeli security
+number (1159250 / 1159094 / 1159169). Finnhub does not cover these. See Q3.
+
+> 
+
+---
+
+## 3. Israeli assets — where do prices come from?
+
+Roughly 39% of your portfolio (585,083 NIS) sits in Excellence Pro on TASE
+securities, and Finnhub cannot price them. Options:
+
+- Option A: Scrape/query the TASE ("maya") site by security number.
+- Option B: Find a market data vendor covering TASE (most paid tiers do).
+- Option C: Leave Excellence Pro holdings manually valued — you update those four numbers occasionally, everything else is live.
+- Option D: Map each to a proxy (e.g. price the iShares S&P 500 tracker off `SPY` + USD/NIS) and accept small tracking error.
+
+> 
+
+---
+
+## 4. Sheet as source of truth, or one-time migration?
 
 **Options:**
-- Option A: Set the sheet to "Anyone with the link — Viewer" (temporarily is fine) and tell me. I'll read it via the CSV export endpoint.
-- Option B: File → Download → CSV, drop the file somewhere under `~/Develop/`, and tell me the path.
-- Option C: Paste the header row + 3-5 representative rows here (redact numbers if you like — I mainly need column names, types, and ticker formats).
-- Option D: Reconnect the Claude Chrome extension so I can read it from your logged-in session.
+- Option A: **One-time import.** Read the sheet once, move into Postgres, manage holdings in the app from then on. Sheet retired.
+- Option B: **Sheet stays source of truth.** App re-reads it on a schedule and just renders.
+- Option C: **Two-way sync.** (Materially more work and conflict-prone — flagging that up front.)
+- Option D: **Repeatable one-way import.** Re-runnable "sync from sheet" button; sheet wins on conflict, app owns history/snapshots.
 
 > 
 
 ---
 
-## 3. Sheet as source of truth, or one-time migration?
+## 5. Cost basis — the sheet has none. What do you want?
 
-**Options:**
-- Option A: **One-time import.** Read the sheet once, move everything into Postgres, then manage holdings in the app. The sheet is retired.
-- Option B: **Sheet stays the source of truth.** App re-reads it (on demand or on a schedule) via the Google Sheets API and just renders. You keep editing the sheet.
-- Option C: **Two-way sync.** Edit in either place. (Materially more work and conflict-prone — flagging that up front.)
-- Option D: **Repeatable one-way import.** Re-runnable "sync from sheet" button; sheet wins on conflict, but the app owns history/snapshots.
+Your sheet only ever stores current quantity and current price, so there is no
+way to compute true return from it. To get real P&L, one of:
 
-> 
-
----
-
-## 4. Does your sheet track cost basis / transactions?
-
-This determines the data model more than anything else.
-
-**Options:**
-- Option A: Just current holdings — ticker + quantity. No purchase price.
-- Option B: Holdings + a single average purchase price per position.
-- Option C: A full transaction log — individual buys/sells with date, quantity, price, fees.
-- Option D: Something else (describe).
+- Option A: **Don't bother.** Track value over time from today forward; snapshots give you trend but never "how much did I actually make".
+- Option B: **Enter approximate cost basis once** per position (avg buy price), and get real P&L from then on.
+- Option C: **Import real transaction history** — IBKR and Binance both export it, Excellence Pro probably as CSV. Most work, but gives true XIRR/money-weighted return.
+- Option D: Start with A, design the schema so C can be added later without migration pain.
 
 > 
 
 ---
 
-## 5. What asset types are actually in the sheet?
+## 6. Model "platform" as a first-class concept?
 
-The existing app supports STOCK, CRYPTO, PENSION, EDUCATION_FUND, INVESTMENT_FUND,
-MONEY_MARKET, FOREIGN_CURRENCY. Anything in your sheet that doesn't fit those?
-Israeli assets in particular — TASE-listed stocks, kranot hishtalmut, gemel
-lehashkaa, pension funds — are not covered by Finnhub and need a different data
-source or manual valuation.
+Your sheet is organised by broker, and the unlabelled column in Block B is
+"% within platform" — so you clearly think in those terms. The current schema has
+no notion of a platform/account at all.
+
+- Option A: Add `Platform`/`Account` to the schema; group and chart by it.
+- Option B: Ignore it; a flat list of holdings is enough.
 
 > 
 
 ---
 
-## 6. Which graphs and views actually matter to you?
+## 7. Which graphs and views actually matter?
 
 Pick as many as you want; I'll cut the rest (YAGNI).
 
 **Options:**
 - Portfolio value over time (already exists)
-- Allocation by asset type (already exists)
+- Allocation by asset type: equity / crypto / non-equity (mirrors your Block A)
+- Liquid vs illiquid split (mirrors your Block A)
+- Allocation by platform (IBKR / Binance / Excellence Pro)
 - Allocation by individual holding
-- Per-holding gain/loss table, sorted by contribution
-- Time-weighted or money-weighted return (XIRR) — requires transactions (Q4 Option C)
-- Benchmark comparison (portfolio vs. S&P 500 / other index)
-- Currency exposure breakdown (USD vs. NIS vs. other)
+- **Target vs actual drift** — you already track this manually in the מצוי/רצוי columns and the crypto target column. Natural fit, and it tells you what to rebalance.
+- Per-holding gain/loss table (needs Q5 B or C)
+- XIRR / money-weighted return (needs Q5 C)
+- Benchmark comparison (portfolio vs S&P 500)
+- Currency exposure (USD vs NIS)
 - Dividend income tracking
-- Contribution/deposit history vs. market growth (how much of my gain is me depositing vs. the market)
 
 > 
 
 ---
 
-## 7. Base currency and where you'll run this
+## 8. Base currency, hosting, auth
 
-**Options:**
-- Currency: NIS (as today) / USD / both with a toggle?
-- Hosting: keep as-is (Vercel + Upstash + hosted Postgres, judging by the config)? Or run locally only?
-- Is this still single-user-with-auth, or do you want to strip auth since it's just you?
+- Currency: NIS (as today) / USD / toggle?
+- Hosting: keep Vercel + Upstash + hosted Postgres? Or local-only?
+- Keep auth, or strip it since it's just you?
 
 > 
 
 ---
 
-## 8. What's actually wrong with the current app?
+## 9. What's actually wrong with the current app?
 
 You went to build a new project rather than open this one — that's a signal. Was
-something broken, was it too slow, did the data model annoy you, or had you just
+something broken, too slow, did the data model annoy you, or had you just
 forgotten it was there?
 
 > 
