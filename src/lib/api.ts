@@ -39,15 +39,27 @@ export interface PortfolioData {
   };
 }
 
+export interface PricingFailure {
+  investmentId: string;
+  assetName: string;
+  ticker: string | null;
+  reason: string;
+}
+
 export interface PortfolioResponse {
   investments: Investment[];
   summary: {
-    totalValue: number;
+    totalValue: number | null;
+    pricedValue: number;
+    isComplete: boolean;
     categoryTotals: Record<string, number>;
     assetCount: number;
+    pricedCount: number;
+    usdToNISRate: number;
     lastUpdated: string;
   };
   prices: Record<string, { unitPrice: number; currency: string }>;
+  failures: PricingFailure[];
 }
 
 export interface InvestmentHistoryData {
