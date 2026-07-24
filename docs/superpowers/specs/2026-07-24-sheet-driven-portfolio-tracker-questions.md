@@ -52,10 +52,12 @@ recomputes the rest.
 2. **`Irish NASDAQ` and `NASDAQ` carry the identical price** (682.99). Those are
    different instruments — a US-listed ETF and an Irish-domiciled UCITS one — so
    one of them is almost certainly a stale copy-paste.
-3. **Crypto prices look far staler than the equity prices.** The equity numbers
-   are plausibly current, but BTC at $64,114 and ETH at $1,862 are well below
-   where they have been recently. Your 1,499,009 total is therefore not a number
-   you should be trusting today. (This is the whole argument for the project.)
+3. ~~Crypto prices look far staler than the equity prices.~~ **Retracted after
+   testing.** Live Binance quotes confirm BTC $64,205 vs your $64,114 and ETH
+   $1,863.22 vs your $1,862.80 — the sheet is current. Only **DAR** (0.11299 in
+   the sheet vs 0.21707 live) and **MATIC** have drifted. The sheet is
+   well-maintained; the value of this project is removing the manual upkeep, not
+   correcting rot.
 
 ---
 
