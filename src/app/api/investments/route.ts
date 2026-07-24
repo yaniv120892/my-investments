@@ -5,6 +5,14 @@ import {
   convertToNIS,
   getUSDToNISRate,
 } from "@/lib/marketDataService";
+import { describeError } from "@/utils/describeError";
+
+interface PricingFailure {
+  investmentId: string;
+  assetName: string;
+  ticker: string | null;
+  reason: string;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,58 +26,76 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    const categoryTotals: Record<string, number> = {};
-    let totalValue = 0;
-    const assetCount = investments.length;
-    const prices: Record<string, { unitPrice: number; currency: string }> = {};
+    let usdToNISRate: number;
+    try {
+      const rateData = await getUSDToNISRate();
+      usdToNISRate = rateData.price;
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error: `Unable to fetch the USD/NIS exchange rate, so portfolio totals cannot be calculated (${describeError(
+            error
+          )})`,
+        },
+        { status: 503 }
+      );
+    }
 
-    // Fetch USD->NIS rate once when needed
-    let usdToNISRate = 0;
+    const categoryTotals: Record<string, number> = {};
+    let pricedValue = 0;
+    const prices: Record<string, { unitPrice: number; currency: string }> = {};
+    const failures: PricingFailure[] = [];
 
     for (const investment of investments) {
-      let currentValue = 0;
+      try {
+        if (!investment.ticker) {
+          throw new Error("No ticker configured for this investment");
+        }
 
-      if (investment.ticker) {
         const marketData = await getMarketData(
           investment.ticker,
           investment.type
         );
-        if (marketData && marketData.price > 0) {
-          prices[investment.id] = {
-            unitPrice: marketData.price,
-            currency: marketData.currency,
-          };
-          currentValue = investment.quantity * marketData.price;
-          if (marketData.currency !== "NIS") {
-            if (!usdToNISRate) {
-              const rateData = await getUSDToNISRate();
-              if (rateData && rateData.price > 0) {
-                usdToNISRate = rateData.price;
-              }
-            }
-            if (usdToNISRate) {
-              currentValue = convertToNIS(
-                currentValue,
-                marketData.currency,
-                usdToNISRate
-              );
-            }
-          }
-        }
-      } else {
-        // No ticker, no price
-        currentValue = 0;
-      }
 
-      const category = investment.type;
-      categoryTotals[category] = (categoryTotals[category] || 0) + currentValue;
-      totalValue += currentValue;
+        if (!marketData || marketData.price <= 0) {
+          throw new Error(
+            `No price returned by any provider (ticker: ${investment.ticker}, type: ${investment.type})`
+          );
+        }
+
+        const valueInNIS = convertToNIS(
+          investment.quantity * marketData.price,
+          marketData.currency,
+          usdToNISRate
+        );
+
+        prices[investment.id] = {
+          unitPrice: marketData.price,
+          currency: marketData.currency,
+        };
+        categoryTotals[investment.type] =
+          (categoryTotals[investment.type] || 0) + valueInNIS;
+        pricedValue += valueInNIS;
+      } catch (error) {
+        failures.push({
+          investmentId: investment.id,
+          assetName: investment.assetName,
+          ticker: investment.ticker,
+          reason: describeError(error),
+        });
+      }
     }
 
+    const isComplete = failures.length === 0;
+
     const summary = {
-      totalValue,
+      totalValue: isComplete ? pricedValue : null,
+      pricedValue,
+      isComplete,
       categoryTotals,
-      assetCount,
+      assetCount: investments.length,
+      pricedCount: investments.length - failures.length,
+      usdToNISRate,
       lastUpdated: new Date(),
     };
 
@@ -77,6 +103,7 @@ export async function GET(request: NextRequest) {
       investments,
       summary,
       prices,
+      failures,
     });
   } catch (error) {
     console.error("Error fetching investments:", error);
