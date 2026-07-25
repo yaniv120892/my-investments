@@ -1,6 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { priceHoldings } from "@/lib/pricing/portfolioPricingService";
+import {
+  isCronSecretAuthorized,
+  isSnapshotRequestAuthorized,
+} from "@/lib/snapshotAuthorization";
 import { sendSnapshotNotification } from "@/lib/telegramNotifier";
 import { describeError } from "@/utils/describeError";
 
@@ -9,7 +13,29 @@ interface SkippedUser {
   reasons: string[];
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  if (!isSnapshotRequestAuthorized(request.headers)) {
+    return unauthorized(
+      "provide a valid session cookie or a CRON_SECRET bearer token"
+    );
+  }
+
+  return runSnapshot();
+}
+
+export async function GET(request: NextRequest) {
+  if (!isCronSecretAuthorized(request.headers)) {
+    return unauthorized("scheduled runs require a CRON_SECRET bearer token");
+  }
+
+  return runSnapshot();
+}
+
+function unauthorized(reason: string): NextResponse {
+  return NextResponse.json({ error: `Unauthorized: ${reason}` }, { status: 401 });
+}
+
+async function runSnapshot(): Promise<NextResponse> {
   try {
     const users = await prisma.user.findMany({ include: { holdings: true } });
 
