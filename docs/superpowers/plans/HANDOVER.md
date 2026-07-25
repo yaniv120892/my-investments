@@ -58,11 +58,17 @@ Excellence Pro (TASE, NIS), plus two manually-valued illiquid positions.
 
 ## Gotchas that will cost you time if you miss them
 
-1. **`npm run build` is currently broken, and it is NOT caused by this work.**
-   It fails with `Cannot find module '../lightningcss.darwin-x64.node'` —
-   verified by building pristine `HEAD`. `node_modules` was installed on arm64
-   but the shell reports x86_64. Fix first:
-   `rm -rf node_modules package-lock.json && npm install && npm run build`.
+1. **Use an arm64 node, and do NOT reinstall `node_modules`.** This is an Apple
+   M1 Max. `node_modules` holds arm64 binaries and is correct. If your shell is
+   Rosetta-translated (`sysctl -n sysctl.proc_translated` returns `1`), it picks
+   up the x86_64 node at `/usr/local/bin/node` and `npm run build` fails with
+   `Cannot find module '../lightningcss.darwin-x64.node'`. Fix by switching node,
+   not by reinstalling:
+   `export PATH="$HOME/.nvm/versions/node/v24.13.0/bin:$PATH"` — then confirm
+   `node -p "process.arch"` prints `arm64`. Running
+   `rm -rf node_modules && npm install` from a Rosetta shell would install x64
+   binaries and break the native build. `npm run build` is verified passing on
+   current `HEAD` with an arm64 node.
 
 2. **Bizportal price field is `שער נעילה` (closing), NOT `שער בסיס` (base).**
    These pages have no `שער אחרון` label at all. Reading the wrong field produces
