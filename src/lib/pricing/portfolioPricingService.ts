@@ -15,6 +15,11 @@ export type {
   PricingResult,
 } from "@/lib/pricing/portfolioPricingService.types";
 
+export {
+  SUPPORTED_CURRENCIES,
+  isSupportedCurrency,
+} from "@/lib/pricing/supportedCurrencies";
+
 export async function priceHoldings(
   holdings: Holding[]
 ): Promise<PricingResult> {
