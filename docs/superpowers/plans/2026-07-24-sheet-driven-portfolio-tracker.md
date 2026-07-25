@@ -21,22 +21,31 @@
 - Coding standards from `~/.claude/shared-rules.md` apply: `T[]` not `Array<T>`, explicit `public`/`private` on all class members, braces on all control flow, no `as` casts, no ESLint suppressions, actionable error messages that interpolate the offending values, `switch` over `else if` chains, public methods above private ones, no abbreviated identifiers.
 - Commit messages follow Conventional Commits. Personal project — scope is a module name, not a ticket.
 
-## Environment Prerequisite
+## Environment Prerequisite: use an arm64 node
 
-`npm run build` currently fails on this machine with `Cannot find module '../lightningcss.darwin-x64.node'`. This is **pre-existing and unrelated to this work** — verified by building pristine `HEAD`. `node_modules` was installed on arm64 (`@tailwindcss/oxide-darwin-arm64` is present) but the shell reports `x86_64`.
+This machine is an **Apple M1 Max**. `node_modules` contains arm64 native binaries (`lightningcss-darwin-arm64`, `@tailwindcss/oxide-darwin-arm64`) and is **correct** — do not reinstall it.
 
-Before starting, fix it:
+`npm run build` fails with `Cannot find module '../lightningcss.darwin-x64.node'` **only when run from a Rosetta-translated shell**, which resolves `/usr/local/bin/node` (an x86_64 build). Check with:
 
 ```bash
-cd /Users/yanivdaye/Develop/my-investments
-rm -rf node_modules package-lock.json
-npm install
+uname -m                          # x86_64 under Rosetta, arm64 native
+sysctl -n sysctl.proc_translated  # 1 means Rosetta
+node -p "process.arch"            # must be arm64
+```
+
+If `process.arch` is `x64`, prepend an arm64 node to `PATH` before running anything:
+
+```bash
+export PATH="$HOME/.nvm/versions/node/v24.13.0/bin:$PATH"
+node -p "process.arch"   # arm64
 npm run build
 ```
 
-Expected: build completes. If it still fails, confirm `node -p "process.arch"` matches `uname -m`; a Rosetta shell will keep reinstalling the wrong binaries.
+All nvm-installed nodes on this machine (v22.22.0, v24.2.0, v24.13.0) are arm64.
 
-There is also a stray `/Users/yanivdaye/package-lock.json` causing a "multiple lockfiles" warning. Harmless, but deleting it silences the warning.
+**Do NOT run `rm -rf node_modules && npm install` from a Rosetta shell.** It would replace the correct arm64 binaries with x64 ones and break the build in the normal native shell. Verified working: `npm run build` completes successfully with an arm64 node against current `HEAD`.
+
+There is also a stray `/Users/yanivdaye/package-lock.json` causing a "multiple lockfiles" warning. Harmless.
 
 ## Reference Data
 
