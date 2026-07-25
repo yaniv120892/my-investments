@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyJWT } from "@/lib/auth-edge";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const publicRoutes = ["/login", "/signup", "/api/auth"];
@@ -23,7 +23,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const session = verifyJWT(authToken);
+  const session = await verifyJWT(authToken);
 
   if (!session) {
     const response = NextResponse.redirect(new URL("/login", request.url));
