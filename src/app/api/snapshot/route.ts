@@ -1,110 +1,141 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getMarketData, convertToNIS } from "@/lib/marketDataService";
+import { priceHoldings } from "@/lib/pricing/portfolioPricingService";
+import {
+  isCronSecretAuthorized,
+  isSnapshotRequestAuthorized,
+} from "@/lib/snapshotAuthorization";
 import { sendSnapshotNotification } from "@/lib/telegramNotifier";
-import type { InvestmentSnapshot } from "@prisma/client";
+import { describeError } from "@/utils/describeError";
 
-export async function POST() {
+interface SkippedUser {
+  userId: string;
+  reasons: string[];
+}
+
+export async function POST(request: NextRequest) {
+  if (!isSnapshotRequestAuthorized(request.headers)) {
+    return unauthorized(
+      "provide a valid session cookie or a CRON_SECRET bearer token"
+    );
+  }
+
+  return runSnapshot();
+}
+
+export async function GET(request: NextRequest) {
+  if (!isCronSecretAuthorized(request.headers)) {
+    return unauthorized("scheduled runs require a CRON_SECRET bearer token");
+  }
+
+  return runSnapshot();
+}
+
+function unauthorized(reason: string): NextResponse {
+  return NextResponse.json({ error: `Unauthorized: ${reason}` }, { status: 401 });
+}
+
+async function runSnapshot(): Promise<NextResponse> {
   try {
-    const users = await prisma.user.findMany({
-      include: {
-        investments: {
-          include: {
-            snapshots: {
-              orderBy: { date: "desc" },
-              take: 1,
-            },
-          },
-        },
-      },
-    });
+    const users = await prisma.user.findMany({ include: { holdings: true } });
+
+    const skipped: SkippedUser[] = [];
+    let usersProcessed = 0;
 
     for (const user of users) {
-      if (user.investments.length === 0) continue;
+      if (user.holdings.length === 0) {
+        continue;
+      }
 
-      let currentTotalValue = 0;
-      const snapshots: InvestmentSnapshot[] = [];
+      const pricing = await priceHoldings(user.holdings);
 
-      for (const investment of user.investments) {
-        let currentValue = 0;
+      if (pricing.failures.length > 0) {
+        skipped.push({
+          userId: user.id,
+          reasons: pricing.failures.map(
+            (failure) => `${failure.assetName}: ${failure.reason}`
+          ),
+        });
+        continue;
+      }
 
-        if (investment.ticker) {
-          const marketData = await getMarketData(
-            investment.ticker,
-            investment.type
-          );
-          if (marketData) {
-            currentValue = investment.quantity * marketData.price;
-            if (marketData.currency !== "NIS") {
-              const usdToNISRate = 3.65;
-              currentValue = convertToNIS(
-                currentValue,
-                marketData.currency,
-                usdToNISRate
-              );
-            }
-          } else {
-            currentValue = investment.quantity * 100;
-          }
-        } else {
-          currentValue = investment.quantity * 100;
-        }
+      const date = new Date();
+      const quantityByHoldingId = new Map(
+        user.holdings.map((holding) => [holding.id, holding.quantity])
+      );
 
-        currentTotalValue += currentValue;
-
-        const snapshot = await prisma.investmentSnapshot.create({
+      for (const valuation of pricing.valuations) {
+        const quantity = quantityByHoldingId.get(valuation.holdingId) ?? 0;
+        await prisma.holdingSnapshot.create({
           data: {
-            investmentId: investment.id,
-            date: new Date(),
-            valueInNIS: currentValue,
+            holdingId: valuation.holdingId,
+            date,
+            quantity,
+            unitPrice:
+              valuation.unitPrice ??
+              (quantity > 0 ? valuation.valueInNis / quantity : 0),
+            currency: valuation.currency,
+            fxRateUsed: pricing.usdToNisRate,
+            valueNis: valuation.valueInNis,
           },
         });
-
-        snapshots.push(snapshot);
       }
 
-      let changePercent = 0;
-      let previousTotalValue = 0;
-
-      if (user.investments[0].snapshots.length > 0) {
-        const lastSnapshotDate = user.investments[0].snapshots[0].date;
-        const previousSnapshots = await prisma.investmentSnapshot.findMany({
-          where: {
-            investment: { userId: user.id },
-            date: lastSnapshotDate,
-          },
-        });
-
-        previousTotalValue = previousSnapshots.reduce(
-          (sum, snap) => sum + snap.valueInNIS,
-          0
-        );
-
-        if (previousTotalValue > 0) {
-          changePercent =
-            ((currentTotalValue - previousTotalValue) / previousTotalValue) *
-            100;
-        }
-      }
-
-      await sendSnapshotNotification({
-        date: new Date(),
-        netWorth: currentTotalValue,
-        changePercent,
-        previousNetWorth:
-          previousTotalValue > 0 ? previousTotalValue : undefined,
-      });
+      usersProcessed += 1;
+      await notifySnapshot(user.id, date, pricing.totalValueNis ?? 0);
     }
 
     return NextResponse.json({
-      message: "Snapshot completed successfully",
-      usersProcessed: users.length,
+      message: "Snapshot completed",
+      usersProcessed,
+      usersSkipped: skipped.length,
+      skipped,
     });
   } catch (error) {
-    console.error("Snapshot error:", error);
+    console.error("Snapshot error:", describeError(error));
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: `Snapshot failed (${describeError(error)})` },
       { status: 500 }
+    );
+  }
+}
+
+async function notifySnapshot(
+  userId: string,
+  date: Date,
+  netWorth: number
+): Promise<void> {
+  const previous = await prisma.holdingSnapshot.findFirst({
+    where: { holding: { userId }, date: { lt: date } },
+    orderBy: { date: "desc" },
+    select: { date: true },
+  });
+
+  let previousNetWorth = 0;
+  if (previous) {
+    const rows = await prisma.holdingSnapshot.findMany({
+      where: { holding: { userId }, date: previous.date },
+      select: { valueNis: true },
+    });
+    previousNetWorth = rows.reduce((sum, row) => sum + row.valueNis, 0);
+  }
+
+  const changePercent =
+    previousNetWorth > 0
+      ? ((netWorth - previousNetWorth) / previousNetWorth) * 100
+      : 0;
+
+  try {
+    await sendSnapshotNotification({
+      date,
+      netWorth,
+      changePercent,
+      previousNetWorth: previousNetWorth > 0 ? previousNetWorth : undefined,
+    });
+  } catch (error) {
+    console.warn(
+      `Snapshot notification failed for user ${userId}:`,
+      describeError(error)
     );
   }
 }
