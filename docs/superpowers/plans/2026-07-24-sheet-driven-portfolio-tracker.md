@@ -65,7 +65,7 @@ Sheet FX rate: `3.04635`.
 
 | Sheet name | Symbol | Source | Qty | Sheet price |
 |---|---|---|---|---|
-| S&P | `SPY` | FINNHUB | 148 | 741.20 |
+| S&P | `IVV` | FINNHUB | 148 | 741.20 |
 | NASDAQ | `QQQ` | FINNHUB | 89 | 682.99 |
 | Dow Jones | `DIA` | FINNHUB | 68 | 518.52 |
 | MSCI | `EEM` | FINNHUB | 239 | 63.27 |
@@ -76,9 +76,11 @@ Sheet FX rate: `3.04635`.
 | Irish S&P | — | MANUAL | 5 | 801.39 |
 | Irish NASDAQ | — | MANUAL | 4 | 682.99 |
 
-The three Irish UCITS have no free price source (Finnhub free tier blocks `.L`, Yahoo rate-limits, justETF is JS-rendered), so they import as MANUAL with `manualValueNis = quantity × sheetPrice × 3.04635`: Irish MSCI 2,860; Irish S&P 12,207; Irish NASDAQ 8,323.
+**`S&P` is `IVV`, not `SPY`.** Confirmed two ways: the pre-migration database (backed up to `backups/pre-migration-2026-07-24.json`) recorded `IVV`, and IVV's live price of 742.36 matches the sheet's 741.20 to 0.16% where SPY's 738.93 is 0.31% off. Using SPY would misprice the single largest position (148 units, ~334k NIS) by roughly 1,500 NIS.
 
-`Irish NASDAQ` carries QQQ's exact price (682.99), which cannot be right for an Irish-domiciled UCITS. Import it anyway, flagged stale, so the number stays visible rather than silently dropped.
+The three Irish UCITS have no free price source, so they import as MANUAL with `manualValueNis = quantity × sheetPrice × 3.04635`: Irish MSCI 2,860; Irish S&P 12,207; Irish NASDAQ 8,323. The old database recorded `SWRD` and `CSPX` for two of them, but neither is usable on the Finnhub free tier — `CSPX` returns a price of 0, and `SWRD` resolves to an unrelated $4.25 instrument rather than the London-listed UCITS. Do not wire either up.
+
+`Irish NASDAQ` carries QQQ's exact price (682.99). This is **not** a copy-paste error, as originally supposed — the old database mapped that holding to `QQQ` deliberately, so the sheet is valuing it as a QQQ proxy on purpose. It still imports as MANUAL, because a UCITS priced off a US-listed ETF is a modelling choice the owner should make explicitly rather than one the importer should bake in silently.
 
 ### Excellence Pro (BIZPORTAL, NIS)
 
@@ -436,7 +438,7 @@ describe.skipIf(!apiKey)("FinnhubProvider contract", () => {
   const provider = new FinnhubProvider(apiKey);
 
   it.each([
-    ["SPY", 100, 2000],
+    ["IVV", 100, 2000],
     ["QQQ", 100, 2000],
     ["DIA", 100, 2000],
     ["EEM", 10, 500],
@@ -1871,7 +1873,7 @@ const excellence = (
 });
 
 export const SHEET_HOLDINGS: SheetHolding[] = [
-  ibkr("S&P", 148, "SPY", 741.2),
+  ibkr("S&P", 148, "IVV", 741.2),
   ibkr("NASDAQ", 89, "QQQ", 682.99),
   ibkr("Dow Jones", 68, "DIA", 518.52),
   ibkr("MSCI", 239, "EEM", 63.27),
