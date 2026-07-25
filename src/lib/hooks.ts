@@ -1,8 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   api,
+  CreateHoldingInput,
+  CreatePlatformInput,
   LoginRequest,
   SignupRequest,
+  UpdateHoldingInput,
   VerificationRequest,
   UserSettings,
 } from "./api";
@@ -49,6 +52,64 @@ export const useHoldingHistory = (period?: string) => {
     queryKey: ["holdingHistory", period],
     queryFn: () => api.holdings.history(period),
     staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const usePlatforms = () => {
+  return useQuery({
+    queryKey: ["platforms"],
+    queryFn: () => api.platforms.list(),
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const useCreatePlatform = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreatePlatformInput) => api.platforms.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platforms"] });
+    },
+  });
+};
+
+export const useCreateHolding = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreateHoldingInput) => api.holdings.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["holdings"] });
+    },
+  });
+};
+
+export const useUpdateHolding = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      holdingId,
+      data,
+    }: {
+      holdingId: string;
+      data: UpdateHoldingInput;
+    }) => api.holdings.update(holdingId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["holdings"] });
+    },
+  });
+};
+
+export const useDeleteHolding = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (holdingId: string) => api.holdings.remove(holdingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["holdings"] });
+    },
   });
 };
 

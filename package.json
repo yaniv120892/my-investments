@@ -11,6 +11,7 @@
     "test:run": "vitest run",
     "test:unit": "vitest run --exclude '**/*.contract.test.ts'",
     "db:import-sheet": "tsx scripts/importFromSheet.ts",
+    "snapshot:trigger": "tsx scripts/triggerSnapshot.ts",
     "db:generate": "prisma generate --schema src/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema src/prisma/schema.prisma",
     "db:deploy": "prisma migrate deploy --schema src/prisma/schema.prisma",
@@ -37,7 +38,8 @@
     "react": "19.1.0",
     "react-chartjs-2": "^5.3.0",
     "react-dom": "19.1.0",
-    "redis": "^5.7.0"
+    "redis": "^5.7.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

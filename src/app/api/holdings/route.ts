@@ -3,6 +3,10 @@ import type { Holding, Platform } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { priceHoldings } from "@/lib/pricing/portfolioPricingService";
 import { computeAllocation, groupBy } from "@/lib/pricing/allocation";
+import { parseCreateHoldingBody } from "@/lib/holdings/holdingRequestSchemas";
+import { holdingWriteService } from "@/lib/holdings/holdingWriteService";
+import { toWriteErrorResponse } from "@/lib/holdings/holdingWriteErrorResponse";
+import { readJsonBody } from "@/lib/holdings/requestBody";
 import { describeError } from "@/utils/describeError";
 
 type PricedRow = {
@@ -93,6 +97,21 @@ export async function GET(request: NextRequest) {
       },
       { status: 503 }
     );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const userId = request.headers.get("x-user-id");
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const input = parseCreateHoldingBody(await readJsonBody(request));
+    const holding = await holdingWriteService.createHolding(userId, input);
+    return NextResponse.json({ holding }, { status: 201 });
+  } catch (error) {
+    return toWriteErrorResponse(error);
   }
 }
 
