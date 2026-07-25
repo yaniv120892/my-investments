@@ -3,22 +3,68 @@
 import { useState } from "react";
 import Navigation from "@/components/Navigation";
 import AllocationBreakdown from "@/components/AllocationBreakdown";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import CurrencyExposure from "@/components/CurrencyExposure";
+import HoldingFormModal from "@/components/HoldingFormModal";
 import PortfolioChart from "@/components/PortfolioChart";
 import TargetDrift from "@/components/TargetDrift";
-import { useHoldings } from "@/lib/hooks";
+import type { PricedHolding } from "@/lib/api";
+import { useDeleteHolding, useHoldings, usePlatforms } from "@/lib/hooks";
 import {
+  formatDate,
   formatMoney,
   formatNumber,
   getAssetClassLabel,
   getLiquidityLabel,
   type DisplayCurrency,
 } from "@/utils/format";
+import { describeError } from "@/utils/describeError";
 
 export default function DashboardPage() {
   const [displayCurrency, setDisplayCurrency] =
     useState<DisplayCurrency>("NIS");
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [holdingBeingEdited, setHoldingBeingEdited] =
+    useState<PricedHolding | null>(null);
+  const [holdingPendingDeletion, setHoldingPendingDeletion] =
+    useState<PricedHolding | null>(null);
+  const [deletionError, setDeletionError] = useState<string | null>(null);
+
   const { data, isLoading, error } = useHoldings();
+  const { data: platformsData } = usePlatforms();
+  const deleteHolding = useDeleteHolding();
+
+  const openCreateForm = (): void => {
+    setHoldingBeingEdited(null);
+    setIsFormOpen(true);
+  };
+
+  const openEditForm = (holding: PricedHolding): void => {
+    setHoldingBeingEdited(holding);
+    setIsFormOpen(true);
+  };
+
+  const closeForm = (): void => {
+    setIsFormOpen(false);
+    setHoldingBeingEdited(null);
+  };
+
+  const requestDeletion = (holding: PricedHolding): void => {
+    setDeletionError(null);
+    setHoldingPendingDeletion(holding);
+  };
+
+  const confirmDeletion = async (): Promise<void> => {
+    if (!holdingPendingDeletion) {
+      return;
+    }
+    try {
+      await deleteHolding.mutateAsync(holdingPendingDeletion.id);
+      setHoldingPendingDeletion(null);
+    } catch (deletionFailure) {
+      setDeletionError(describeError(deletionFailure));
+    }
+  };
 
   if (isLoading) {
     return (
@@ -57,21 +103,30 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             Investment Portfolio
           </h1>
-          <div className="flex rounded-md overflow-hidden border border-gray-300 dark:border-gray-600">
-            {(["NIS", "USD"] as DisplayCurrency[]).map((currency) => (
-              <button
-                key={currency}
-                type="button"
-                onClick={() => setDisplayCurrency(currency)}
-                className={`px-4 py-1.5 text-sm ${
-                  displayCurrency === currency
-                    ? "bg-blue-600 text-white"
-                    : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                }`}
-              >
-                {currency}
-              </button>
-            ))}
+          <div className="flex items-center gap-3">
+            <div className="flex rounded-md overflow-hidden border border-gray-300 dark:border-gray-600">
+              {(["NIS", "USD"] as DisplayCurrency[]).map((currency) => (
+                <button
+                  key={currency}
+                  type="button"
+                  onClick={() => setDisplayCurrency(currency)}
+                  className={`px-4 py-1.5 text-sm ${
+                    displayCurrency === currency
+                      ? "bg-blue-600 text-white"
+                      : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  {currency}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={openCreateForm}
+              className="px-4 py-1.5 text-sm rounded-md bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Add holding
+            </button>
           </div>
         </div>
 
@@ -190,7 +245,8 @@ export default function DashboardPage() {
                   <th className="py-2 px-4">Source</th>
                   <th className="py-2 px-4 text-right">Quantity</th>
                   <th className="py-2 px-4 text-right">Unit Price</th>
-                  <th className="py-2 px-6 text-right">Value</th>
+                  <th className="py-2 px-4 text-right">Value</th>
+                  <th className="py-2 px-6 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -199,14 +255,28 @@ export default function DashboardPage() {
                     key={holding.id}
                     className="border-t border-gray-100 dark:border-gray-700"
                   >
-                    <td className="py-2 px-6 text-gray-900 dark:text-white">
+                    <td
+                      className="py-2 px-6 text-gray-900 dark:text-white"
+                      dir="auto"
+                    >
                       {holding.assetName}
                     </td>
                     <td className="py-2 px-4 text-gray-600 dark:text-gray-400">
                       {holding.platform.name}
                     </td>
                     <td className="py-2 px-4 text-gray-600 dark:text-gray-400">
-                      {holding.sourceSymbol ?? holding.priceSource}
+                      {holding.priceSource === "MANUAL" ? (
+                        <>
+                          <span>Manual value</span>
+                          <span className="block text-xs text-gray-400 dark:text-gray-500">
+                            {describeManualValueAge(
+                              holding.manualValueUpdatedAt
+                            )}
+                          </span>
+                        </>
+                      ) : (
+                        (holding.sourceSymbol ?? holding.priceSource)
+                      )}
                     </td>
                     <td className="py-2 px-4 text-right text-gray-600 dark:text-gray-400">
                       {holding.quantity.toLocaleString("en-US", {
@@ -220,10 +290,26 @@ export default function DashboardPage() {
                             maximumFractionDigits: 8,
                           })}
                     </td>
-                    <td className="py-2 px-6 text-right text-gray-900 dark:text-white">
+                    <td className="py-2 px-4 text-right text-gray-900 dark:text-white">
                       {holding.valueInNis === null
                         ? "—"
                         : money(holding.valueInNis)}
+                    </td>
+                    <td className="py-2 px-6 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => openEditForm(holding)}
+                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => requestDeletion(holding)}
+                        className="ml-4 text-red-600 dark:text-red-400 hover:underline"
+                      >
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -232,6 +318,33 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {isFormOpen && (
+        <HoldingFormModal
+          holding={holdingBeingEdited}
+          platforms={platformsData?.platforms ?? []}
+          onClose={closeForm}
+        />
+      )}
+
+      {holdingPendingDeletion && (
+        <ConfirmDialog
+          title="Delete holding"
+          message={`Delete ${holdingPendingDeletion.assetName} and its snapshot history? This cannot be undone.`}
+          confirmLabel="Delete"
+          isPending={deleteHolding.isPending}
+          errorMessage={deletionError}
+          onConfirm={confirmDeletion}
+          onCancel={() => setHoldingPendingDeletion(null)}
+        />
+      )}
     </div>
   );
+}
+
+function describeManualValueAge(manualValueUpdatedAt: Date | null): string {
+  if (manualValueUpdatedAt === null) {
+    return "never confirmed";
+  }
+  return `as of ${formatDate(new Date(manualValueUpdatedAt))}`;
 }
