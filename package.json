@@ -7,6 +7,10 @@
     "build": "prisma generate --schema src/prisma/schema.prisma && next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:unit": "vitest run --exclude '**/*.contract.test.ts'",
+    "db:import-sheet": "tsx scripts/importFromSheet.ts",
     "db:generate": "prisma generate --schema src/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema src/prisma/schema.prisma",
     "db:deploy": "prisma migrate deploy --schema src/prisma/schema.prisma",
@@ -44,7 +48,10 @@
     "eslint": "^9",
     "eslint-config-next": "15.4.5",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.23.1",
+    "typescript": "^5",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^2.1.9"
   },
   "prisma": {
     "schema": "src/prisma/schema.prisma"
