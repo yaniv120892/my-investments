@@ -88,7 +88,7 @@ export async function findUserByEmail(email: string) {
     where: { email },
     include: {
       settings: true,
-      investments: true,
+      holdings: true,
     },
   });
 }
@@ -98,7 +98,7 @@ export async function findUserById(id: string) {
     where: { id },
     include: {
       settings: true,
-      investments: true,
+      holdings: true,
     },
   });
 }

@@ -24,7 +24,7 @@ describe("FinnhubProvider", () => {
   it("throws naming the symbol when the response is not ok", async () => {
     mockFetch({}, false, 429);
     await expect(new FinnhubProvider("key").fetchQuote("IVV")).rejects.toThrow(
-      /IVV.*429/s
+      /IVV[\s\S]*429/
     );
   });
 
