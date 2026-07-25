@@ -96,7 +96,7 @@ Matched live quotes against the sheet's own prices; all within 0.3%:
 
 | Sheet name | Symbol | Live | Sheet |
 |---|---|---|---|
-| S&P | `SPY` | 738.93 | 741.20 |
+| S&P | `IVV` | 742.36 | 741.20 |
 | NASDAQ | `QQQ` | 684.25 | 682.99 |
 | Dow Jones | `DIA` | 518.76 | 518.52 |
 | MSCI | `EEM` | 63.33 | 63.27 |
