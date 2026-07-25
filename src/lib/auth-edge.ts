@@ -1,55 +1,123 @@
 import { AuthSession } from "@/types";
 
-interface JWTPayload {
+const SUPPORTED_ALGORITHM = "HS256";
+
+interface JwtHeader {
+  alg: string;
+}
+
+interface JwtPayload {
   userId: string;
   email: string;
   exp: number;
 }
 
-// Base64 URL decode
-function base64UrlDecode(str: string): string {
-  str = str.replace(/-/g, "+").replace(/_/g, "/");
-  while (str.length % 4) {
-    str += "=";
+export async function verifyJWT(token: string): Promise<AuthSession | null> {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    console.error("JWT_SECRET is not set; refusing to authorize any session");
+    return null;
   }
-  return atob(str);
+
+  const segments = token.split(".");
+  if (segments.length !== 3) {
+    return null;
+  }
+  const [encodedHeader, encodedPayload, encodedSignature] = segments;
+
+  const header = decodeJsonSegment(encodedHeader);
+  if (!isJwtHeader(header) || header.alg !== SUPPORTED_ALGORITHM) {
+    return null;
+  }
+
+  const signatureIsValid = await isSignatureValid(
+    `${encodedHeader}.${encodedPayload}`,
+    encodedSignature,
+    secret
+  );
+  if (!signatureIsValid) {
+    return null;
+  }
+
+  const payload = decodeJsonSegment(encodedPayload);
+  if (!isJwtPayload(payload)) {
+    return null;
+  }
+
+  const expiresAt = new Date(payload.exp * 1000);
+  if (expiresAt.getTime() <= Date.now()) {
+    return null;
+  }
+
+  return { userId: payload.userId, email: payload.email, expiresAt };
 }
 
-// Parse JWT without verification (for Edge Runtime)
-function parseJWT(token: string): JWTPayload | null {
+async function isSignatureValid(
+  signingInput: string,
+  encodedSignature: string,
+  secret: string
+): Promise<boolean> {
   try {
-    const parts = token.split(".");
-    if (parts.length !== 3) {
-      return null;
-    }
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
 
-    const payload = JSON.parse(base64UrlDecode(parts[1]));
-    return payload;
+    return await crypto.subtle.verify(
+      "HMAC",
+      key,
+      base64UrlToBytes(encodedSignature),
+      new TextEncoder().encode(signingInput)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function decodeJsonSegment(segment: string): unknown {
+  try {
+    return JSON.parse(new TextDecoder().decode(base64UrlToBytes(segment)));
   } catch {
     return null;
   }
 }
 
-export function verifyJWT(token: string): AuthSession | null {
-  try {
-    const payload = parseJWT(token);
-    if (!payload) {
-      return null;
-    }
+function base64UrlToBytes(segment: string): Uint8Array {
+  const base64 = segment.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+  const binary = atob(padded);
 
-    // Check if token is expired
-    const now = Math.floor(Date.now() / 1000);
-    if (payload.exp && payload.exp < now) {
-      return null;
-    }
-
-    return {
-      userId: payload.userId,
-      email: payload.email,
-      expiresAt: new Date(payload.exp * 1000),
-    };
-  } catch (error) {
-    console.error("JWT verification error:", error);
-    return null;
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
   }
+  return bytes;
+}
+
+function isJwtHeader(value: unknown): value is JwtHeader {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "alg" in value &&
+    typeof value.alg === "string"
+  );
+}
+
+function isJwtPayload(value: unknown): value is JwtPayload {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  if (!("userId" in value) || !("email" in value) || !("exp" in value)) {
+    return false;
+  }
+  return (
+    typeof value.userId === "string" &&
+    value.userId.length > 0 &&
+    typeof value.email === "string" &&
+    typeof value.exp === "number" &&
+    Number.isFinite(value.exp)
+  );
 }
