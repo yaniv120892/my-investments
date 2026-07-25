@@ -4,12 +4,12 @@ import { verifyJWT } from "@/lib/auth-edge";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const publicRoutes = ["/login", "/signup", "/api/auth"];
+  const publicRoutes = ["/login", "/signup", "/api/auth", "/api/snapshot"];
   const isPublicRoute = publicRoutes.some((route) =>
     pathname.startsWith(route)
   );
 
-  const publicApiRoutes = ["/api/auth", "/api/snapshot"];
+  const publicApiRoutes = ["/api/auth"];
   const isPublicApiRoute = publicApiRoutes.some((route) =>
     pathname.startsWith(route)
   );
@@ -20,7 +20,7 @@ export async function middleware(request: NextRequest) {
     if (!isPublicRoute && pathname !== "/") {
       return NextResponse.redirect(new URL("/login", request.url));
     }
-    return NextResponse.next();
+    return nextWithoutClientIdentityHeaders(request);
   }
 
   const session = await verifyJWT(authToken);
@@ -63,7 +63,24 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  return NextResponse.next();
+  return nextWithoutClientIdentityHeaders(request);
+}
+
+/**
+ * Route handlers treat x-user-id / x-user-email as proof of an authenticated
+ * session, so any copy the client sent must be dropped on the paths where this
+ * middleware does not overwrite them itself.
+ */
+function nextWithoutClientIdentityHeaders(request: NextRequest): NextResponse {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete("x-user-id");
+  requestHeaders.delete("x-user-email");
+
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 }
 
 export const config = {
