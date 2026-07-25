@@ -52,15 +52,43 @@ export function formatRelativeTime(date: Date): string {
   }
 }
 
-export function getInvestmentTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    STOCK: "Stocks",
-    CRYPTO: "Cryptocurrency",
-    PENSION: "Pension Fund",
-    EDUCATION_FUND: "Education Fund",
-    INVESTMENT_FUND: "Investment Fund",
-    MONEY_MARKET: "Money Market",
-    FOREIGN_CURRENCY: "Foreign Currency",
-  };
-  return labels[type] || type;
+
+export type DisplayCurrency = "NIS" | "USD";
+
+export function formatMoney(
+  valueInNis: number,
+  displayCurrency: DisplayCurrency,
+  usdToNisRate: number
+): string {
+  const value =
+    displayCurrency === "USD" ? valueInNis / usdToNisRate : valueInNis;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: displayCurrency === "USD" ? "USD" : "ILS",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+export function getAssetClassLabel(assetClass: string): string {
+  switch (assetClass) {
+    case "EQUITY":
+      return "Equity";
+    case "CRYPTO":
+      return "Crypto";
+    case "NON_EQUITY":
+      return "Non-Equity";
+    default:
+      return assetClass;
+  }
+}
+
+export function getLiquidityLabel(liquidity: string): string {
+  switch (liquidity) {
+    case "LIQUID":
+      return "Liquid";
+    case "ILLIQUID":
+      return "Illiquid";
+    default:
+      return liquidity;
+  }
 }

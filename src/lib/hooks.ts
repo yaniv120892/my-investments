@@ -5,7 +5,6 @@ import {
   SignupRequest,
   VerificationRequest,
   UserSettings,
-  InvestmentFormData,
 } from "./api";
 
 export const useLogin = () => {
@@ -37,45 +36,19 @@ export const useLogout = () => {
   });
 };
 
-export const usePortfolio = () => {
+export const useHoldings = () => {
   return useQuery({
-    queryKey: ["portfolio"],
-    queryFn: () => api.investments.getAll(),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    queryKey: ["holdings"],
+    queryFn: () => api.holdings.list(),
+    staleTime: 2 * 60 * 1000,
   });
 };
 
-export const useCreateInvestment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: InvestmentFormData) => api.investments.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
-    },
-  });
-};
-
-export const useUpdateInvestment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: InvestmentFormData }) =>
-      api.investments.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
-    },
-  });
-};
-
-export const useDeleteInvestment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string) => api.investments.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
-    },
+export const useHoldingHistory = (period?: string) => {
+  return useQuery({
+    queryKey: ["holdingHistory", period],
+    queryFn: () => api.holdings.history(period),
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -83,7 +56,7 @@ export const useUserSettings = () => {
   return useQuery({
     queryKey: ["userSettings"],
     queryFn: () => api.settings.get(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -99,15 +72,12 @@ export const useUpdateSettings = () => {
 };
 
 export const useTriggerSnapshot = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: () => api.snapshot.trigger(),
-  });
-};
-
-export const useInvestmentHistory = (period?: string, groupBy?: string) => {
-  return useQuery({
-    queryKey: ["investmentHistory", period, groupBy],
-    queryFn: () => api.history.get(period, groupBy),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["holdingHistory"] });
+    },
   });
 };
