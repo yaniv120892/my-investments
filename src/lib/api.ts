@@ -1,6 +1,18 @@
 import type { AssetClass, Holding, Liquidity, Platform } from "@prisma/client";
+import { ApiError } from "@/lib/apiError";
+import type {
+  CreateHoldingInput,
+  CreatePlatformInput,
+  UpdateHoldingInput,
+} from "@/lib/holdings/holdingWrite.types";
 
 const API_BASE = "/api";
+
+export type {
+  CreateHoldingInput,
+  CreatePlatformInput,
+  UpdateHoldingInput,
+} from "@/lib/holdings/holdingWrite.types";
 
 export interface ApiResponse<T> {
   data?: T;
@@ -75,6 +87,18 @@ export interface HoldingsResponse {
   };
   drift: PlatformDrift[];
   failures: PricingFailure[];
+}
+
+export interface HoldingMutationResponse {
+  holding: Holding & { platform: Platform };
+}
+
+export interface PlatformsResponse {
+  platforms: Platform[];
+}
+
+export interface PlatformMutationResponse {
+  platform: Platform;
 }
 
 export interface HistoryPoint {
@@ -158,6 +182,40 @@ export const api = {
       }
       return response.json();
     },
+
+    create: async (
+      data: CreateHoldingInput
+    ): Promise<HoldingMutationResponse> => {
+      return sendJson("/holdings", "POST", data);
+    },
+
+    update: async (
+      holdingId: string,
+      data: UpdateHoldingInput
+    ): Promise<HoldingMutationResponse> => {
+      return sendJson(`/holdings/${holdingId}`, "PATCH", data);
+    },
+
+    remove: async (holdingId: string): Promise<{ id: string }> => {
+      return sendJson(`/holdings/${holdingId}`, "DELETE");
+    },
+  },
+
+  platforms: {
+    list: async (): Promise<PlatformsResponse> => {
+      const response = await fetch(`${API_BASE}/platforms`);
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body?.error ?? `Request failed (${response.status})`);
+      }
+      return response.json();
+    },
+
+    create: async (
+      data: CreatePlatformInput
+    ): Promise<PlatformMutationResponse> => {
+      return sendJson("/platforms", "POST", data);
+    },
   },
 
   settings: {
@@ -190,3 +248,69 @@ export const api = {
   },
 
 };
+
+async function sendJson<T>(
+  path: string,
+  method: "POST" | "PATCH" | "DELETE",
+  data?: unknown
+): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: data === undefined ? undefined : JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+
+  return response.json();
+}
+
+async function toApiError(response: Response): Promise<ApiError> {
+  const body = await readJsonSafely(response);
+  return new ApiError(
+    readErrorMessage(body) ?? `Request failed (${response.status})`,
+    response.status,
+    readFieldErrors(body)
+  );
+}
+
+async function readJsonSafely(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+function readErrorMessage(body: unknown): string | null {
+  if (
+    typeof body === "object" &&
+    body !== null &&
+    "error" in body &&
+    typeof body.error === "string"
+  ) {
+    return body.error;
+  }
+  return null;
+}
+
+function readFieldErrors(body: unknown): Record<string, string> {
+  if (typeof body !== "object" || body === null || !("fieldErrors" in body)) {
+    return {};
+  }
+
+  const { fieldErrors } = body;
+  if (typeof fieldErrors !== "object" || fieldErrors === null) {
+    return {};
+  }
+
+  const messagesByField: Record<string, string> = {};
+  for (const [field, message] of Object.entries(fieldErrors)) {
+    if (typeof message === "string") {
+      messagesByField[field] = message;
+    }
+  }
+  return messagesByField;
+}
