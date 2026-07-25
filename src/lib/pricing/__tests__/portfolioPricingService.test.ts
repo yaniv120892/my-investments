@@ -18,8 +18,11 @@ vi.mock("@/lib/providers/FxRateProvider", () => ({
   fxRateProvider: { getUsdToNisRate: () => getUsdToNisRate() },
 }));
 
-const { priceHoldings } = await import(
+const { priceHoldings, convertToNis } = await import(
   "@/lib/pricing/portfolioPricingService"
+);
+const { SUPPORTED_CURRENCIES } = await import(
+  "@/lib/pricing/supportedCurrencies"
 );
 
 function holding(overrides: Partial<Holding> = {}): Holding {
@@ -195,5 +198,14 @@ describe("priceHoldings", () => {
     const result = await priceHoldings([]);
     expect(result.totalValueNis).toBe(0);
     expect(result.failures).toEqual([]);
+  });
+});
+
+describe("SUPPORTED_CURRENCIES", () => {
+  it("lists exactly the currencies convertToNis can convert", () => {
+    for (const currency of SUPPORTED_CURRENCIES) {
+      expect(() => convertToNis(1, currency, 3.0541)).not.toThrow();
+    }
+    expect(() => convertToNis(1, "EUR", 3.0541)).toThrow(/EUR/);
   });
 });
