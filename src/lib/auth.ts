@@ -3,8 +3,17 @@ import jwt from "jsonwebtoken";
 import { prisma } from "./db";
 import { AuthSession } from "@/types";
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
 const SESSION_TTL_MINUTES = parseInt(process.env.SESSION_TTL_MINUTES || "60");
+
+function requireJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error(
+      "JWT_SECRET is not set; refusing to sign or verify sessions with a default secret"
+    );
+  }
+  return secret;
+}
 
 interface JWTPayload {
   userId: string;
@@ -29,12 +38,12 @@ export function generateJWT(payload: {
   email: string;
 }): string {
   const expiresIn = SESSION_TTL_MINUTES * 60; // Convert to seconds
-  return jwt.sign(payload, JWT_SECRET, { expiresIn });
+  return jwt.sign(payload, requireJwtSecret(), { expiresIn });
 }
 
 export function verifyJWT(token: string): AuthSession | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, requireJwtSecret());
     if (
       typeof decoded === "object" &&
       decoded !== null &&
