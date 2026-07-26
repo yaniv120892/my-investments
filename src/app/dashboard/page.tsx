@@ -99,8 +99,8 @@ export default function DashboardPage() {
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
             Investment Portfolio
           </h1>
           <div className="flex items-center gap-3">
@@ -123,7 +123,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={openCreateForm}
-              className="px-4 py-1.5 text-sm rounded-md bg-blue-600 hover:bg-blue-700 text-white"
+              className="px-4 py-1.5 text-sm rounded-md bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap"
             >
               Add holding
             </button>
