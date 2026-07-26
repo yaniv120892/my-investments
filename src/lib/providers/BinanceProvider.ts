@@ -3,6 +3,7 @@ import type { Currency, PriceProvider, Quote } from "@/lib/providers/types";
 
 const BINANCE_TICKER_URL = "https://api.binance.com/api/v3/ticker/price";
 const BINANCE_CURRENCY: Currency = "USD";
+const GEO_BLOCKED_STATUS = 451;
 
 export class BinanceProvider implements PriceProvider {
   public readonly source = PriceSource.BINANCE;
@@ -11,6 +12,12 @@ export class BinanceProvider implements PriceProvider {
     const pair = this.normalizeToBinancePair(sourceSymbol);
     const url = `${BINANCE_TICKER_URL}?symbol=${encodeURIComponent(pair)}`;
     const response = await fetch(url);
+
+    if (response.status === GEO_BLOCKED_STATUS) {
+      throw new Error(
+        `Binance refuses requests from this server's region (pair: ${pair}, status: ${GEO_BLOCKED_STATUS}); deploy the pricing routes outside the US`
+      );
+    }
 
     if (!response.ok) {
       throw new Error(
