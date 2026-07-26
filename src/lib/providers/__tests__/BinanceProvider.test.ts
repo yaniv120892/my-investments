@@ -37,6 +37,14 @@ describe("BinanceProvider", () => {
     expect(spy.mock.calls[0][0]).toContain(expected);
   });
 
+  it("names the region as the cause when Binance replies 451", async () => {
+    mockFetch({}, false, 451);
+
+    await expect(new BinanceProvider().fetchQuote("BTC")).rejects.toThrow(
+      /refuses requests from this server's region.*BTCUSDT.*451/
+    );
+  });
+
   it("throws naming the pair when the response is not ok", async () => {
     mockFetch({}, false, 400);
     await expect(new BinanceProvider().fetchQuote("NOPE")).rejects.toThrow(
