@@ -42,6 +42,10 @@ export async function priceHoldings(
     }
   }
 
+  if (failures.length > 0) {
+    logPricingFailures(failures);
+  }
+
   const pricedValueNis = valuations.reduce(
     (sum, valuation) => sum + valuation.valueInNis,
     0
@@ -71,6 +75,28 @@ export function convertToNis(
         `Cannot convert to NIS from unsupported currency (currency: ${fromCurrency}, amount: ${amount})`
       );
   }
+}
+
+/**
+ * Failures are returned to the caller instead of thrown, so nothing else on the
+ * server records them: a production run that prices 22 of 29 holdings otherwise
+ * looks identical in the logs to one that prices all 29. Logged at error level
+ * because any failure suppresses the portfolio total, and because Vercel retains
+ * error output long after the raw runtime logs have rolled off.
+ */
+function logPricingFailures(failures: PricingFailure[]): void {
+  const details = failures
+    .map(
+      (failure) =>
+        `${failure.assetName} (${failure.sourceSymbol ?? "no source symbol"}): ${
+          failure.reason
+        }`
+    )
+    .join("; ");
+
+  console.error(
+    `Pricing failed for ${failures.length} of the portfolio's holdings: ${details}`
+  );
 }
 
 async function valueHolding(
