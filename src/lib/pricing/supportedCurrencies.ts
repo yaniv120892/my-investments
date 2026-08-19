@@ -1,4 +1,4 @@
-export const SUPPORTED_CURRENCIES = ["NIS", "USD"] as const;
+export const SUPPORTED_CURRENCIES = ["NIS", "USD", "EUR"] as const;
 
 export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
 

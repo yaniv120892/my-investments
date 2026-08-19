@@ -4,19 +4,25 @@ import {
   getCachedData,
   setCachedData,
 } from "@/lib/redis";
+import type { SupportedCurrency } from "@/lib/pricing/supportedCurrencies";
 
 const FX_RATE_URL = "https://api.frankfurter.dev/v1/latest";
+const NIS_ISO_CODE = "ILS";
 
 export class FxRateProvider {
-  public async getUsdToNisRate(): Promise<MarketData> {
-    const cacheKey = generateMarketDataKey("usd", "currency");
+  public async getRateToNis(
+    currency: SupportedCurrency
+  ): Promise<MarketData> {
+    this.assertIsForeignCurrency(currency);
+
+    const cacheKey = generateMarketDataKey(currency, "currency");
 
     const cached = await getCachedData<MarketData>(cacheKey);
     if (cached) {
       return cached;
     }
 
-    const rate = await this.fetchUsdToNisRate();
+    const rate = await this.fetchRateToNis(currency);
     const marketData: MarketData = {
       price: rate,
       currency: "NIS",
@@ -28,13 +34,21 @@ export class FxRateProvider {
     return marketData;
   }
 
-  private async fetchUsdToNisRate(): Promise<number> {
-    const url = `${FX_RATE_URL}?base=USD&symbols=ILS`;
+  private assertIsForeignCurrency(currency: SupportedCurrency): void {
+    if (currency === "NIS") {
+      throw new Error(
+        "NIS needs no conversion to NIS; ask the rate book for the rate instead of the FX provider"
+      );
+    }
+  }
+
+  private async fetchRateToNis(currency: SupportedCurrency): Promise<number> {
+    const url = `${FX_RATE_URL}?base=${currency}&symbols=${NIS_ISO_CODE}`;
     const response = await fetch(url);
 
     if (!response.ok) {
       throw new Error(
-        `USD/NIS rate request failed (url: ${url}, status: ${response.status})`
+        `${currency}/NIS rate request failed (url: ${url}, status: ${response.status})`
       );
     }
 
@@ -43,7 +57,7 @@ export class FxRateProvider {
 
     if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0) {
       throw new Error(
-        `USD/NIS rate missing or invalid (url: ${url}, received: ${JSON.stringify(
+        `${currency}/NIS rate missing or invalid (url: ${url}, received: ${JSON.stringify(
           data
         )})`
       );
