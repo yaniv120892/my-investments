@@ -1,8 +1,9 @@
 import { PriceSource } from "@prisma/client";
-import type { Currency, PriceProvider, Quote } from "@/lib/providers/types";
+import type { SupportedCurrency } from "@/lib/pricing/supportedCurrencies";
+import type { PriceProvider, Quote } from "@/lib/providers/types";
 
 const FINNHUB_QUOTE_URL = "https://finnhub.io/api/v1/quote";
-const FINNHUB_CURRENCY: Currency = "USD";
+const FINNHUB_CURRENCY: SupportedCurrency = "USD";
 
 export class FinnhubProvider implements PriceProvider {
   public readonly source = PriceSource.FINNHUB;
