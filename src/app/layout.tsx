@@ -1,28 +1,36 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import InitColorSchemeScript from "@mui/material/InitColorSchemeScript";
+import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
+import Providers from "@/components/Providers";
 import "./globals.css";
-import ReactQueryProvider from "@/components/ReactQueryProvider";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
 
 export const metadata: Metadata = {
   title: "Investment Tracker",
   description: "Personal investment tracking and portfolio management",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode;
-}) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <ReactQueryProvider>
-          <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-            {children}
-          </div>
-        </ReactQueryProvider>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <body>
+        <InitColorSchemeScript attribute="data" />
+        <AppRouterCacheProvider>
+          <Providers>{children}</Providers>
+        </AppRouterCacheProvider>
       </body>
     </html>
   );
