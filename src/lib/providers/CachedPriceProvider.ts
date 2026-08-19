@@ -19,8 +19,10 @@ interface CachedQuote {
  * /api/holdings prices the entire portfolio on every dashboard load, and none of
  * the upstreams tolerate that: Yahoo starts returning 429 after a handful of
  * requests from one IP, and Finnhub's free tier caps at sixty a minute. Sharing
- * the FX cache's one-hour TTL keeps a day of refreshes to one call per symbol.
- * Redis failures fall through to a live fetch — getCachedData swallows them.
+ * the FX cache's one-hour TTL collapses any number of refreshes within an hour
+ * into a single call per symbol. Redis failures fall through to a live fetch —
+ * getCachedData swallows them. Failures are deliberately not cached, so a
+ * recovered upstream is picked up immediately rather than after the TTL.
  */
 export class CachedPriceProvider implements PriceProvider {
   public readonly source: PriceSource;

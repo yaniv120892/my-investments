@@ -16,7 +16,12 @@ export const NIS_TO_NIS_RATE = 1;
  * holding twenty USD positions still costs one FX request.
  */
 export class NisRateBook {
-  private readonly ratesByCurrency = new Map<SupportedCurrency, number>();
+  // Keyed on the in-flight request, not the resolved rate, so that concurrent
+  // callers share one lookup instead of racing to miss an empty entry.
+  private readonly ratesByCurrency = new Map<
+    SupportedCurrency,
+    Promise<number>
+  >();
 
   public constructor(
     private readonly rateSource: RateToNisSource = fxRateProvider
@@ -44,8 +49,19 @@ export class NisRateBook {
       return memoised;
     }
 
-    const rate = (await this.rateSource.getRateToNis(currency)).price;
-    this.ratesByCurrency.set(currency, rate);
-    return rate;
+    const pending = this.loadRateToNis(currency);
+    this.ratesByCurrency.set(currency, pending);
+
+    try {
+      return await pending;
+    } catch (error) {
+      // Evicted so one blip does not condemn every later holding in the run.
+      this.ratesByCurrency.delete(currency);
+      throw error;
+    }
+  }
+
+  private async loadRateToNis(currency: SupportedCurrency): Promise<number> {
+    return (await this.rateSource.getRateToNis(currency)).price;
   }
 }

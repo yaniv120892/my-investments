@@ -74,6 +74,19 @@ export async function sendSnapshotNotification(
 }
 
 export async function sendErrorNotification(error: string): Promise<boolean> {
-  const message = `❌ <b>Investment Tracker Error</b>\n\n${error}`;
+  const message = `❌ <b>Investment Tracker Error</b>\n\n${escapeHtml(error)}`;
   return sendTelegramMessage(message);
+}
+
+/**
+ * Messages go out with parse_mode HTML, so an unescaped character in an error
+ * detail makes Telegram reject the whole message with a 400. Provider failures
+ * routinely carry a query string — `...chart/CSPX.L?interval=1d&range=1d` — and
+ * that bare ampersand alone is enough to lose the alert.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }

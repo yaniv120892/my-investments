@@ -46,6 +46,24 @@ describe("NisRateBook", () => {
     expect(getRateToNis).toHaveBeenCalledWith("EUR");
   });
 
+  it("shares one lookup between callers that ask before it resolves", async () => {
+    const book = new NisRateBook(rateSource);
+    await Promise.all([
+      book.getRateToNis("USD"),
+      book.getRateToNis("USD"),
+      book.getRateToNis("USD"),
+    ]);
+    expect(getRateToNis).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not memoise a failed lookup, so one blip cannot poison the run", async () => {
+    getRateToNis.mockRejectedValueOnce(new Error("fx down"));
+    const book = new NisRateBook(rateSource);
+
+    await expect(book.getRateToNis("USD")).rejects.toThrow(/fx down/);
+    expect(await book.getRateToNis("USD")).toBe(USD_TO_NIS_RATE);
+  });
+
   it("multiplies by the rate the provider returned", async () => {
     expect(
       await new NisRateBook(rateSource).convertToNis(100, "EUR")
