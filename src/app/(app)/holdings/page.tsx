@@ -6,15 +6,10 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import HoldingFormModal from "@/components/HoldingFormModal";
 import HoldingsTable from "@/components/HoldingsTable";
+import PortfolioPage from "@/components/PortfolioPage";
 import PricingFailuresAlert from "@/components/PricingFailuresAlert";
-import PageHeader from "@/components/shell/PageHeader";
-import {
-  PortfolioError,
-  PortfolioSkeleton,
-} from "@/components/PortfolioLoadState";
 import type { PricedHolding } from "@/lib/api";
 import { useDeleteHolding, usePlatforms } from "@/lib/hooks";
-import { usePortfolioView } from "@/lib/usePortfolioView";
 import { describeError } from "@/utils/describeError";
 
 export default function HoldingsPage() {
@@ -25,7 +20,6 @@ export default function HoldingsPage() {
     useState<PricedHolding | null>(null);
   const [deletionError, setDeletionError] = useState<string | null>(null);
 
-  const { data, isLoading, error, money } = usePortfolioView();
   const { data: platformsData } = usePlatforms();
   const deleteHolding = useDeleteHolding();
 
@@ -61,10 +55,11 @@ export default function HoldingsPage() {
     }
   };
 
-  const header = (
-    <PageHeader
+  return (
+    <PortfolioPage
       title="Holdings"
       subtitle="Every position, its live price, and what it is worth today."
+      skeletonRows={1}
       action={
         <Button
           variant="contained"
@@ -74,60 +69,40 @@ export default function HoldingsPage() {
           Add holding
         </Button>
       }
-    />
-  );
+    >
+      {({ data, money }) => (
+        <>
+          <Stack spacing={{ xs: 2, md: 3 }}>
+            <PricingFailuresAlert failures={data.failures} />
+            <HoldingsTable
+              holdings={data.holdings}
+              money={money}
+              onEdit={openEditForm}
+              onDelete={requestDeletion}
+            />
+          </Stack>
 
-  if (isLoading) {
-    return (
-      <>
-        {header}
-        <PortfolioSkeleton rows={1} />
-      </>
-    );
-  }
+          {isFormOpen && (
+            <HoldingFormModal
+              holding={holdingBeingEdited}
+              platforms={platformsData?.platforms ?? []}
+              onClose={closeForm}
+            />
+          )}
 
-  if (error || !data) {
-    return (
-      <>
-        {header}
-        <PortfolioError error={error} />
-      </>
-    );
-  }
-
-  return (
-    <>
-      {header}
-
-      <Stack spacing={{ xs: 2, md: 3 }}>
-        <PricingFailuresAlert failures={data.failures} />
-        <HoldingsTable
-          holdings={data.holdings}
-          money={money}
-          onEdit={openEditForm}
-          onDelete={requestDeletion}
-        />
-      </Stack>
-
-      {isFormOpen && (
-        <HoldingFormModal
-          holding={holdingBeingEdited}
-          platforms={platformsData?.platforms ?? []}
-          onClose={closeForm}
-        />
+          {holdingPendingDeletion && (
+            <ConfirmDialog
+              title="Delete holding"
+              message={`Delete ${holdingPendingDeletion.assetName} and its snapshot history? This cannot be undone.`}
+              confirmLabel="Delete"
+              isPending={deleteHolding.isPending}
+              errorMessage={deletionError}
+              onConfirm={confirmDeletion}
+              onCancel={() => setHoldingPendingDeletion(null)}
+            />
+          )}
+        </>
       )}
-
-      {holdingPendingDeletion && (
-        <ConfirmDialog
-          title="Delete holding"
-          message={`Delete ${holdingPendingDeletion.assetName} and its snapshot history? This cannot be undone.`}
-          confirmLabel="Delete"
-          isPending={deleteHolding.isPending}
-          errorMessage={deletionError}
-          onConfirm={confirmDeletion}
-          onCancel={() => setHoldingPendingDeletion(null)}
-        />
-      )}
-    </>
+    </PortfolioPage>
   );
 }

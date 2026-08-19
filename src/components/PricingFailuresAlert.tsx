@@ -5,7 +5,6 @@ import type { PricingFailure } from "@/lib/api";
 
 interface PricingFailuresAlertProps {
   failures: PricingFailure[];
-  /** The dashboard only teases the first few; the holdings page lists them all. */
   maxRows?: number;
 }
 
