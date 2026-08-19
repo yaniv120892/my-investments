@@ -1,0 +1,296 @@
+"use client";
+
+import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  AppBar,
+  Box,
+  Divider,
+  Drawer,
+  IconButton,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Toolbar,
+  Tooltip,
+  Typography,
+  useColorScheme,
+} from "@mui/material";
+import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
+import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
+import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
+import DonutSmallOutlinedIcon from "@mui/icons-material/DonutSmallOutlined";
+import BalanceOutlinedIcon from "@mui/icons-material/BalanceOutlined";
+import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
+import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
+import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
+import { useDisplayCurrency } from "@/components/DisplayCurrencyProvider";
+import { useLogout, useUserSettings } from "@/lib/hooks";
+import type { DisplayCurrency } from "@/utils/format";
+
+export const DRAWER_WIDTH = 248;
+
+export const NAV_ITEMS = [
+  { label: "Dashboard", href: "/dashboard", icon: SpaceDashboardOutlinedIcon },
+  { label: "Holdings", href: "/holdings", icon: AccountBalanceOutlinedIcon },
+  { label: "Allocation", href: "/allocation", icon: DonutSmallOutlinedIcon },
+  { label: "Rebalancing", href: "/rebalancing", icon: BalanceOutlinedIcon },
+  { label: "History", href: "/history", icon: ShowChartOutlinedIcon },
+  { label: "Settings", href: "/settings", icon: SettingsOutlinedIcon },
+] as const;
+
+function ModeToggle() {
+  const { mode, setMode } = useColorScheme();
+  const isDark = mode === "dark";
+  return (
+    <Tooltip title={isDark ? "Switch to light mode" : "Switch to dark mode"}>
+      <IconButton
+        size="small"
+        onClick={() => setMode(isDark ? "light" : "dark")}
+        aria-label="Toggle color mode"
+      >
+        {isDark ? (
+          <LightModeOutlinedIcon fontSize="small" />
+        ) : (
+          <DarkModeOutlinedIcon fontSize="small" />
+        )}
+      </IconButton>
+    </Tooltip>
+  );
+}
+
+function CurrencyToggle() {
+  const { displayCurrency, setDisplayCurrency } = useDisplayCurrency();
+
+  return (
+    <ToggleButtonGroup
+      exclusive
+      size="small"
+      value={displayCurrency}
+      onChange={(_, next: DisplayCurrency | null) => {
+        if (next) {
+          setDisplayCurrency(next);
+        }
+      }}
+      aria-label="Display currency"
+      sx={{ "& .MuiToggleButton-root": { px: 2, py: 0.4 } }}
+    >
+      <ToggleButton value="NIS">₪ NIS</ToggleButton>
+      <ToggleButton value="USD">$ USD</ToggleButton>
+    </ToggleButtonGroup>
+  );
+}
+
+function NavList({ onNavigate }: { onNavigate?: () => void }) {
+  const pathname = usePathname();
+
+  return (
+    <List sx={{ px: 1.5, py: 0.5, flex: 1 }}>
+      {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+        const selected = pathname.startsWith(href);
+        return (
+          <ListItem key={href} disablePadding sx={{ mb: 0.25 }}>
+            <ListItemButton
+              component={Link}
+              href={href}
+              onClick={onNavigate}
+              selected={selected}
+              sx={{
+                borderRadius: 2,
+                py: 1,
+                "&.Mui-selected": {
+                  bgcolor: "primary.main",
+                  color: "primary.contrastText",
+                  "&:hover": { bgcolor: "primary.main" },
+                  "& .MuiListItemIcon-root": {
+                    color: "primary.contrastText",
+                  },
+                },
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 38 }}>
+                <Icon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary={label}
+                slotProps={{
+                  primary: {
+                    fontSize: "0.9rem",
+                    fontWeight: selected ? 600 : 500,
+                  },
+                }}
+              />
+            </ListItemButton>
+          </ListItem>
+        );
+      })}
+    </List>
+  );
+}
+
+function DrawerContent({ onNavigate }: { onNavigate?: () => void }) {
+  const router = useRouter();
+  const logoutMutation = useLogout();
+  const { data: settings } = useUserSettings();
+  const email = settings?.email ?? "";
+
+  const handleLogout = async (): Promise<void> => {
+    await logoutMutation.mutateAsync();
+    router.push("/login");
+  };
+
+  return (
+    <Stack sx={{ height: "100%" }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1}
+        sx={{ px: 2.5, py: 2.5 }}
+      >
+        <TrendingUpRoundedIcon color="primary" />
+        <Typography variant="h5" component="span">
+          Investment Tracker
+        </Typography>
+      </Stack>
+
+      <NavList onNavigate={onNavigate} />
+
+      <Divider />
+      <Stack spacing={1} sx={{ px: 2, py: 1.5 }}>
+        <Typography variant="caption" color="text.secondary">
+          Display values in
+        </Typography>
+        <CurrencyToggle />
+      </Stack>
+
+      <Divider />
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ px: 2, py: 1.5 }}
+      >
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          noWrap
+          sx={{ maxWidth: 140 }}
+          title={email || undefined}
+        >
+          {email}
+        </Typography>
+        <Stack direction="row" spacing={0.5}>
+          <ModeToggle />
+          <Tooltip title="Log out">
+            <IconButton
+              size="small"
+              onClick={handleLogout}
+              disabled={logoutMutation.isPending}
+              aria-label="Log out"
+            >
+              <LogoutRoundedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      </Stack>
+    </Stack>
+  );
+}
+
+export default function AppShell({ children }: { children: React.ReactNode }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+  const currentPage = NAV_ITEMS.find((item) =>
+    pathname.startsWith(item.href)
+  )?.label;
+
+  return (
+    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+      <Drawer
+        variant="permanent"
+        sx={{
+          display: { xs: "none", md: "block" },
+          width: DRAWER_WIDTH,
+          flexShrink: 0,
+          "& .MuiDrawer-paper": {
+            width: DRAWER_WIDTH,
+            boxSizing: "border-box",
+            borderRight: 1,
+            borderColor: "divider",
+          },
+        }}
+      >
+        <DrawerContent />
+      </Drawer>
+
+      <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          display: { xs: "block", md: "none" },
+          "& .MuiDrawer-paper": { width: DRAWER_WIDTH },
+        }}
+      >
+        <DrawerContent onNavigate={() => setMobileOpen(false)} />
+      </Drawer>
+
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <AppBar
+          position="sticky"
+          sx={{
+            display: { md: "none" },
+            bgcolor: "background.paper",
+            borderBottom: 1,
+            borderColor: "divider",
+          }}
+        >
+          <Toolbar sx={{ minHeight: 56 }}>
+            <IconButton
+              edge="start"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open navigation"
+              sx={{ mr: 1.5 }}
+            >
+              <MenuRoundedIcon />
+            </IconButton>
+            <Typography variant="h5" component="h1" color="text.primary">
+              {currentPage ?? "Investment Tracker"}
+            </Typography>
+          </Toolbar>
+        </AppBar>
+
+        <Box
+          sx={{
+            flex: 1,
+            width: "100%",
+            maxWidth: 1200,
+            mx: "auto",
+            px: { xs: 2, sm: 3 },
+            py: { xs: 2, md: 3 },
+          }}
+        >
+          {children}
+        </Box>
+      </Box>
+    </Box>
+  );
+}

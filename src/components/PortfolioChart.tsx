@@ -2,6 +2,17 @@
 
 import { useState } from "react";
 import {
+  Box,
+  Card,
+  CardContent,
+  CircularProgress,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
+  useTheme,
+} from "@mui/material";
+import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
@@ -31,7 +42,7 @@ ChartJS.register(
 interface PortfolioChartProps {
   displayCurrency: DisplayCurrency;
   usdToNisRate: number;
-  className?: string;
+  height?: number;
 }
 
 const PERIOD_OPTIONS = [
@@ -45,98 +56,47 @@ const PERIOD_OPTIONS = [
 export default function PortfolioChart({
   displayCurrency,
   usdToNisRate,
-  className = "",
+  height = 280,
 }: PortfolioChartProps) {
   const [selectedPeriod, setSelectedPeriod] = useState("6m");
   const { data, isLoading, error } = useHoldingHistory(selectedPeriod);
+  const theme = useTheme();
 
   const points = data?.data ?? [];
+  const textColor = theme.palette.text.secondary;
+  const gridColor = theme.palette.divider;
+  const lineColor = theme.palette.primary.main;
 
   const header = (
-    <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+    <Stack
+      direction="row"
+      alignItems="center"
+      justifyContent="space-between"
+      spacing={2}
+      sx={{ mb: 2 }}
+    >
+      <Typography variant="h4" component="h2">
         Portfolio Value Over Time
-      </h3>
-      <select
+      </Typography>
+      <TextField
+        select
+        size="small"
         value={selectedPeriod}
         onChange={(event) => setSelectedPeriod(event.target.value)}
-        className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+        aria-label="History period"
+        sx={{ minWidth: 130 }}
       >
         {PERIOD_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
+          <MenuItem key={option.value} value={option.value}>
             {option.label}
-          </option>
+          </MenuItem>
         ))}
-      </select>
-    </div>
+      </TextField>
+    </Stack>
   );
-
-  if (isLoading) {
-    return (
-      <div
-        className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 ${className}`}
-      >
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div
-        className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 ${className}`}
-      >
-        {header}
-        <div className="text-red-600 dark:text-red-400">
-          Could not load history: {(error as Error).message}
-        </div>
-      </div>
-    );
-  }
-
-  if (points.length === 0) {
-    return (
-      <div
-        className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 ${className}`}
-      >
-        {header}
-        <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-          No history yet. Snapshots build this chart over time — trigger one to
-          record today&apos;s value.
-        </div>
-      </div>
-    );
-  }
 
   const toDisplay = (valueInNis: number): number =>
     displayCurrency === "USD" ? valueInNis / usdToNisRate : valueInNis;
-
-  const chartData = {
-    labels: points.map((point) =>
-      new Date(point.date).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      })
-    ),
-    datasets: [
-      {
-        label: "Portfolio Value",
-        data: points.map((point) => toDisplay(point.totalValue)),
-        borderColor: "rgb(59, 130, 246)",
-        backgroundColor: "rgba(59, 130, 246, 0.1)",
-        fill: true,
-        tension: 0.4,
-      },
-    ],
-  };
-
-  const isDark =
-    typeof document !== "undefined" &&
-    document.documentElement.classList.contains("dark");
-  const textColor = isDark ? "#f3f4f6" : "#374151";
-  const gridColor = isDark ? "#374151" : "#e5e7eb";
 
   const formatAxisValue = (rawValue: number): string => {
     const valueInNis =
@@ -144,43 +104,108 @@ export default function PortfolioChart({
     return formatMoney(valueInNis, displayCurrency, usdToNisRate);
   };
 
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: "index" as const, intersect: false },
-    plugins: {
-      legend: { position: "top" as const, labels: { color: textColor } },
-      tooltip: {
-        callbacks: {
-          label: (context: TooltipItem<"line">) =>
-            `Portfolio Value: ${formatAxisValue(context.parsed.y)}`,
+  const body = (): React.ReactNode => {
+    if (isLoading) {
+      return (
+        <Box
+          sx={{
+            height,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <CircularProgress size={28} />
+        </Box>
+      );
+    }
+
+    if (error) {
+      return (
+        <Typography color="error" variant="body2">
+          Could not load history: {(error as Error).message}
+        </Typography>
+      );
+    }
+
+    if (points.length === 0) {
+      return (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ textAlign: "center", py: 6 }}
+        >
+          No history yet. Snapshots build this chart over time — trigger one to
+          record today&apos;s value.
+        </Typography>
+      );
+    }
+
+    const chartData = {
+      labels: points.map((point) =>
+        new Date(point.date).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })
+      ),
+      datasets: [
+        {
+          label: "Portfolio Value",
+          data: points.map((point) => toDisplay(point.totalValue)),
+          borderColor: lineColor,
+          backgroundColor: `${lineColor}22`,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+        },
+      ],
+    };
+
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index" as const, intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context: TooltipItem<"line">) =>
+              `Portfolio Value: ${formatAxisValue(context.parsed.y)}`,
+          },
         },
       },
-    },
-    scales: {
-      x: {
-        ticks: { color: textColor },
-        grid: { color: gridColor },
-      },
-      y: {
-        ticks: {
-          color: textColor,
-          callback: (tickValue: string | number) =>
-            formatAxisValue(Number(tickValue)),
+      scales: {
+        x: {
+          ticks: { color: textColor },
+          grid: { display: false },
         },
-        grid: { color: gridColor },
+        y: {
+          ticks: {
+            color: textColor,
+            callback: (tickValue: string | number) =>
+              formatAxisValue(Number(tickValue)),
+          },
+          grid: { color: gridColor },
+          border: { display: false },
+        },
       },
-    },
+    };
+
+    return (
+      <Box sx={{ height }}>
+        <Line data={chartData} options={options} />
+      </Box>
+    );
   };
 
   return (
-    <div
-      className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 ${className}`}
-    >
-      {header}
-      <div className="h-64">
-        <Line data={chartData} options={options} />
-      </div>
-    </div>
+    <Card>
+      <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+        {header}
+        {body()}
+      </CardContent>
+    </Card>
   );
 }
