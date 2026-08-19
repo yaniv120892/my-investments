@@ -8,7 +8,8 @@ import type { RateToNisSource } from "@/lib/pricing/nisRateBook.types";
 
 export type { RateToNisSource } from "@/lib/pricing/nisRateBook.types";
 
-const NIS_TO_NIS_RATE = 1;
+/** NIS needs no conversion to itself; snapshots still record the rate they used. */
+export const NIS_TO_NIS_RATE = 1;
 
 /**
  * Memoises each currency's rate for the life of one pricing run, so a portfolio

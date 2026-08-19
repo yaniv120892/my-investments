@@ -1,7 +1,7 @@
 import { PriceSource } from "@prisma/client";
 import type { Holding } from "@prisma/client";
 import { getProvider } from "@/lib/providers/providerRegistry";
-import { NisRateBook } from "@/lib/pricing/nisRateBook";
+import { NIS_TO_NIS_RATE, NisRateBook } from "@/lib/pricing/nisRateBook";
 import { describeError } from "@/utils/describeError";
 import type {
   HoldingValuation,
@@ -19,8 +19,6 @@ export {
   SUPPORTED_CURRENCIES,
   isSupportedCurrency,
 } from "@/lib/pricing/supportedCurrencies";
-
-const NIS_TO_NIS_RATE = 1;
 
 export async function priceHoldings(
   holdings: Holding[]
