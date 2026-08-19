@@ -10,11 +10,6 @@ import type { PriceProvider, Quote } from "@/lib/providers/types";
 const YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart";
 const YAHOO_CHART_QUERY = "interval=1d&range=1d";
 
-/** Yahoo reports the shekel under its ISO code; the rest of the app calls it NIS. */
-const YAHOO_CURRENCY_ALIASES: Record<string, SupportedCurrency> = {
-  ILS: "NIS",
-};
-
 interface YahooChartMeta {
   regularMarketPrice?: number;
   currency?: string;
@@ -65,26 +60,26 @@ export class YahooProvider implements PriceProvider {
   }
 
   /**
-   * Guards against the pence trap: a London line can be quoted in GBp, a
-   * hundredth of the GBP its ticker implies. Refusing the quote is the only
-   * safe answer — silently treating it as GBP would undervalue by 100x.
+   * Guards against the sub-unit trap: a London line can be quoted in GBp, a
+   * hundredth of the GBP its ticker implies, and silently treating that as GBP
+   * would undervalue the holding a hundredfold. Yahoo's Tel Aviv quotes carry
+   * the same shekel-or-agorot ambiguity, which is why an ILS quote is refused
+   * here rather than aliased to NIS — TASE securities are priced through Maya,
+   * where the unit is known. Only an exact match is accepted.
    */
   private toSupportedCurrency(
     sourceSymbol: string,
     yahooCurrency: string | undefined
   ): SupportedCurrency {
-    const currency =
-      YAHOO_CURRENCY_ALIASES[yahooCurrency ?? ""] ?? yahooCurrency;
-
-    if (currency === undefined || !isSupportedCurrency(currency)) {
+    if (yahooCurrency === undefined || !isSupportedCurrency(yahooCurrency)) {
       throw new Error(
         `Yahoo quoted ${sourceSymbol} in a currency this portfolio cannot convert to NIS (received: ${yahooCurrency}, supported: ${SUPPORTED_CURRENCIES.join(
           ", "
-        )}); use a listing quoted in one of those`
+        )}); use a listing quoted in one of those, or price it through Maya`
       );
     }
 
-    return currency;
+    return yahooCurrency;
   }
 }
 

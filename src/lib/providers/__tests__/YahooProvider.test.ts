@@ -48,16 +48,17 @@ describe("YahooProvider", () => {
     expect(quote.price).toBeLessThan(1000);
   });
 
-  it("translates Yahoo's ILS into the NIS the rest of the app uses", async () => {
-    mockFetch(chartWithCurrency("ILS"));
-    const quote = await new YahooProvider().fetchQuote("TASE.TA");
-    expect(quote.currency).toBe("NIS");
-  });
-
   it("refuses a pence-quoted listing instead of undervaluing it a hundredfold", async () => {
     mockFetch(chartWithCurrency("GBp"));
     await expect(new YahooProvider().fetchQuote("VUSA.L")).rejects.toThrow(
       /GBp/
+    );
+  });
+
+  it("refuses an ILS quote rather than guessing between shekels and agorot", async () => {
+    mockFetch(chartWithCurrency("ILS"));
+    await expect(new YahooProvider().fetchQuote("TASE.TA")).rejects.toThrow(
+      /ILS/
     );
   });
 

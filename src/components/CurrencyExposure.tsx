@@ -20,9 +20,7 @@ export default function CurrencyExposure({
       totals={byCurrency}
       displayCurrency={displayCurrency}
       usdToNisRate={usdToNisRate}
-      labelFor={(key) =>
-        key === "USD" ? "USD-denominated" : "NIS-denominated"
-      }
+      labelFor={(key) => `${key}-denominated`}
     />
   );
 }

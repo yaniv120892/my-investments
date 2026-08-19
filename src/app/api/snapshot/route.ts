@@ -112,16 +112,20 @@ async function notifySkippedSnapshot(
   userId: string,
   reasons: string[]
 ): Promise<void> {
-  try {
-    await sendErrorNotification(
-      `No snapshot written — ${reasons.length} holding(s) could not be priced:\n\n${reasons.join(
-        "\n"
+  // sendErrorNotification reports failure by returning false rather than
+  // throwing, so discarding it would leave the alert about a silent failure
+  // failing silently itself.
+  const wasSent = await sendErrorNotification(
+    `No snapshot written — ${reasons.length} holding(s) could not be priced:\n\n${reasons.join(
+      "\n"
+    )}`
+  );
+
+  if (!wasSent) {
+    console.error(
+      `Snapshot skipped for user ${userId} and the Telegram alert could not be delivered; reasons: ${reasons.join(
+        "; "
       )}`
-    );
-  } catch (error) {
-    console.warn(
-      `Skipped-snapshot notification failed for user ${userId}:`,
-      describeError(error)
     );
   }
 }
