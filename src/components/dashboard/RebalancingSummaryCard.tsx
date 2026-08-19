@@ -10,6 +10,7 @@ import {
   Typography,
 } from "@mui/material";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
+import SummaryRow from "@/components/dashboard/SummaryRow";
 import type { AllocationSlice, PlatformDrift } from "@/lib/api";
 import { formatMoney, type DisplayCurrency } from "@/utils/format";
 
@@ -84,37 +85,18 @@ export default function RebalancingSummaryCard({
         ) : (
           <Stack spacing={1.25}>
             {shown.map(({ platformName, slice }) => (
-              <Stack
+              <SummaryRow
                 key={`${platformName}:${slice.key}`}
-                direction="row"
-                alignItems="baseline"
-                justifyContent="space-between"
-                spacing={2}
-              >
-                <Typography variant="body2" noWrap dir="auto">
-                  {slice.key}
-                  <Typography
-                    component="span"
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ ml: 1 }}
-                  >
-                    {platformName}
-                  </Typography>
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{ fontWeight: 600, whiteSpace: "nowrap" }}
-                  color={
-                    slice.rebalanceAmountNis !== null &&
-                    slice.rebalanceAmountNis >= 0
-                      ? "info.main"
-                      : "warning.main"
-                  }
-                >
-                  {describeAction(slice, displayCurrency, usdToNisRate)}
-                </Typography>
-              </Stack>
+                label={slice.key}
+                caption={platformName}
+                value={describeAction(slice, displayCurrency, usdToNisRate)}
+                valueColor={
+                  slice.rebalanceAmountNis !== null &&
+                  slice.rebalanceAmountNis >= 0
+                    ? "info.main"
+                    : "warning.main"
+                }
+              />
             ))}
             {highlights.length > shown.length && (
               <Typography variant="caption" color="text.secondary">

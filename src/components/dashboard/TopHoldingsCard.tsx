@@ -9,6 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
+import SummaryRow from "@/components/dashboard/SummaryRow";
 import type { PricedHolding } from "@/lib/api";
 
 interface TopHoldingsCardProps {
@@ -60,36 +61,19 @@ export default function TopHoldingsCard({
         ) : (
           <Stack spacing={1.25}>
             {ranked.map((holding) => (
-              <Stack
+              <SummaryRow
                 key={holding.id}
-                direction="row"
-                alignItems="baseline"
-                justifyContent="space-between"
-                spacing={2}
-              >
-                <Typography variant="body2" noWrap dir="auto">
-                  {holding.assetName}
-                  <Typography
-                    component="span"
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ ml: 1 }}
-                  >
-                    {holding.platform.name}
-                  </Typography>
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{ fontWeight: 600, whiteSpace: "nowrap" }}
-                >
-                  {holding.valueInNis === null
+                label={holding.assetName}
+                caption={holding.platform.name}
+                value={
+                  holding.valueInNis === null
                     ? "—"
                     : `${money(holding.valueInNis)} · ${toSharePercent(
                         holding.valueInNis,
                         pricedTotal
-                      )}`}
-                </Typography>
-              </Stack>
+                      )}`
+                }
+              />
             ))}
           </Stack>
         )}

@@ -18,10 +18,10 @@ import {
   useColorScheme,
 } from "@mui/material";
 import PageHeader from "@/components/shell/PageHeader";
-import { useDisplayCurrency } from "@/components/DisplayCurrencyProvider";
+import CurrencyToggle from "@/components/CurrencyToggle";
 import { useUpdateSettings, useUserSettings } from "@/lib/hooks";
 import { describeError } from "@/utils/describeError";
-import { formatCurrency, type DisplayCurrency } from "@/utils/format";
+import { formatCurrency } from "@/utils/format";
 
 const BASE_CURRENCY_OPTIONS = [
   { value: "NIS", label: "New Shekel (₪)" },
@@ -35,7 +35,6 @@ export default function SettingsPage() {
   const { data: settingsData, isLoading } = useUserSettings();
   const updateSettings = useUpdateSettings();
   const { mode, setMode } = useColorScheme();
-  const { displayCurrency, setDisplayCurrency } = useDisplayCurrency();
 
   const savedBaseCurrency = settingsData?.baseCurrency ?? "NIS";
   const [baseCurrencyDraft, setBaseCurrencyDraft] = useState<string | null>(
@@ -144,20 +143,7 @@ export default function SettingsPage() {
                 <Typography variant="body2" color="text.secondary">
                   Display values in
                 </Typography>
-                <ToggleButtonGroup
-                  exclusive
-                  size="small"
-                  value={displayCurrency}
-                  onChange={(_, next: DisplayCurrency | null) => {
-                    if (next) {
-                      setDisplayCurrency(next);
-                    }
-                  }}
-                  aria-label="Display currency"
-                >
-                  <ToggleButton value="NIS">₪ NIS</ToggleButton>
-                  <ToggleButton value="USD">$ USD</ToggleButton>
-                </ToggleButtonGroup>
+                <CurrencyToggle />
               </Stack>
 
               <Divider />

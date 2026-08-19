@@ -15,8 +15,6 @@ import {
   ListItemIcon,
   ListItemText,
   Stack,
-  ToggleButton,
-  ToggleButtonGroup,
   Toolbar,
   Tooltip,
   Typography,
@@ -33,13 +31,12 @@ import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
-import { useDisplayCurrency } from "@/components/DisplayCurrencyProvider";
+import CurrencyToggle from "@/components/CurrencyToggle";
 import { useLogout, useUserSettings } from "@/lib/hooks";
-import type { DisplayCurrency } from "@/utils/format";
 
-export const DRAWER_WIDTH = 248;
+const DRAWER_WIDTH = 248;
 
-export const NAV_ITEMS = [
+const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: SpaceDashboardOutlinedIcon },
   { label: "Holdings", href: "/holdings", icon: AccountBalanceOutlinedIcon },
   { label: "Allocation", href: "/allocation", icon: DonutSmallOutlinedIcon },
@@ -65,28 +62,6 @@ function ModeToggle() {
         )}
       </IconButton>
     </Tooltip>
-  );
-}
-
-function CurrencyToggle() {
-  const { displayCurrency, setDisplayCurrency } = useDisplayCurrency();
-
-  return (
-    <ToggleButtonGroup
-      exclusive
-      size="small"
-      value={displayCurrency}
-      onChange={(_, next: DisplayCurrency | null) => {
-        if (next) {
-          setDisplayCurrency(next);
-        }
-      }}
-      aria-label="Display currency"
-      sx={{ "& .MuiToggleButton-root": { px: 2, py: 0.4 } }}
-    >
-      <ToggleButton value="NIS">₪ NIS</ToggleButton>
-      <ToggleButton value="USD">$ USD</ToggleButton>
-    </ToggleButtonGroup>
   );
 }
 
@@ -169,7 +144,7 @@ function DrawerContent({ onNavigate }: { onNavigate?: () => void }) {
         <Typography variant="caption" color="text.secondary">
           Display values in
         </Typography>
-        <CurrencyToggle />
+        <CurrencyToggle dense />
       </Stack>
 
       <Divider />

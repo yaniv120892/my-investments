@@ -2,23 +2,24 @@
 
 import { useCallback } from "react";
 import { useDisplayCurrency } from "@/components/DisplayCurrencyProvider";
+import type { HoldingsResponse } from "@/lib/api";
 import { useHoldings } from "@/lib/hooks";
 import { formatMoney, type DisplayCurrency } from "@/utils/format";
 
-interface PortfolioView {
-  data: ReturnType<typeof useHoldings>["data"];
-  isLoading: boolean;
-  error: unknown;
+/** The priced portfolio plus the currency the shell is toggled to. */
+export interface LoadedPortfolioView {
+  data: HoldingsResponse;
   displayCurrency: DisplayCurrency;
   usdToNisRate: number;
   money: (valueInNis: number) => string;
 }
 
-/**
- * Every deep-dive page renders the same priced-portfolio payload in the
- * currency the shell is toggled to, so the query and the money formatter are
- * bound together here rather than repeated per page.
- */
+interface PortfolioView extends Omit<LoadedPortfolioView, "data"> {
+  data: HoldingsResponse | undefined;
+  isLoading: boolean;
+  error: unknown;
+}
+
 export function usePortfolioView(): PortfolioView {
   const { data, isLoading, error } = useHoldings();
   const { displayCurrency } = useDisplayCurrency();
