@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AssetClass, Liquidity, PriceSource } from "@prisma/client";
 import type { Holding } from "@prisma/client";
 
+const USD_TO_NIS_RATE = 3.0541;
+const EUR_TO_NIS_RATE = 3.4666;
+
 const fetchQuote = vi.fn();
-const getUsdToNisRate = vi.fn();
+const getRateToNis = vi.fn();
 
 vi.mock("@/lib/providers/providerRegistry", () => ({
   getProvider: (source: PriceSource) => {
@@ -15,14 +18,13 @@ vi.mock("@/lib/providers/providerRegistry", () => ({
 }));
 
 vi.mock("@/lib/providers/FxRateProvider", () => ({
-  fxRateProvider: { getUsdToNisRate: () => getUsdToNisRate() },
+  fxRateProvider: {
+    getRateToNis: (currency: string) => getRateToNis(currency),
+  },
 }));
 
-const { priceHoldings, convertToNis } = await import(
+const { priceHoldings } = await import(
   "@/lib/pricing/portfolioPricingService"
-);
-const { SUPPORTED_CURRENCIES } = await import(
-  "@/lib/pricing/supportedCurrencies"
 );
 
 function holding(overrides: Partial<Holding> = {}): Holding {
@@ -49,8 +51,10 @@ function holding(overrides: Partial<Holding> = {}): Holding {
 describe("priceHoldings", () => {
   beforeEach(() => {
     fetchQuote.mockReset();
-    getUsdToNisRate.mockReset();
-    getUsdToNisRate.mockResolvedValue({ price: 3.0541 });
+    getRateToNis.mockReset();
+    getRateToNis.mockImplementation(async (currency: string) => ({
+      price: currency === "EUR" ? EUR_TO_NIS_RATE : USD_TO_NIS_RATE,
+    }));
   });
 
   it("converts a USD holding into NIS", async () => {
@@ -63,28 +67,76 @@ describe("priceHoldings", () => {
     const result = await priceHoldings([holding()]);
     expect(result.failures).toHaveLength(0);
     expect(result.valuations[0].valueInNis).toBeCloseTo(
-      148 * 742.36 * 3.0541,
+      148 * 742.36 * USD_TO_NIS_RATE,
       0
     );
-    expect(result.totalValueNis).toBeCloseTo(148 * 742.36 * 3.0541, 0);
+    expect(result.totalValueNis).toBeCloseTo(
+      148 * 742.36 * USD_TO_NIS_RATE,
+      0
+    );
+  });
+
+  it("converts a EUR holding at the EUR rate, not the USD one", async () => {
+    fetchQuote.mockResolvedValue({
+      price: 105.8,
+      currency: "EUR",
+      fetchedAt: new Date(),
+      source: "Yahoo Finance",
+    });
+    const result = await priceHoldings([
+      holding({ quantity: 342, priceSource: PriceSource.YAHOO, sourceSymbol: "IMAE.AS" }),
+    ]);
+    expect(result.failures).toHaveLength(0);
+    expect(result.valuations[0].valueInNis).toBeCloseTo(
+      342 * 105.8 * EUR_TO_NIS_RATE,
+      0
+    );
+    expect(result.valuations[0].fxRateUsed).toBe(EUR_TO_NIS_RATE);
   });
 
   it("does not convert a holding already priced in NIS", async () => {
     fetchQuote.mockResolvedValue({
-      price: 2442.9,
+      price: 4.4625,
       currency: "NIS",
       fetchedAt: new Date(),
-      source: "Bizportal",
+      source: "Maya (TASE)",
     });
     const result = await priceHoldings([
       holding({
-        quantity: 126,
+        quantity: 13240,
         currency: "NIS",
-        priceSource: PriceSource.BIZPORTAL,
-        sourceSymbol: "1159250",
+        priceSource: PriceSource.MAYA,
+        sourceSymbol: "5109889",
       }),
     ]);
-    expect(result.valuations[0].valueInNis).toBeCloseTo(126 * 2442.9, 0);
+    expect(result.valuations[0].valueInNis).toBeCloseTo(13240 * 4.4625, 0);
+    expect(result.valuations[0].fxRateUsed).toBe(1);
+  });
+
+  it("records the rate each holding was converted at, not one rate for the run", async () => {
+    fetchQuote
+      .mockResolvedValueOnce({
+        price: 100,
+        currency: "USD",
+        fetchedAt: new Date(),
+        source: "Finnhub",
+      })
+      .mockResolvedValueOnce({
+        price: 100,
+        currency: "EUR",
+        fetchedAt: new Date(),
+        source: "Yahoo Finance",
+      });
+
+    const result = await priceHoldings([
+      holding({ id: "usd" }),
+      holding({ id: "eur" }),
+    ]);
+
+    expect(result.valuations.map((valuation) => valuation.fxRateUsed)).toEqual([
+      USD_TO_NIS_RATE,
+      EUR_TO_NIS_RATE,
+    ]);
   });
 
   it("suppresses the total when any holding fails, and never sums unconverted values", async () => {
@@ -103,7 +155,7 @@ describe("priceHoldings", () => {
     ]);
 
     expect(result.totalValueNis).toBeNull();
-    expect(result.pricedValueNis).toBeCloseTo(100 * 3.0541, 0);
+    expect(result.pricedValueNis).toBeCloseTo(100 * USD_TO_NIS_RATE, 0);
     expect(result.failures).toHaveLength(1);
     expect(result.failures[0].holdingId).toBe("bad");
     expect(result.failures[0].reason).toContain("provider exploded");
@@ -125,6 +177,7 @@ describe("priceHoldings", () => {
     expect(fetchQuote).not.toHaveBeenCalled();
     expect(result.valuations[0].valueInNis).toBe(84919);
     expect(result.valuations[0].unitPrice).toBeNull();
+    expect(result.valuations[0].fxRateUsed).toBe(1);
     expect(result.totalValueNis).toBe(84919);
   });
 
@@ -164,22 +217,22 @@ describe("priceHoldings", () => {
   it("fails a holding quoted in a currency it cannot convert", async () => {
     fetchQuote.mockResolvedValue({
       price: 10,
-      currency: "EUR",
+      currency: "GBP",
       fetchedAt: new Date(),
-      source: "Finnhub",
+      source: "Yahoo Finance",
     });
     const result = await priceHoldings([holding()]);
     expect(result.failures).toHaveLength(1);
-    expect(result.failures[0].reason).toMatch(/EUR/);
+    expect(result.failures[0].reason).toMatch(/GBP/);
     expect(result.totalValueNis).toBeNull();
   });
 
   it("propagates an FX failure rather than returning a partial result", async () => {
-    getUsdToNisRate.mockRejectedValue(new Error("fx down"));
+    getRateToNis.mockRejectedValue(new Error("fx down"));
     await expect(priceHoldings([holding()])).rejects.toThrow(/fx down/);
   });
 
-  it("fetches the FX rate once regardless of holding count", async () => {
+  it("fetches each currency's rate once regardless of holding count", async () => {
     fetchQuote.mockResolvedValue({
       price: 1,
       currency: "USD",
@@ -191,21 +244,12 @@ describe("priceHoldings", () => {
       holding({ id: "b" }),
       holding({ id: "c" }),
     ]);
-    expect(getUsdToNisRate).toHaveBeenCalledTimes(1);
+    expect(getRateToNis).toHaveBeenCalledTimes(1);
   });
 
   it("returns a zero total and no failures for an empty portfolio", async () => {
     const result = await priceHoldings([]);
     expect(result.totalValueNis).toBe(0);
     expect(result.failures).toEqual([]);
-  });
-});
-
-describe("SUPPORTED_CURRENCIES", () => {
-  it("lists exactly the currencies convertToNis can convert", () => {
-    for (const currency of SUPPORTED_CURRENCIES) {
-      expect(() => convertToNis(1, currency, 3.0541)).not.toThrow();
-    }
-    expect(() => convertToNis(1, "EUR", 3.0541)).toThrow(/EUR/);
   });
 });

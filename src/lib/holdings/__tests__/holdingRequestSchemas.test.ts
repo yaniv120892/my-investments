@@ -49,10 +49,10 @@ describe("parseCreateHoldingBody", () => {
 
   it("rejects an unknown price source", () => {
     const fieldErrors = fieldErrorsOf(() =>
-      parseCreateHoldingBody({ ...VALID_BODY, priceSource: "YAHOO" })
+      parseCreateHoldingBody({ ...VALID_BODY, priceSource: "MORNINGSTAR" })
     );
 
-    expect(fieldErrors.priceSource).toContain("YAHOO");
+    expect(fieldErrors.priceSource).toContain("MORNINGSTAR");
   });
 
   it("rejects unknown fields rather than silently dropping them", () => {

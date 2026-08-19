@@ -45,9 +45,9 @@ describe("PlatformWriteValidator.assertCanCreatePlatform", () => {
     await expect(
       validator.assertCanCreatePlatform(OWNER_USER_ID, {
         name: "Degiro",
-        baseCurrency: "EUR",
+        baseCurrency: "JPY",
       })
-    ).rejects.toThrow(/EUR/);
+    ).rejects.toThrow(/JPY/);
   });
 
   it("rejects a duplicate platform name for the same user", async () => {
