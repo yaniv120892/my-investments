@@ -27,7 +27,8 @@ import {
 const REQUIRES_SOURCE_SYMBOL = {
   [PriceSource.FINNHUB]: true,
   [PriceSource.BINANCE]: true,
-  [PriceSource.BIZPORTAL]: true,
+  [PriceSource.YAHOO]: true,
+  [PriceSource.MAYA]: true,
   [PriceSource.MANUAL]: false,
 } satisfies Record<PriceSource, boolean>;
 

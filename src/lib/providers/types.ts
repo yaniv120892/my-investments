@@ -1,10 +1,9 @@
 import type { PriceSource } from "@prisma/client";
-
-export type Currency = "USD" | "NIS";
+import type { SupportedCurrency } from "@/lib/pricing/supportedCurrencies";
 
 export interface Quote {
   price: number;
-  currency: Currency;
+  currency: SupportedCurrency;
   fetchedAt: Date;
   source: string;
 }

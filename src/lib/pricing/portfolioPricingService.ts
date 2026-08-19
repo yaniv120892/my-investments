@@ -1,7 +1,7 @@
 import { PriceSource } from "@prisma/client";
 import type { Holding } from "@prisma/client";
 import { getProvider } from "@/lib/providers/providerRegistry";
-import { fxRateProvider } from "@/lib/providers/FxRateProvider";
+import { NisRateBook } from "@/lib/pricing/nisRateBook";
 import { describeError } from "@/utils/describeError";
 import type {
   HoldingValuation,
@@ -20,18 +20,23 @@ export {
   isSupportedCurrency,
 } from "@/lib/pricing/supportedCurrencies";
 
+const NIS_TO_NIS_RATE = 1;
+
 export async function priceHoldings(
   holdings: Holding[]
 ): Promise<PricingResult> {
-  const rate = await fxRateProvider.getUsdToNisRate();
-  const usdToNisRate = rate.price;
+  const rateBook = new NisRateBook();
+
+  // The dashboard converts every displayed figure with this one rate, so it is
+  // fetched whether or not a holding happens to be quoted in USD.
+  const usdToNisRate = await rateBook.getRateToNis("USD");
 
   const valuations: HoldingValuation[] = [];
   const failures: PricingFailure[] = [];
 
   for (const holding of holdings) {
     try {
-      valuations.push(await valueHolding(holding, usdToNisRate));
+      valuations.push(await valueHolding(holding, rateBook));
     } catch (error) {
       failures.push({
         holdingId: holding.id,
@@ -60,23 +65,6 @@ export async function priceHoldings(
   };
 }
 
-export function convertToNis(
-  amount: number,
-  fromCurrency: string,
-  usdToNisRate: number
-): number {
-  switch (fromCurrency) {
-    case "NIS":
-      return amount;
-    case "USD":
-      return amount * usdToNisRate;
-    default:
-      throw new Error(
-        `Cannot convert to NIS from unsupported currency (currency: ${fromCurrency}, amount: ${amount})`
-      );
-  }
-}
-
 /**
  * Failures are returned to the caller instead of thrown, so nothing else on the
  * server records them: a production run that prices 22 of 29 holdings otherwise
@@ -101,7 +89,7 @@ function logPricingFailures(failures: PricingFailure[]): void {
 
 async function valueHolding(
   holding: Holding,
-  usdToNisRate: number
+  rateBook: NisRateBook
 ): Promise<HoldingValuation> {
   if (holding.priceSource === PriceSource.MANUAL) {
     return valueManualHolding(holding);
@@ -115,17 +103,15 @@ async function valueHolding(
 
   const provider = getProvider(holding.priceSource);
   const quote = await provider.fetchQuote(holding.sourceSymbol);
+  const fxRateUsed = await rateBook.getRateToNis(quote.currency);
 
   return {
     holdingId: holding.id,
     assetName: holding.assetName,
-    valueInNis: convertToNis(
-      holding.quantity * quote.price,
-      quote.currency,
-      usdToNisRate
-    ),
+    valueInNis: holding.quantity * quote.price * fxRateUsed,
     unitPrice: quote.price,
     currency: quote.currency,
+    fxRateUsed,
     fetchedAt: quote.fetchedAt,
   };
 }
@@ -146,6 +132,7 @@ function valueManualHolding(holding: Holding): HoldingValuation {
     valueInNis: holding.manualValueNis,
     unitPrice: null,
     currency: "NIS",
+    fxRateUsed: NIS_TO_NIS_RATE,
     fetchedAt: holding.manualValueUpdatedAt ?? holding.updatedAt,
   };
 }

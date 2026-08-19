@@ -105,11 +105,11 @@ describe("HoldingWriteValidator.assertCanCreateHolding", () => {
     const fieldErrors = await expectFieldErrors(
       validator.assertCanCreateHolding(
         OWNER_USER_ID,
-        createHoldingInputFixture({ currency: "EUR" })
+        createHoldingInputFixture({ currency: "JPY" })
       )
     );
 
-    expect(fieldErrors.currency).toContain("EUR");
+    expect(fieldErrors.currency).toContain("JPY");
     expect(fieldErrors.currency).toContain("NIS");
   });
 
@@ -355,7 +355,7 @@ describe("HoldingWriteValidator.assertCanUpdateHolding", () => {
 
     await expect(
       validator.assertCanUpdateHolding(OWNER_USER_ID, "holding-1", {
-        priceSource: PriceSource.BIZPORTAL,
+        priceSource: PriceSource.YAHOO,
         sourceSymbol: "1159250",
       })
     ).resolves.toBeDefined();
