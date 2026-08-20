@@ -1,8 +1,7 @@
 -- Yahoo answers this app's Vercel region with 429s, so the three TASE-listed
--- iShares ETFs move to Maya's traded-fund endpoint, which already serves the
--- mutual fund from the same host. Maya splits its two products across endpoints
--- that reject each other's ids, so MAYA becomes MAYA_FUND and MAYA_ETF rather
--- than one source guessing which endpoint an id belongs to.
+-- iShares ETFs move to Maya, which already serves the mutual fund. MAYA splits
+-- into MAYA_FUND and MAYA_ETF because Maya's two products live on endpoints
+-- that reject each other's ids (see mayaApi.ts).
 --
 -- The symbols go back to the TASE security ids these holdings used before the
 -- move to Yahoo, and back to being quoted in agorot — the same series the

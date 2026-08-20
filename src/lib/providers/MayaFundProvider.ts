@@ -1,10 +1,5 @@
 import { PriceSource } from "@prisma/client";
-import {
-  MAYA_CURRENCY,
-  MAYA_SOURCE_LABEL,
-  agorotToNis,
-  fetchMayaJson,
-} from "@/lib/providers/mayaApi";
+import { buildMayaQuote, fetchMayaJson } from "@/lib/providers/mayaApi";
 import type { PriceProvider, Quote } from "@/lib/providers/types";
 
 interface MayaFundDetails {
@@ -19,16 +14,11 @@ export class MayaFundProvider implements PriceProvider {
     const target = `fund: ${sourceSymbol}`;
     const data = await fetchMayaJson<MayaFundDetails>(
       "fund/details",
-      { fundId: sourceSymbol },
+      sourceSymbol,
       target
     );
 
-    return {
-      price: agorotToNis(data?.UnitValuePrice, target, Object.keys(data ?? {})),
-      currency: MAYA_CURRENCY,
-      fetchedAt: new Date(),
-      source: MAYA_SOURCE_LABEL,
-    };
+    return buildMayaQuote(data?.UnitValuePrice, target, data);
   }
 }
 

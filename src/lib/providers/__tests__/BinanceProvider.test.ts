@@ -1,15 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BinanceProvider } from "@/lib/providers/BinanceProvider";
-
-function mockFetch(
-  body: unknown,
-  ok = true,
-  status = 200
-): ReturnType<typeof vi.fn> {
-  const spy = vi.fn().mockResolvedValue({ ok, status, json: async () => body });
-  vi.stubGlobal("fetch", spy);
-  return spy;
-}
+import { fetchCall, mockFetch } from "@/lib/providers/__tests__/mockFetch";
 
 describe("BinanceProvider", () => {
   afterEach(() => {
@@ -32,9 +23,9 @@ describe("BinanceProvider", () => {
     ["1INCH", "1INCHUSDT"],
     ["BTC - קריפטו", "BTCUSDT"],
   ])("normalises %s to the pair %s", async (input, expected) => {
-    const spy = mockFetch({ price: "1.0" });
+    mockFetch({ price: "1.0" });
     await new BinanceProvider().fetchQuote(input);
-    expect(spy.mock.calls[0][0]).toContain(expected);
+    expect(fetchCall()[0]).toContain(expected);
   });
 
   it("names the region as the cause when Binance replies 451", async () => {

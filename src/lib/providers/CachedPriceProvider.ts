@@ -17,12 +17,15 @@ interface CachedQuote {
 
 /**
  * /api/holdings prices the entire portfolio on every dashboard load, and none of
- * the upstreams tolerate that: Yahoo starts returning 429 after a handful of
- * requests from one IP, and Finnhub's free tier caps at sixty a minute. Sharing
- * the FX cache's one-hour TTL collapses any number of refreshes within an hour
- * into a single call per symbol. Redis failures fall through to a live fetch —
+ * the upstreams tolerate that: Maya sits behind a WAF that reads bursts as
+ * scraping, and Finnhub's free tier caps at sixty a minute. Sharing the FX
+ * cache's one-hour TTL collapses any number of refreshes within an hour into a
+ * single call per symbol. Redis failures fall through to a live fetch —
  * getCachedData swallows them. Failures are deliberately not cached, so a
- * recovered upstream is picked up immediately rather than after the TTL.
+ * recovered upstream is picked up immediately rather than after the TTL; the
+ * cost is that an upstream outage leaves a holding with no price at all rather
+ * than a stale one, which is what turns a bad provider day into a skipped
+ * snapshot.
  */
 export class CachedPriceProvider implements PriceProvider {
   public readonly source: PriceSource;
