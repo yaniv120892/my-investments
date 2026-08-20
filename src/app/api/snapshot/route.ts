@@ -5,7 +5,10 @@ import {
   isCronSecretAuthorized,
   isSnapshotRequestAuthorized,
 } from "@/lib/snapshotAuthorization";
-import { sendSnapshotNotification } from "@/lib/telegramNotifier";
+import {
+  sendErrorNotification,
+  sendSnapshotNotification,
+} from "@/lib/telegramNotifier";
 import { describeError } from "@/utils/describeError";
 
 interface SkippedUser {
@@ -50,12 +53,11 @@ async function runSnapshot(): Promise<NextResponse> {
       const pricing = await priceHoldings(user.holdings);
 
       if (pricing.failures.length > 0) {
-        skipped.push({
-          userId: user.id,
-          reasons: pricing.failures.map(
-            (failure) => `${failure.assetName}: ${failure.reason}`
-          ),
-        });
+        const reasons = pricing.failures.map(
+          (failure) => `${failure.assetName}: ${failure.reason}`
+        );
+        skipped.push({ userId: user.id, reasons });
+        await notifySkippedSnapshot(user.id, reasons);
         continue;
       }
 
@@ -75,7 +77,7 @@ async function runSnapshot(): Promise<NextResponse> {
               valuation.unitPrice ??
               (quantity > 0 ? valuation.valueInNis / quantity : 0),
             currency: valuation.currency,
-            fxRateUsed: pricing.usdToNisRate,
+            fxRateUsed: valuation.fxRateUsed,
             valueNis: valuation.valueInNis,
           },
         });
@@ -92,10 +94,57 @@ async function runSnapshot(): Promise<NextResponse> {
       skipped,
     });
   } catch (error) {
-    console.error("Snapshot error:", describeError(error));
+    // The per-holding failures above are announced one user at a time, but
+    // anything thrown out of the loop — an FX outage, a database error — kills
+    // every remaining user at once and would otherwise be the one total failure
+    // nobody hears about.
+    await notifyFailedSnapshot(error);
     return NextResponse.json(
       { error: `Snapshot failed (${describeError(error)})` },
       { status: 500 }
+    );
+  }
+}
+
+async function notifyFailedSnapshot(error: unknown): Promise<void> {
+  const reason = describeError(error);
+  console.error("Snapshot error:", reason);
+
+  const wasSent = await sendErrorNotification(
+    `Snapshot run failed before it could finish, so no user was priced: ${reason}`
+  );
+
+  if (!wasSent) {
+    console.error(
+      `Snapshot run failed and the Telegram alert could not be delivered; reason: ${reason}`
+    );
+  }
+}
+
+/**
+ * A snapshot is all-or-nothing: one unpriced holding would otherwise write a
+ * short day and put a fake dip in the net-worth chart. That makes a broken
+ * provider look like silence, so the skip has to announce itself — Bizportal's
+ * geo-block cost three and a half weeks of history before anyone noticed.
+ */
+async function notifySkippedSnapshot(
+  userId: string,
+  reasons: string[]
+): Promise<void> {
+  // sendErrorNotification reports failure by returning false rather than
+  // throwing, so discarding it would leave the alert about a silent failure
+  // failing silently itself.
+  const wasSent = await sendErrorNotification(
+    `No snapshot written for user ${userId} — ${
+      reasons.length
+    } holding(s) could not be priced:\n\n${reasons.join("\n")}`
+  );
+
+  if (!wasSent) {
+    console.error(
+      `Snapshot skipped for user ${userId} and the Telegram alert could not be delivered; reasons: ${reasons.join(
+        "; "
+      )}`
     );
   }
 }

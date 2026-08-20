@@ -2,12 +2,15 @@ import { PriceSource } from "@prisma/client";
 import type { PriceProvider } from "@/lib/providers/types";
 import { finnhubProvider } from "@/lib/providers/FinnhubProvider";
 import { binanceProvider } from "@/lib/providers/BinanceProvider";
-import { bizportalProvider } from "@/lib/providers/BizportalProvider";
+import { mayaEtfProvider } from "@/lib/providers/MayaEtfProvider";
+import { mayaFundProvider } from "@/lib/providers/MayaFundProvider";
+import { CachedPriceProvider } from "@/lib/providers/CachedPriceProvider";
 
 const PROVIDERS = {
-  [PriceSource.FINNHUB]: finnhubProvider,
-  [PriceSource.BINANCE]: binanceProvider,
-  [PriceSource.BIZPORTAL]: bizportalProvider,
+  [PriceSource.FINNHUB]: new CachedPriceProvider(finnhubProvider),
+  [PriceSource.BINANCE]: new CachedPriceProvider(binanceProvider),
+  [PriceSource.MAYA_ETF]: new CachedPriceProvider(mayaEtfProvider),
+  [PriceSource.MAYA_FUND]: new CachedPriceProvider(mayaFundProvider),
   [PriceSource.MANUAL]: null,
 } satisfies Record<PriceSource, PriceProvider | null>;
 

@@ -6,7 +6,8 @@ describe("getProvider", () => {
   it.each([
     [PriceSource.FINNHUB],
     [PriceSource.BINANCE],
-    [PriceSource.BIZPORTAL],
+    [PriceSource.MAYA_ETF],
+    [PriceSource.MAYA_FUND],
   ])("returns a provider whose source matches %s", (source) => {
     expect(getProvider(source).source).toBe(source);
   });
