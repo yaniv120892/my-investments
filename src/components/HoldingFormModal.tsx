@@ -10,7 +10,11 @@ import {
   useUpdateHolding,
 } from "@/lib/hooks";
 import { SUPPORTED_CURRENCIES } from "@/lib/pricing/supportedCurrencies";
-import { getAssetClassLabel, getLiquidityLabel } from "@/utils/format";
+import {
+  getAssetClassLabel,
+  getLiquidityLabel,
+  getPriceSourceLabel,
+} from "@/utils/format";
 import { describeError } from "@/utils/describeError";
 
 interface HoldingFormModalProps {
@@ -301,7 +305,7 @@ export default function HoldingFormModal({
             >
               {PRICE_SOURCE_OPTIONS.map((priceSource) => (
                 <option key={priceSource} value={priceSource}>
-                  {priceSource}
+                  {getPriceSourceLabel(priceSource)}
                 </option>
               ))}
             </select>

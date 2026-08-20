@@ -1,12 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FinnhubProvider } from "@/lib/providers/FinnhubProvider";
-
-function mockFetch(body: unknown, ok = true, status = 200): void {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({ ok, status, json: async () => body })
-  );
-}
+import { mockFetch } from "@/lib/providers/__tests__/mockFetch";
 
 describe("FinnhubProvider", () => {
   afterEach(() => {

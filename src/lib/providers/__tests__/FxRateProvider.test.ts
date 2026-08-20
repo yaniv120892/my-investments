@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FxRateProvider } from "@/lib/providers/FxRateProvider";
+import { mockFetch } from "@/lib/providers/__tests__/mockFetch";
 
 vi.mock("@/lib/redis", () => ({
   generateMarketDataKey: (symbol: string, type: string) =>
@@ -7,13 +8,6 @@ vi.mock("@/lib/redis", () => ({
   getCachedData: async () => null,
   setCachedData: async () => undefined,
 }));
-
-function mockFetch(body: unknown, ok = true, status = 200): void {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({ ok, status, json: async () => body })
-  );
-}
 
 describe("FxRateProvider", () => {
   beforeEach(() => {
