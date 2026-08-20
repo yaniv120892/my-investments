@@ -22,6 +22,11 @@
     "postinstall": "prisma generate --schema src/prisma/schema.prisma"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.11",
+    "@mui/material": "^7.3.11",
+    "@mui/material-nextjs": "^7.3.10",
     "@prisma/client": "^6.13.0",
     "@prisma/extension-accelerate": "^2.0.2",
     "@tanstack/react-query": "^5.84.1",
@@ -44,13 +49,11 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.4.5",
-    "tailwindcss": "^4",
     "tsx": "^4.23.1",
     "typescript": "^5",
     "vite-tsconfig-paths": "^6.1.1",

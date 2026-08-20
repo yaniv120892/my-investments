@@ -1,5 +1,18 @@
 "use client";
 
+import {
+  Card,
+  CardContent,
+  Chip,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+} from "@mui/material";
 import type { PlatformDrift } from "@/lib/api";
 import { formatMoney, type DisplayCurrency } from "@/utils/format";
 
@@ -19,84 +32,92 @@ export default function TargetDrift({
   }
 
   return (
-    <div className="space-y-6">
+    <Stack spacing={{ xs: 2, md: 3 }}>
       {drift.map((platform) => (
-        <div
-          key={platform.platformName}
-          className="bg-white dark:bg-gray-800 rounded-lg shadow p-6"
-        >
-          <div className="flex items-baseline justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              Rebalancing — {platform.platformName}
-            </h3>
-            {Math.abs(platform.targetTotalPercent - 100) > 0.01 && (
-              <span className="text-xs text-amber-600 dark:text-amber-400">
-                targets sum to {platform.targetTotalPercent.toFixed(0)}%, not
-                100%
-              </span>
-            )}
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-500 dark:text-gray-400">
-                  <th className="py-2 pr-4">Asset</th>
-                  <th className="py-2 pr-4 text-right">Actual</th>
-                  <th className="py-2 pr-4 text-right">Target</th>
-                  <th className="py-2 pr-4 text-right">Drift</th>
-                  <th className="py-2 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {platform.slices.map((slice) => (
-                  <tr
-                    key={slice.key}
-                    className="border-t border-gray-100 dark:border-gray-700"
-                  >
-                    <td className="py-2 pr-4 text-gray-900 dark:text-white">
-                      {slice.key}
-                    </td>
-                    <td className="py-2 pr-4 text-right text-gray-700 dark:text-gray-300">
-                      {slice.actualPercent.toFixed(1)}%
-                    </td>
-                    <td className="py-2 pr-4 text-right text-gray-700 dark:text-gray-300">
-                      {slice.targetPercent === null
-                        ? "—"
-                        : `${slice.targetPercent.toFixed(1)}%`}
-                    </td>
-                    <td
-                      className={`py-2 pr-4 text-right ${
-                        slice.driftPercent === null
-                          ? "text-gray-400"
-                          : slice.driftPercent >= 0
-                          ? "text-amber-600 dark:text-amber-400"
-                          : "text-blue-600 dark:text-blue-400"
-                      }`}
-                    >
-                      {slice.driftPercent === null
-                        ? "—"
-                        : `${
-                            slice.driftPercent >= 0 ? "+" : ""
-                          }${slice.driftPercent.toFixed(1)}%`}
-                    </td>
-                    <td className="py-2 text-right text-gray-900 dark:text-white">
-                      {slice.rebalanceAmountNis === null
-                        ? "—"
-                        : `${
-                            slice.rebalanceAmountNis >= 0 ? "Buy " : "Sell "
-                          }${formatMoney(
-                            Math.abs(slice.rebalanceAmountNis),
-                            displayCurrency,
-                            usdToNisRate
-                          )}`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <Card key={platform.platformName}>
+          <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              spacing={1}
+              sx={{ mb: 2 }}
+            >
+              <Typography variant="h4" component="h2">
+                {platform.platformName}
+              </Typography>
+              {Math.abs(platform.targetTotalPercent - 100) > 0.01 && (
+                <Chip
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                  label={`Targets sum to ${platform.targetTotalPercent.toFixed(
+                    0
+                  )}%, not 100%`}
+                />
+              )}
+            </Stack>
+
+            <TableContainer sx={{ overflowX: "auto" }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Asset</TableCell>
+                    <TableCell align="right">Actual</TableCell>
+                    <TableCell align="right">Target</TableCell>
+                    <TableCell align="right">Drift</TableCell>
+                    <TableCell align="right">Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {platform.slices.map((slice) => (
+                    <TableRow key={slice.key} hover>
+                      <TableCell dir="auto">{slice.key}</TableCell>
+                      <TableCell align="right">
+                        {slice.actualPercent.toFixed(1)}%
+                      </TableCell>
+                      <TableCell align="right">
+                        {slice.targetPercent === null
+                          ? "—"
+                          : `${slice.targetPercent.toFixed(1)}%`}
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{
+                          fontWeight: 600,
+                          color:
+                            slice.driftPercent === null
+                              ? "text.disabled"
+                              : slice.driftPercent >= 0
+                                ? "warning.main"
+                                : "info.main",
+                        }}
+                      >
+                        {slice.driftPercent === null
+                          ? "—"
+                          : `${
+                              slice.driftPercent >= 0 ? "+" : ""
+                            }${slice.driftPercent.toFixed(1)}%`}
+                      </TableCell>
+                      <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                        {slice.rebalanceAmountNis === null
+                          ? "—"
+                          : `${
+                              slice.rebalanceAmountNis >= 0 ? "Buy " : "Sell "
+                            }${formatMoney(
+                              Math.abs(slice.rebalanceAmountNis),
+                              displayCurrency,
+                              usdToNisRate
+                            )}`}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
       ))}
-    </div>
+    </Stack>
   );
 }

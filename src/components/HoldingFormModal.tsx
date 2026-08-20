@@ -1,7 +1,23 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
-import type { AssetClass, Liquidity, Platform, PriceSource } from "@prisma/client";
+import { useState, type FormEvent } from "react";
+import type {
+  AssetClass,
+  Liquidity,
+  Platform,
+  PriceSource,
+} from "@prisma/client";
+import {
+  Alert,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  TextField,
+} from "@mui/material";
 import { ApiError } from "@/lib/apiError";
 import type { CreateHoldingInput, PricedHolding } from "@/lib/api";
 import {
@@ -49,11 +65,6 @@ const PRICE_SOURCE_OPTIONS: PriceSource[] = [
   "MAYA_FUND",
   "MANUAL",
 ];
-
-const FIELD_CLASS_NAME =
-  "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500";
-const LABEL_CLASS_NAME =
-  "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
 
 export default function HoldingFormModal({
   holding,
@@ -125,310 +136,251 @@ export default function HoldingFormModal({
     }
   };
 
-  const fieldError = (field: string): ReactNode => {
-    if (!fieldErrors[field]) {
-      return null;
-    }
-    return (
-      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-        {fieldErrors[field]}
-      </p>
-    );
-  };
+  const errorProps = (field: string, helperText?: string) => ({
+    error: Boolean(fieldErrors[field]),
+    helperText: fieldErrors[field] ?? helperText,
+  });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 overflow-y-auto">
-      <form
-        onSubmit={handleSubmit}
-        role="dialog"
-        aria-modal="true"
-        className="w-full max-w-2xl my-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg"
-      >
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-            {holding ? "Edit holding" : "Add holding"}
-          </h2>
-        </div>
+    <Dialog
+      open
+      onClose={isSaving ? undefined : onClose}
+      maxWidth="md"
+      fullWidth
+      slotProps={{ paper: { component: "form", onSubmit: handleSubmit } }}
+    >
+      <DialogTitle sx={{ typography: "h4" }}>
+        {holding ? "Edit holding" : "Add holding"}
+      </DialogTitle>
 
-        <div className="px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="sm:col-span-2">
-            <label htmlFor="platformId" className={LABEL_CLASS_NAME}>
-              Platform
-            </label>
-            <select
-              id="platformId"
-              value={values.platformId}
-              onChange={(event) =>
-                updateValue("platformId", event.target.value)
-              }
-              className={FIELD_CLASS_NAME}
-            >
-              <option value="">Select a platform</option>
-              {platforms.map((platform) => (
-                <option key={platform.id} value={platform.id}>
-                  {platform.name}
-                </option>
-              ))}
-              <option value={NEW_PLATFORM_VALUE}>+ New platform</option>
-            </select>
-            {fieldError("platformId")}
-          </div>
+      <DialogContent dividers>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+            gap: 2,
+            pt: 1,
+          }}
+        >
+          <TextField
+            select
+            id="platformId"
+            label="Platform"
+            value={values.platformId}
+            onChange={(event) => updateValue("platformId", event.target.value)}
+            fullWidth
+            sx={{ gridColumn: { sm: "span 2" } }}
+            {...errorProps("platformId")}
+          >
+            <MenuItem value="">Select a platform</MenuItem>
+            {platforms.map((platform) => (
+              <MenuItem key={platform.id} value={platform.id}>
+                {platform.name}
+              </MenuItem>
+            ))}
+            <MenuItem value={NEW_PLATFORM_VALUE}>+ New platform</MenuItem>
+          </TextField>
 
           {isCreatingPlatform && (
             <>
-              <div>
-                <label htmlFor="newPlatformName" className={LABEL_CLASS_NAME}>
-                  New platform name
-                </label>
-                <input
-                  id="newPlatformName"
-                  dir="auto"
-                  value={values.newPlatformName}
-                  onChange={(event) =>
-                    updateValue("newPlatformName", event.target.value)
-                  }
-                  className={FIELD_CLASS_NAME}
-                />
-                {fieldError("name")}
-              </div>
-              <div>
-                <label
-                  htmlFor="newPlatformBaseCurrency"
-                  className={LABEL_CLASS_NAME}
-                >
-                  New platform base currency
-                </label>
-                <select
-                  id="newPlatformBaseCurrency"
-                  value={values.newPlatformBaseCurrency}
-                  onChange={(event) =>
-                    updateValue("newPlatformBaseCurrency", event.target.value)
-                  }
-                  className={FIELD_CLASS_NAME}
-                >
-                  {SUPPORTED_CURRENCIES.map((currency) => (
-                    <option key={currency} value={currency}>
-                      {currency}
-                    </option>
-                  ))}
-                </select>
-                {fieldError("baseCurrency")}
-              </div>
+              <TextField
+                id="newPlatformName"
+                label="New platform name"
+                value={values.newPlatformName}
+                onChange={(event) =>
+                  updateValue("newPlatformName", event.target.value)
+                }
+                slotProps={{ htmlInput: { dir: "auto" } }}
+                fullWidth
+                {...errorProps("name")}
+              />
+              <TextField
+                select
+                id="newPlatformBaseCurrency"
+                label="New platform base currency"
+                value={values.newPlatformBaseCurrency}
+                onChange={(event) =>
+                  updateValue("newPlatformBaseCurrency", event.target.value)
+                }
+                fullWidth
+                {...errorProps("baseCurrency")}
+              >
+                {SUPPORTED_CURRENCIES.map((currency) => (
+                  <MenuItem key={currency} value={currency}>
+                    {currency}
+                  </MenuItem>
+                ))}
+              </TextField>
             </>
           )}
 
-          <div className="sm:col-span-2">
-            <label htmlFor="assetName" className={LABEL_CLASS_NAME}>
-              Asset name
-            </label>
-            <input
-              id="assetName"
-              dir="auto"
-              value={values.assetName}
-              onChange={(event) => updateValue("assetName", event.target.value)}
-              className={FIELD_CLASS_NAME}
-            />
-            {fieldError("assetName")}
-          </div>
+          <TextField
+            id="assetName"
+            label="Asset name"
+            value={values.assetName}
+            onChange={(event) => updateValue("assetName", event.target.value)}
+            slotProps={{ htmlInput: { dir: "auto" } }}
+            fullWidth
+            sx={{ gridColumn: { sm: "span 2" } }}
+            {...errorProps("assetName")}
+          />
 
-          <div>
-            <label htmlFor="assetClass" className={LABEL_CLASS_NAME}>
-              Asset class
-            </label>
-            <select
-              id="assetClass"
-              value={values.assetClass}
-              onChange={(event) => {
-                const selected = findOption(
-                  ASSET_CLASS_OPTIONS,
-                  event.target.value
-                );
-                if (selected) {
-                  updateValue("assetClass", selected);
-                }
-              }}
-              className={FIELD_CLASS_NAME}
-            >
-              {ASSET_CLASS_OPTIONS.map((assetClass) => (
-                <option key={assetClass} value={assetClass}>
-                  {getAssetClassLabel(assetClass)}
-                </option>
-              ))}
-            </select>
-            {fieldError("assetClass")}
-          </div>
+          <TextField
+            select
+            id="assetClass"
+            label="Asset class"
+            value={values.assetClass}
+            onChange={(event) => {
+              const selected = findOption(
+                ASSET_CLASS_OPTIONS,
+                event.target.value
+              );
+              if (selected) {
+                updateValue("assetClass", selected);
+              }
+            }}
+            fullWidth
+            {...errorProps("assetClass")}
+          >
+            {ASSET_CLASS_OPTIONS.map((assetClass) => (
+              <MenuItem key={assetClass} value={assetClass}>
+                {getAssetClassLabel(assetClass)}
+              </MenuItem>
+            ))}
+          </TextField>
 
-          <div>
-            <label htmlFor="liquidity" className={LABEL_CLASS_NAME}>
-              Liquidity
-            </label>
-            <select
-              id="liquidity"
-              value={values.liquidity}
-              onChange={(event) => {
-                const selected = findOption(
-                  LIQUIDITY_OPTIONS,
-                  event.target.value
-                );
-                if (selected) {
-                  updateValue("liquidity", selected);
-                }
-              }}
-              className={FIELD_CLASS_NAME}
-            >
-              {LIQUIDITY_OPTIONS.map((liquidity) => (
-                <option key={liquidity} value={liquidity}>
-                  {getLiquidityLabel(liquidity)}
-                </option>
-              ))}
-            </select>
-            {fieldError("liquidity")}
-          </div>
+          <TextField
+            select
+            id="liquidity"
+            label="Liquidity"
+            value={values.liquidity}
+            onChange={(event) => {
+              const selected = findOption(LIQUIDITY_OPTIONS, event.target.value);
+              if (selected) {
+                updateValue("liquidity", selected);
+              }
+            }}
+            fullWidth
+            {...errorProps("liquidity")}
+          >
+            {LIQUIDITY_OPTIONS.map((liquidity) => (
+              <MenuItem key={liquidity} value={liquidity}>
+                {getLiquidityLabel(liquidity)}
+              </MenuItem>
+            ))}
+          </TextField>
 
-          <div>
-            <label htmlFor="priceSource" className={LABEL_CLASS_NAME}>
-              Price source
-            </label>
-            <select
-              id="priceSource"
-              value={values.priceSource}
-              onChange={(event) => {
-                const selected = findOption(
-                  PRICE_SOURCE_OPTIONS,
-                  event.target.value
-                );
-                if (selected) {
-                  updateValue("priceSource", selected);
-                }
-              }}
-              className={FIELD_CLASS_NAME}
-            >
-              {PRICE_SOURCE_OPTIONS.map((priceSource) => (
-                <option key={priceSource} value={priceSource}>
-                  {getPriceSourceLabel(priceSource)}
-                </option>
-              ))}
-            </select>
-            {fieldError("priceSource")}
-          </div>
+          <TextField
+            select
+            id="priceSource"
+            label="Price source"
+            value={values.priceSource}
+            onChange={(event) => {
+              const selected = findOption(
+                PRICE_SOURCE_OPTIONS,
+                event.target.value
+              );
+              if (selected) {
+                updateValue("priceSource", selected);
+              }
+            }}
+            fullWidth
+            {...errorProps("priceSource")}
+          >
+            {PRICE_SOURCE_OPTIONS.map((priceSource) => (
+              <MenuItem key={priceSource} value={priceSource}>
+                {getPriceSourceLabel(priceSource)}
+              </MenuItem>
+            ))}
+          </TextField>
 
           {isManuallyPriced ? (
-            <div>
-              <label htmlFor="manualValueNis" className={LABEL_CLASS_NAME}>
-                Current value (NIS)
-              </label>
-              <input
-                id="manualValueNis"
-                type="number"
-                step="any"
-                value={values.manualValueNis}
-                onChange={(event) =>
-                  updateValue("manualValueNis", event.target.value)
-                }
-                className={FIELD_CLASS_NAME}
-              />
-              {fieldError("manualValueNis")}
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Stored as a fixed amount until you update it again.
-              </p>
-            </div>
+            <TextField
+              id="manualValueNis"
+              label="Current value (NIS)"
+              type="number"
+              value={values.manualValueNis}
+              onChange={(event) =>
+                updateValue("manualValueNis", event.target.value)
+              }
+              slotProps={{ htmlInput: { step: "any" } }}
+              fullWidth
+              {...errorProps(
+                "manualValueNis",
+                "Stored as a fixed amount until you update it again."
+              )}
+            />
           ) : (
             <>
-              <div>
-                <label htmlFor="sourceSymbol" className={LABEL_CLASS_NAME}>
-                  Symbol
-                </label>
-                <input
-                  id="sourceSymbol"
-                  value={values.sourceSymbol}
-                  onChange={(event) =>
-                    updateValue("sourceSymbol", event.target.value)
-                  }
-                  className={FIELD_CLASS_NAME}
-                />
-                {fieldError("sourceSymbol")}
-              </div>
-              <div>
-                <label htmlFor="currency" className={LABEL_CLASS_NAME}>
-                  Currency
-                </label>
-                <select
-                  id="currency"
-                  value={values.currency}
-                  onChange={(event) =>
-                    updateValue("currency", event.target.value)
-                  }
-                  className={FIELD_CLASS_NAME}
-                >
-                  {SUPPORTED_CURRENCIES.map((currency) => (
-                    <option key={currency} value={currency}>
-                      {currency}
-                    </option>
-                  ))}
-                </select>
-                {fieldError("currency")}
-              </div>
+              <TextField
+                id="sourceSymbol"
+                label="Symbol"
+                value={values.sourceSymbol}
+                onChange={(event) =>
+                  updateValue("sourceSymbol", event.target.value)
+                }
+                fullWidth
+                {...errorProps("sourceSymbol")}
+              />
+              <TextField
+                select
+                id="currency"
+                label="Currency"
+                value={values.currency}
+                onChange={(event) => updateValue("currency", event.target.value)}
+                fullWidth
+                {...errorProps("currency")}
+              >
+                {SUPPORTED_CURRENCIES.map((currency) => (
+                  <MenuItem key={currency} value={currency}>
+                    {currency}
+                  </MenuItem>
+                ))}
+              </TextField>
             </>
           )}
 
-          <div>
-            <label htmlFor="quantity" className={LABEL_CLASS_NAME}>
-              Quantity
-            </label>
-            <input
-              id="quantity"
-              type="number"
-              step="any"
-              value={values.quantity}
-              onChange={(event) => updateValue("quantity", event.target.value)}
-              className={FIELD_CLASS_NAME}
-            />
-            {fieldError("quantity")}
-          </div>
+          <TextField
+            id="quantity"
+            label="Quantity"
+            type="number"
+            value={values.quantity}
+            onChange={(event) => updateValue("quantity", event.target.value)}
+            slotProps={{ htmlInput: { step: "any" } }}
+            fullWidth
+            {...errorProps("quantity")}
+          />
 
-          <div>
-            <label htmlFor="targetPercent" className={LABEL_CLASS_NAME}>
-              Target percent (optional)
-            </label>
-            <input
-              id="targetPercent"
-              type="number"
-              step="any"
-              value={values.targetPercent}
-              onChange={(event) =>
-                updateValue("targetPercent", event.target.value)
-              }
-              className={FIELD_CLASS_NAME}
-            />
-            {fieldError("targetPercent")}
-          </div>
-        </div>
+          <TextField
+            id="targetPercent"
+            label="Target percent (optional)"
+            type="number"
+            value={values.targetPercent}
+            onChange={(event) =>
+              updateValue("targetPercent", event.target.value)
+            }
+            slotProps={{ htmlInput: { step: "any" } }}
+            fullWidth
+            {...errorProps("targetPercent")}
+          />
 
-        {formError && (
-          <div className="mx-6 mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-md text-sm">
-            {formError}
-          </div>
-        )}
+          {formError && (
+            <Alert severity="error" sx={{ gridColumn: { sm: "span 2" } }}>
+              {formError}
+            </Alert>
+          )}
+        </Box>
+      </DialogContent>
 
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSaving}
-            className="px-4 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="px-4 py-2 text-sm rounded-md bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-          >
-            {isSaving ? "Saving..." : "Save holding"}
-          </button>
-        </div>
-      </form>
-    </div>
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button onClick={onClose} disabled={isSaving} color="inherit">
+          Cancel
+        </Button>
+        <Button type="submit" variant="contained" disabled={isSaving}>
+          {isSaving ? "Saving…" : "Save holding"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
