@@ -157,6 +157,107 @@ describe("HoldingWriteService.updateHolding", () => {
   });
 });
 
+describe("HoldingWriteService.recordManualValues", () => {
+  function manualHolding(overrides = {}) {
+    return holdingFixture({
+      priceSource: PriceSource.MANUAL,
+      sourceSymbol: null,
+      currency: "NIS",
+      manualValueNis: 84919,
+      manualValueUpdatedAt: MANUAL_VALUE_UPDATED_AT,
+      ...overrides,
+    });
+  }
+
+  function manualRepository() {
+    return repositoryStub({
+      findHoldingOwnedBy: vi.fn(async () => manualHolding()),
+    });
+  }
+
+  it("re-dates a value the owner confirmed without changing it", async () => {
+    const repository = manualRepository();
+    const service = serviceFor(repository);
+
+    await service.recordManualValues(OWNER_USER_ID, [
+      { holdingId: "holding-1", manualValueNis: 84919 },
+    ]);
+
+    const [userId, holdingId, record] = vi.mocked(repository.recordManualValue)
+      .mock.calls[0];
+    expect(userId).toBe(OWNER_USER_ID);
+    expect(holdingId).toBe("holding-1");
+    expect(record.manualValueNis).toBe(84919);
+    expect(record.manualValueUpdatedAt).not.toEqual(MANUAL_VALUE_UPDATED_AT);
+  });
+
+  it("stamps one timestamp across the whole review", async () => {
+    const repository = manualRepository();
+    const service = serviceFor(repository);
+
+    await service.recordManualValues(OWNER_USER_ID, [
+      { holdingId: "holding-1", manualValueNis: 310000 },
+      { holdingId: "holding-2", manualValueNis: 96000 },
+    ]);
+
+    const [, , first] = vi.mocked(repository.recordManualValue).mock.calls[0];
+    const [, , second] = vi.mocked(repository.recordManualValue).mock.calls[1];
+    expect(first.manualValueUpdatedAt).toEqual(second.manualValueUpdatedAt);
+  });
+
+  it("writes nothing when one line of the review is invalid", async () => {
+    const repository = manualRepository();
+    const service = serviceFor(repository);
+
+    await expect(
+      service.recordManualValues(OWNER_USER_ID, [
+        { holdingId: "holding-1", manualValueNis: 310000 },
+        { holdingId: "holding-2", manualValueNis: -1 },
+      ])
+    ).rejects.toThrow(/cannot be negative/);
+    expect(repository.recordManualValue).not.toHaveBeenCalled();
+  });
+
+  it("refuses to store a value against a market-priced holding", async () => {
+    const repository = repositoryStub();
+    const service = serviceFor(repository);
+
+    await expect(
+      service.recordManualValues(OWNER_USER_ID, [
+        { holdingId: "holding-1", manualValueNis: 310000 },
+      ])
+    ).rejects.toThrow(/Only a manually priced holding/);
+    expect(repository.recordManualValue).not.toHaveBeenCalled();
+  });
+
+  it("refuses a holding that belongs to another user", async () => {
+    const repository = repositoryStub({
+      findHoldingOwnedBy: vi.fn(async () => null),
+    });
+    const service = serviceFor(repository);
+
+    await expect(
+      service.recordManualValues("user-other", [
+        { holdingId: "holding-1", manualValueNis: 310000 },
+      ])
+    ).rejects.toThrow(/holding-1/);
+    expect(repository.recordManualValue).not.toHaveBeenCalled();
+  });
+
+  it("refuses a review that confirms the same holding twice", async () => {
+    const repository = manualRepository();
+    const service = serviceFor(repository);
+
+    await expect(
+      service.recordManualValues(OWNER_USER_ID, [
+        { holdingId: "holding-1", manualValueNis: 310000 },
+        { holdingId: "holding-1", manualValueNis: 320000 },
+      ])
+    ).rejects.toThrow(/confirmed twice/);
+    expect(repository.recordManualValue).not.toHaveBeenCalled();
+  });
+});
+
 describe("HoldingWriteService.deleteHolding", () => {
   it("deletes the holding and its snapshots scoped to the owner", async () => {
     const repository = repositoryStub();

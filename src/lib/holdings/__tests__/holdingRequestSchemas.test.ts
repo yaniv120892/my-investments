@@ -3,6 +3,7 @@ import { AssetClass, Liquidity, PriceSource } from "@prisma/client";
 import {
   parseCreateHoldingBody,
   parseCreatePlatformBody,
+  parseRecordManualValuesBody,
   parseUpdateHoldingBody,
 } from "@/lib/holdings/holdingRequestSchemas";
 import { HoldingValidationError } from "@/lib/holdings/holdingWriteErrors";
@@ -87,6 +88,57 @@ describe("parseUpdateHoldingBody", () => {
     );
 
     expect(fieldErrors.quantity).toContain("148");
+  });
+});
+
+describe("parseRecordManualValuesBody", () => {
+  it("accepts a review of several balances", () => {
+    const input = parseRecordManualValuesBody({
+      values: [
+        { holdingId: "holding-1", manualValueNis: 310000 },
+        { holdingId: "holding-2", manualValueNis: 96000 },
+      ],
+    });
+
+    expect(input.values).toHaveLength(2);
+    expect(input.values[0]).toEqual({
+      holdingId: "holding-1",
+      manualValueNis: 310000,
+    });
+  });
+
+  it("rejects an empty review", () => {
+    const fieldErrors = fieldErrorsOf(() =>
+      parseRecordManualValuesBody({ values: [] })
+    );
+
+    expect(Object.keys(fieldErrors)).toContain("values");
+  });
+
+  it("rejects a value sent as text", () => {
+    const fieldErrors = fieldErrorsOf(() =>
+      parseRecordManualValuesBody({
+        values: [{ holdingId: "holding-1", manualValueNis: "310000" }],
+      })
+    );
+
+    expect(fieldErrors["values.0.manualValueNis"]).toContain("number in NIS");
+  });
+
+  it("rejects fields the review does not own, so an edit cannot ride along", () => {
+    const fieldErrors = fieldErrorsOf(() =>
+      parseRecordManualValuesBody({
+        values: [
+          {
+            holdingId: "holding-1",
+            manualValueNis: 310000,
+            manualValueUpdatedAt: "2020-01-01T00:00:00.000Z",
+          },
+        ],
+      })
+    );
+
+    expect(Object.keys(fieldErrors)).toContain("manualValueUpdatedAt");
   });
 });
 
