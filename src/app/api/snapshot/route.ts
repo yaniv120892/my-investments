@@ -94,10 +94,29 @@ async function runSnapshot(): Promise<NextResponse> {
       skipped,
     });
   } catch (error) {
-    console.error("Snapshot error:", describeError(error));
+    // The per-holding failures above are announced one user at a time, but
+    // anything thrown out of the loop — an FX outage, a database error — kills
+    // every remaining user at once and would otherwise be the one total failure
+    // nobody hears about.
+    await notifyFailedSnapshot(error);
     return NextResponse.json(
       { error: `Snapshot failed (${describeError(error)})` },
       { status: 500 }
+    );
+  }
+}
+
+async function notifyFailedSnapshot(error: unknown): Promise<void> {
+  const reason = describeError(error);
+  console.error("Snapshot error:", reason);
+
+  const wasSent = await sendErrorNotification(
+    `Snapshot run failed before it could finish, so no user was priced: ${reason}`
+  );
+
+  if (!wasSent) {
+    console.error(
+      `Snapshot run failed and the Telegram alert could not be delivered; reason: ${reason}`
     );
   }
 }
@@ -116,9 +135,9 @@ async function notifySkippedSnapshot(
   // throwing, so discarding it would leave the alert about a silent failure
   // failing silently itself.
   const wasSent = await sendErrorNotification(
-    `No snapshot written — ${reasons.length} holding(s) could not be priced:\n\n${reasons.join(
-      "\n"
-    )}`
+    `No snapshot written for user ${userId} — ${
+      reasons.length
+    } holding(s) could not be priced:\n\n${reasons.join("\n")}`
   );
 
   if (!wasSent) {

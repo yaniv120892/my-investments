@@ -45,6 +45,28 @@ describe("fetchMayaJson", () => {
       fetchMayaJson("etf/tradedata", "5109889", "security: 5109889")
     ).rejects.toThrow(/does not serve[\s\S]*hotlink/);
   });
+
+  /**
+   * A WAF challenge arrives as a 200 carrying HTML. The SyntaxError that raises
+   * names neither the security nor the url, and it is the error text that ends
+   * up in the Telegram alert.
+   */
+  it("names the target when a 200 turns out not to be JSON", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new SyntaxError("Unexpected token '<'");
+        },
+      })
+    );
+
+    await expect(
+      fetchMayaJson("etf/tradedata", "1159250", "security: 1159250")
+    ).rejects.toThrow(/1159250[\s\S]*etf\/tradedata/);
+  });
 });
 
 describe("buildMayaQuote", () => {
