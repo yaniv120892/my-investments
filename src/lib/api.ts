@@ -40,6 +40,12 @@ export interface UserSettings {
   baseCurrency: string;
 }
 
+/** The PATCH route echoes the settings row back, which carries no email. */
+export interface StoredUserSettings {
+  darkMode: boolean;
+  baseCurrency: string;
+}
+
 export interface PricingFailure {
   holdingId: string;
   assetName: string;
@@ -219,14 +225,14 @@ export const api = {
   },
 
   settings: {
-    get: async (): Promise<ApiResponse<UserSettings>> => {
+    get: async (): Promise<UserSettings> => {
       const response = await fetch(`${API_BASE}/user/settings`);
       return response.json();
     },
 
     update: async (
       data: Partial<UserSettings>
-    ): Promise<ApiResponse<UserSettings>> => {
+    ): Promise<StoredUserSettings> => {
       const response = await fetch(`${API_BASE}/user/settings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
