@@ -355,7 +355,7 @@ describe("HoldingWriteValidator.assertCanUpdateHolding", () => {
 
     await expect(
       validator.assertCanUpdateHolding(OWNER_USER_ID, "holding-1", {
-        priceSource: PriceSource.YAHOO,
+        priceSource: PriceSource.MAYA_ETF,
         sourceSymbol: "1159250",
       })
     ).resolves.toBeDefined();

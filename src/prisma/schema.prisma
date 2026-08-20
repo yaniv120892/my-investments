@@ -98,7 +98,7 @@ enum Liquidity {
 enum PriceSource {
   FINNHUB
   BINANCE
-  YAHOO
-  MAYA
+  MAYA_ETF
+  MAYA_FUND
   MANUAL
 }

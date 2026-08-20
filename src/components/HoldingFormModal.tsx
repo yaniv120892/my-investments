@@ -26,7 +26,11 @@ import {
   useUpdateHolding,
 } from "@/lib/hooks";
 import { SUPPORTED_CURRENCIES } from "@/lib/pricing/supportedCurrencies";
-import { getAssetClassLabel, getLiquidityLabel } from "@/utils/format";
+import {
+  getAssetClassLabel,
+  getLiquidityLabel,
+  getPriceSourceLabel,
+} from "@/utils/format";
 import { describeError } from "@/utils/describeError";
 
 interface HoldingFormModalProps {
@@ -57,8 +61,8 @@ const LIQUIDITY_OPTIONS: Liquidity[] = ["LIQUID", "ILLIQUID"];
 const PRICE_SOURCE_OPTIONS: PriceSource[] = [
   "FINNHUB",
   "BINANCE",
-  "YAHOO",
-  "MAYA",
+  "MAYA_ETF",
+  "MAYA_FUND",
   "MANUAL",
 ];
 
@@ -285,7 +289,7 @@ export default function HoldingFormModal({
           >
             {PRICE_SOURCE_OPTIONS.map((priceSource) => (
               <MenuItem key={priceSource} value={priceSource}>
-                {priceSource}
+                {getPriceSourceLabel(priceSource)}
               </MenuItem>
             ))}
           </TextField>
