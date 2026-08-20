@@ -46,7 +46,16 @@ export async function fetchMayaJson<T>(
     );
   }
 
-  return (await response.json()) as T;
+  // A WAF challenge can arrive as a 200 carrying HTML, and the SyntaxError that
+  // raises names neither the security nor the url — it would reach the Telegram
+  // alert as a bare "Unexpected token '<'".
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new Error(
+      `Maya returned a ${response.status} that was not JSON, which usually means a WAF challenge page (${describeTarget}, url: ${url})`
+    );
+  }
 }
 
 export function buildMayaQuote(
