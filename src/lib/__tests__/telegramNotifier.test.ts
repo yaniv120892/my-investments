@@ -30,9 +30,9 @@ describe("sendErrorNotification", () => {
   it("escapes the ampersand in a provider error URL, which HTML parse mode would reject", async () => {
     const { sendErrorNotification } = await import("@/lib/telegramNotifier");
     await sendErrorNotification(
-      "Yahoo quote request failed (url: https://query1.finance.yahoo.com/v8/finance/chart/CSPX.L?interval=1d&range=1d)"
+      "Maya request failed (url: https://mayaapi.tase.co.il/api/etf/tradedata?fundId=1159250&lang=en)"
     );
-    expect(sentText()).toContain("interval=1d&amp;range=1d");
+    expect(sentText()).toContain("fundId=1159250&amp;lang=en");
     expect(sentText()).not.toMatch(/&(?!amp;|lt;|gt;)/);
   });
 

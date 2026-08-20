@@ -127,7 +127,7 @@ describe("HoldingWriteService.updateHolding", () => {
     const service = serviceFor(repository);
 
     await service.updateHolding(OWNER_USER_ID, "holding-1", {
-      priceSource: PriceSource.YAHOO,
+      priceSource: PriceSource.MAYA_ETF,
       sourceSymbol: "1159250",
     });
 
