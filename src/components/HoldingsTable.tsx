@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import type { PricedHolding } from "@/lib/api";
 import { formatDate } from "@/utils/format";
+import { isManualValueStale } from "@/utils/manualValueFreshness";
 
 interface HoldingsTableProps {
   holdings: PricedHolding[];
@@ -69,8 +70,15 @@ export default function HoldingsTable({
                   {holding.priceSource === "MANUAL" ? (
                     <Stack spacing={0}>
                       <span>Manual value</span>
-                      <Typography variant="caption" color="text.disabled">
-                        {describeManualValueAge(holding.manualValueUpdatedAt)}
+                      <Typography
+                        variant="caption"
+                        color={
+                          isManualValueStale(holding.manualValueUpdatedAt)
+                            ? "warning.main"
+                            : "text.disabled"
+                        }
+                      >
+                        {describeAsOf(holding.manualValueUpdatedAt)}
                       </Typography>
                     </Stack>
                   ) : (
@@ -115,7 +123,7 @@ export default function HoldingsTable({
   );
 }
 
-function describeManualValueAge(manualValueUpdatedAt: Date | null): string {
+function describeAsOf(manualValueUpdatedAt: Date | null): string {
   if (manualValueUpdatedAt === null) {
     return "never confirmed";
   }

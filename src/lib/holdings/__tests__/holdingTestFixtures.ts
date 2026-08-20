@@ -73,6 +73,10 @@ export function repositoryStub(
       ...holdingFixture(),
       platform: platformFixture(),
     })),
+    recordManualValue: vi.fn(async () => ({
+      ...holdingFixture(),
+      platform: platformFixture(),
+    })),
     deleteHoldingWithSnapshots: vi.fn(async () => undefined),
     ...overrides,
   };

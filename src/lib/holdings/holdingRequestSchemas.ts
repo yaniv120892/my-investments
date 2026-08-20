@@ -5,6 +5,7 @@ import type {
   CreateHoldingInput,
   CreatePlatformInput,
   FieldErrorMap,
+  RecordManualValuesInput,
   UpdateHoldingInput,
 } from "@/lib/holdings/holdingWrite.types";
 
@@ -27,6 +28,19 @@ const createHoldingSchema = z.strictObject({
 
 const updateHoldingSchema = createHoldingSchema.partial();
 
+const recordManualValuesSchema = z.strictObject({
+  values: z
+    .array(
+      z.strictObject({
+        holdingId: z.string().min(1, "A holding must be identified"),
+        manualValueNis: z.number({
+          error: "A manual value must be a number in NIS",
+        }),
+      })
+    )
+    .min(1, "At least one manual value must be confirmed"),
+});
+
 const createPlatformSchema = z.strictObject({
   name: z.string().trim(),
   baseCurrency: z.string().trim(),
@@ -38,6 +52,12 @@ export function parseCreateHoldingBody(body: unknown): CreateHoldingInput {
 
 export function parseUpdateHoldingBody(body: unknown): UpdateHoldingInput {
   return parseWithSchema(updateHoldingSchema, body);
+}
+
+export function parseRecordManualValuesBody(
+  body: unknown
+): RecordManualValuesInput {
+  return parseWithSchema(recordManualValuesSchema, body);
 }
 
 export function parseCreatePlatformBody(body: unknown): CreatePlatformInput {

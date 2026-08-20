@@ -4,6 +4,7 @@ import type {
   HoldingPersistenceData,
   HoldingUpdateData,
   HoldingWithPlatform,
+  ManualValueRecord,
 } from "@/lib/holdings/holdingWrite.types";
 
 export class HoldingRepository {
@@ -61,6 +62,18 @@ export class HoldingRepository {
     return prisma.holding.update({
       where: { id: holdingId, userId },
       data,
+      include: { platform: true },
+    });
+  }
+
+  public async recordManualValue(
+    userId: string,
+    holdingId: string,
+    record: ManualValueRecord
+  ): Promise<HoldingWithPlatform> {
+    return prisma.holding.update({
+      where: { id: holdingId, userId },
+      data: record,
       include: { platform: true },
     });
   }

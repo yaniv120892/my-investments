@@ -15,6 +15,7 @@ import type {
   CreateHoldingInput,
   HoldingUpdateData,
   HoldingWithPlatform,
+  ManualValueEntry,
   UpdateHoldingInput,
 } from "@/lib/holdings/holdingWrite.types";
 
@@ -55,6 +56,35 @@ export class HoldingWriteService {
       holdingId,
       this.buildUpdateData(existingHolding, input)
     );
+  }
+
+  /**
+   * Confirming a balance always re-stamps manualValueUpdatedAt, even when the
+   * number has not moved — the owner is asserting what the statement says
+   * today, and a fund that happens to sit at the same shekel is still fresh.
+   * The general edit path deliberately does the opposite: renaming an asset
+   * must not pass a stale value off as a fresh reading.
+   *
+   * One timestamp covers the whole review, so a month's confirmations share a
+   * date rather than fanning out over however long the form was open.
+   */
+  public async recordManualValues(
+    userId: string,
+    entries: ManualValueEntry[]
+  ): Promise<HoldingWithPlatform[]> {
+    await this.validator.assertCanRecordManualValues(userId, entries);
+
+    const confirmedAt = new Date();
+    const recorded: HoldingWithPlatform[] = [];
+    for (const entry of entries) {
+      recorded.push(
+        await this.repository.recordManualValue(userId, entry.holdingId, {
+          manualValueNis: entry.manualValueNis,
+          manualValueUpdatedAt: confirmedAt,
+        })
+      );
+    }
+    return recorded;
   }
 
   public async deleteHolding(

@@ -17,6 +17,7 @@ import type {
   CreateHoldingInput,
   FieldErrorMap,
   HoldingWriteState,
+  ManualValueEntry,
   UpdateHoldingInput,
 } from "@/lib/holdings/holdingWrite.types";
 import {
@@ -57,11 +58,68 @@ export class HoldingWriteValidator {
     return existingHolding;
   }
 
+  /**
+   * Validates the whole review before any of it is written: a monthly pass over
+   * five balances that half-applies is worse than one that is rejected, because
+   * the owner cannot tell from the table which lines landed.
+   */
+  public async assertCanRecordManualValues(
+    userId: string,
+    entries: ManualValueEntry[]
+  ): Promise<Holding[]> {
+    const fieldErrors: FieldErrorMap = {};
+    const holdings: Holding[] = [];
+    const seenHoldingIds = new Set<string>();
+
+    for (const [index, entry] of entries.entries()) {
+      const holding = await this.loadOwnedHolding(userId, entry.holdingId);
+      holdings.push(holding);
+
+      if (seenHoldingIds.has(entry.holdingId)) {
+        fieldErrors[`values.${index}.holdingId`] =
+          `The same holding is confirmed twice in one review (holdingId: ${entry.holdingId})`;
+      }
+      seenHoldingIds.add(entry.holdingId);
+
+      this.collectManualValueError(entry, index, holding, fieldErrors);
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      throw new HoldingValidationError(fieldErrors);
+    }
+
+    return holdings;
+  }
+
   public async assertCanDeleteHolding(
     userId: string,
     holdingId: string
   ): Promise<Holding> {
     return this.loadOwnedHolding(userId, holdingId);
+  }
+
+  private collectManualValueError(
+    entry: ManualValueEntry,
+    index: number,
+    holding: Holding,
+    fieldErrors: FieldErrorMap
+  ): void {
+    const field = `values.${index}.manualValueNis`;
+
+    if (holding.priceSource !== PriceSource.MANUAL) {
+      fieldErrors[field] =
+        `Only a manually priced holding stores a value; this one is priced from ${holding.priceSource} (assetName: ${holding.assetName})`;
+      return;
+    }
+
+    if (!Number.isFinite(entry.manualValueNis)) {
+      fieldErrors[field] = `Manual value must be a finite number (received: ${entry.manualValueNis})`;
+      return;
+    }
+
+    if (entry.manualValueNis < 0) {
+      fieldErrors[field] = `Manual value cannot be negative (received: ${entry.manualValueNis})`;
+    }
   }
 
   private async assertStateIsValid(

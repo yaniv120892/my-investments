@@ -3,6 +3,7 @@ import { ApiError } from "@/lib/apiError";
 import type {
   CreateHoldingInput,
   CreatePlatformInput,
+  ManualValueEntry,
   UpdateHoldingInput,
 } from "@/lib/holdings/holdingWrite.types";
 
@@ -11,6 +12,7 @@ const API_BASE = "/api";
 export type {
   CreateHoldingInput,
   CreatePlatformInput,
+  ManualValueEntry,
   UpdateHoldingInput,
 } from "@/lib/holdings/holdingWrite.types";
 
@@ -97,6 +99,10 @@ export interface HoldingsResponse {
 
 export interface HoldingMutationResponse {
   holding: Holding & { platform: Platform };
+}
+
+export interface ManualValuesMutationResponse {
+  holdings: (Holding & { platform: Platform })[];
 }
 
 export interface PlatformsResponse {
@@ -200,6 +206,12 @@ export const api = {
       data: UpdateHoldingInput
     ): Promise<HoldingMutationResponse> => {
       return sendJson(`/holdings/${holdingId}`, "PATCH", data);
+    },
+
+    recordManualValues: async (
+      values: ManualValueEntry[]
+    ): Promise<ManualValuesMutationResponse> => {
+      return sendJson("/holdings/manual-values", "PATCH", { values });
     },
 
     remove: async (holdingId: string): Promise<{ id: string }> => {
