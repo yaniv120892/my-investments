@@ -1,8 +1,9 @@
 import { PriceSource } from "@prisma/client";
-import type { Currency, PriceProvider, Quote } from "@/lib/providers/types";
+import type { SupportedCurrency } from "@/lib/pricing/supportedCurrencies";
+import type { PriceProvider, Quote } from "@/lib/providers/types";
 
 const BINANCE_TICKER_URL = "https://api.binance.com/api/v3/ticker/price";
-const BINANCE_CURRENCY: Currency = "USD";
+const BINANCE_CURRENCY: SupportedCurrency = "USD";
 const GEO_BLOCKED_STATUS = 451;
 
 export class BinanceProvider implements PriceProvider {

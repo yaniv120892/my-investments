@@ -98,6 +98,7 @@ enum Liquidity {
 enum PriceSource {
   FINNHUB
   BINANCE
-  BIZPORTAL
+  YAHOO
+  MAYA
   MANUAL
 }
