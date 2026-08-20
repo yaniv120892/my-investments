@@ -57,7 +57,8 @@ const LIQUIDITY_OPTIONS: Liquidity[] = ["LIQUID", "ILLIQUID"];
 const PRICE_SOURCE_OPTIONS: PriceSource[] = [
   "FINNHUB",
   "BINANCE",
-  "BIZPORTAL",
+  "YAHOO",
+  "MAYA",
   "MANUAL",
 ];
 

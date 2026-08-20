@@ -4,6 +4,7 @@ export interface HoldingValuation {
   valueInNis: number;
   unitPrice: number | null;
   currency: string;
+  fxRateUsed: number;
   fetchedAt: Date;
 }
 

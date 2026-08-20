@@ -164,7 +164,7 @@ The repo has no test framework. Everything downstream is TDD, so this comes firs
 
 **Interfaces:**
 - Consumes: nothing
-- Produces: `npm test` / `npm run test:run` (single pass), `npm run test:watch` (watch), `npm run test:unit` (excludes contract tests)
+- Produces: `npm test` (single pass), `npm run test:watch` (watch), `npm run test:unit` (excludes contract tests)
 
 - [ ] **Step 1: Install dev dependencies**
 
