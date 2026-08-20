@@ -46,3 +46,7 @@ backups/
 
 # claude code worktrees
 .claude/worktrees/
+
+# agent scratch/design docs: knowledge belongs in CLAUDE.md, not checked-in plans
+/.superpowers/
+/docs/superpowers/
