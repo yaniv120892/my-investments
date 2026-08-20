@@ -112,10 +112,10 @@ export const SHEET_HOLDINGS: SheetHolding[] = [
   irish("Irish S&P", 5, 801.39, 12207),
   irish("Irish NASDAQ", 4, 682.99, 8323),
 
-  excellence("iShares CORE S&P 500", PriceSource.YAHOO, "CSPX.L", 126, 2442.9, 54.0),
-  excellence("iShares CORE MSCI EUROPE", PriceSource.YAHOO, "IMAE.AS", 342, 363.4, 22.5),
-  excellence("iShares CORE MSCI EM IMI", PriceSource.YAHOO, "EIMI.L", 573, 160.9, 13.5),
-  excellence("TLV 125", PriceSource.MAYA, "5109889", 13240, 4.5921, 10.0),
+  excellence("iShares CORE S&P 500", PriceSource.MAYA_ETF, "1159250", 126, 2442.9, 54.0),
+  excellence("iShares CORE MSCI EUROPE", PriceSource.MAYA_ETF, "1159094", 342, 363.4, 22.5),
+  excellence("iShares CORE MSCI EM IMI", PriceSource.MAYA_ETF, "1159169", 573, 160.9, 13.5),
+  excellence("TLV 125", PriceSource.MAYA_FUND, "5109889", 13240, 4.5921, 10.0),
 
   crypto("BTC", 0.319043, 35),
   crypto("ETH", 2.84245873, 25),
