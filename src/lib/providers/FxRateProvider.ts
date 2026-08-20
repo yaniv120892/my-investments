@@ -7,7 +7,18 @@ import {
 import type { SupportedCurrency } from "@/lib/pricing/supportedCurrencies";
 
 const FX_RATE_URL = "https://api.frankfurter.dev/v1/latest";
-const NIS_ISO_CODE = "ILS";
+
+/**
+ * This app calls the shekel NIS; every FX API calls it ILS. The mapping has to
+ * apply to whichever side of the pair a currency appears on, or the next
+ * currency whose internal name diverges from its ISO code fails at runtime
+ * instead of here.
+ */
+const ISO_CODES: Record<SupportedCurrency, string> = {
+  NIS: "ILS",
+  USD: "USD",
+  EUR: "EUR",
+};
 
 export class FxRateProvider {
   public async getRateToNis(
@@ -43,7 +54,9 @@ export class FxRateProvider {
   }
 
   private async fetchRateToNis(currency: SupportedCurrency): Promise<number> {
-    const url = `${FX_RATE_URL}?base=${currency}&symbols=${NIS_ISO_CODE}`;
+    const url = `${FX_RATE_URL}?base=${ISO_CODES[currency]}&symbols=${
+      ISO_CODES.NIS
+    }`;
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -52,8 +65,8 @@ export class FxRateProvider {
       );
     }
 
-    const data: { rates?: { ILS?: number } } = await response.json();
-    const rate = data?.rates?.ILS;
+    const data: { rates?: Record<string, number> } = await response.json();
+    const rate = data?.rates?.[ISO_CODES.NIS];
 
     if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0) {
       throw new Error(

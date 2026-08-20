@@ -19,16 +19,16 @@ const { CachedPriceProvider } = await import(
 const fetchQuote = vi.fn();
 
 const upstream: PriceProvider = {
-  source: PriceSource.YAHOO,
+  source: PriceSource.MAYA_ETF,
   fetchQuote,
 };
 
 function quoteFixture(): Quote {
   return {
-    price: 832.79,
-    currency: "USD",
+    price: 2476.4,
+    currency: "NIS",
     fetchedAt: new Date("2026-08-19T20:00:00.000Z"),
-    source: "Yahoo Finance",
+    source: "Maya (TASE)",
   };
 }
 
@@ -42,39 +42,39 @@ describe("CachedPriceProvider", () => {
   });
 
   it("reports the source of the provider it wraps", () => {
-    expect(new CachedPriceProvider(upstream).source).toBe(PriceSource.YAHOO);
+    expect(new CachedPriceProvider(upstream).source).toBe(PriceSource.MAYA_ETF);
   });
 
   it("fetches and caches on a miss", async () => {
-    const quote = await new CachedPriceProvider(upstream).fetchQuote("CSPX.L");
-    expect(quote.price).toBe(832.79);
+    const quote = await new CachedPriceProvider(upstream).fetchQuote("1159250");
+    expect(quote.price).toBe(2476.4);
     expect(fetchQuote).toHaveBeenCalledTimes(1);
     expect(setCachedData).toHaveBeenCalledWith(
-      "market_data:quote:YAHOO:cspx.l",
+      "market_data:quote:MAYA_ETF:1159250",
       quoteFixture()
     );
   });
 
   it("serves a hit without calling the upstream at all", async () => {
     getCachedData.mockResolvedValue({
-      price: 830,
-      currency: "USD",
+      price: 2470,
+      currency: "NIS",
       fetchedAt: "2026-08-19T20:00:00.000Z",
-      source: "Yahoo Finance",
+      source: "Maya (TASE)",
     });
-    const quote = await new CachedPriceProvider(upstream).fetchQuote("CSPX.L");
-    expect(quote.price).toBe(830);
+    const quote = await new CachedPriceProvider(upstream).fetchQuote("1159250");
+    expect(quote.price).toBe(2470);
     expect(fetchQuote).not.toHaveBeenCalled();
   });
 
   it("revives fetchedAt as a Date, which Redis returns as a string", async () => {
     getCachedData.mockResolvedValue({
-      price: 830,
-      currency: "USD",
+      price: 2470,
+      currency: "NIS",
       fetchedAt: "2026-08-19T20:00:00.000Z",
-      source: "Yahoo Finance",
+      source: "Maya (TASE)",
     });
-    const quote = await new CachedPriceProvider(upstream).fetchQuote("CSPX.L");
+    const quote = await new CachedPriceProvider(upstream).fetchQuote("1159250");
     expect(quote.fetchedAt).toBeInstanceOf(Date);
     expect(quote.fetchedAt.toISOString()).toBe("2026-08-19T20:00:00.000Z");
   });
@@ -82,7 +82,7 @@ describe("CachedPriceProvider", () => {
   it("keys separately per source, so two providers cannot collide on a symbol", async () => {
     await new CachedPriceProvider(upstream).fetchQuote("5109889");
     await new CachedPriceProvider({
-      source: PriceSource.MAYA,
+      source: PriceSource.MAYA_FUND,
       fetchQuote,
     }).fetchQuote("5109889");
 
@@ -91,10 +91,10 @@ describe("CachedPriceProvider", () => {
   });
 
   it("does not cache a failed fetch", async () => {
-    fetchQuote.mockRejectedValue(new Error("429 Too Many Requests"));
+    fetchQuote.mockRejectedValue(new Error("Maya request failed (status: 403)"));
     await expect(
-      new CachedPriceProvider(upstream).fetchQuote("CSPX.L")
-    ).rejects.toThrow(/429/);
+      new CachedPriceProvider(upstream).fetchQuote("1159250")
+    ).rejects.toThrow(/403/);
     expect(setCachedData).not.toHaveBeenCalled();
   });
 });

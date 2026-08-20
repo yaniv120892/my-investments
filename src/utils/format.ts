@@ -82,6 +82,29 @@ export function getAssetClassLabel(assetClass: string): string {
   }
 }
 
+/**
+ * Maya needs a different endpoint for each of its two products and rejects the
+ * wrong one with a 403, so the choice cannot be hidden from whoever adds a
+ * holding — but it can at least be posed in TASE's own words rather than as an
+ * enum member.
+ */
+export function getPriceSourceLabel(priceSource: string): string {
+  switch (priceSource) {
+    case "FINNHUB":
+      return "Finnhub (US stocks)";
+    case "BINANCE":
+      return "Binance (crypto)";
+    case "MAYA_ETF":
+      return "Maya — traded fund (קרן סל)";
+    case "MAYA_FUND":
+      return "Maya — mutual fund (קרן נאמנות)";
+    case "MANUAL":
+      return "Manual";
+    default:
+      return priceSource;
+  }
+}
+
 export function getLiquidityLabel(liquidity: string): string {
   switch (liquidity) {
     case "LIQUID":

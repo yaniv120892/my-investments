@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FxRateProvider } from "@/lib/providers/FxRateProvider";
+import { mockFetch } from "@/lib/providers/__tests__/mockFetch";
 
 vi.mock("@/lib/redis", () => ({
   generateMarketDataKey: (symbol: string, type: string) =>
@@ -7,13 +8,6 @@ vi.mock("@/lib/redis", () => ({
   getCachedData: async () => null,
   setCachedData: async () => undefined,
 }));
-
-function mockFetch(body: unknown, ok = true, status = 200): void {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({ ok, status, json: async () => body })
-  );
-}
 
 describe("FxRateProvider", () => {
   beforeEach(() => {
@@ -29,6 +23,19 @@ describe("FxRateProvider", () => {
     const [url] = vi.mocked(fetch).mock.calls[0];
     expect(url).toContain("base=EUR");
     expect(url).toContain("symbols=ILS");
+  });
+
+  /**
+   * The shekel is NIS internally and ILS to every FX API. Sending the internal
+   * name on the base side would work by accident for USD and EUR and break for
+   * the first currency whose names diverge — which is the shekel itself.
+   */
+  it("sends ISO codes on both sides of the pair, not the app's own names", async () => {
+    await new FxRateProvider().getRateToNis("USD");
+    const [url] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("base=USD");
+    expect(url).toContain("symbols=ILS");
+    expect(url).not.toContain("NIS");
   });
 
   it("returns the rate the API quoted rather than deriving it", async () => {
