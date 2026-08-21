@@ -1,0 +1,8 @@
+{
+  "short_term_savings": 0,
+  "study_fund_stav": 0,
+  "study_fund_yaniv": 0,
+  "pension_yaniv": 0,
+  "pension_stav": { "valueNis": 0, "assetClass": "NON_EQUITY" },
+  "emergency_money_fund": { "valueNis": 0, "platform": "Cash & short term" }
+}
