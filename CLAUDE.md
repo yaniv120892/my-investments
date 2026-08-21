@@ -32,12 +32,21 @@ npm run db:deploy        # prisma migrate deploy
 npm run db:studio        # prisma studio
 npm run setup            # db:generate && db:migrate
 npm run db:import-sheet  # one-off importer, scripts/importFromSheet.ts
+npm run db:add-savings   # adds the hand-priced savings, scripts/addSavingsHoldings.ts
 npm run snapshot:trigger # POST /api/snapshot against SNAPSHOT_BASE_URL
 ```
 
 The Prisma schema lives at `src/prisma/schema.prisma`, not the default
 location, so every Prisma command passes `--schema`. `postinstall` runs
 `prisma generate`.
+
+`db:import-sheet` replaces the whole portfolio and is spent — it was the
+one-time move off the Google Sheet. `db:add-savings` is the opposite: it only
+adds, skipping any holding whose name already exists, because it runs against a
+live portfolio. It reads the balances from a JSON file
+(`scripts/savingsValues.example.json` is the template; a filled-in copy is
+gitignored) and refuses to create anything unless every row has one, since a
+holding with no manual value fails to price and one failure hides the total.
 
 `npm test` is deliberately `test:unit` rather than `vitest`: watch mode never
 exits, and the pre-push quality gate runs `npm run test`.
