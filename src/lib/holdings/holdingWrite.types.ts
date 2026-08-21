@@ -38,6 +38,16 @@ export interface CreateHoldingInput {
 
 export type UpdateHoldingInput = Partial<CreateHoldingInput>;
 
+/**
+ * One line of a manual-value review: the balance the owner has just read off a
+ * statement. Carries no other field, because confirming a balance is not an
+ * edit of the holding.
+ */
+export interface ManualValueEntry {
+  holdingId: string;
+  manualValueNis: number;
+}
+
 export interface CreatePlatformInput {
   name: string;
   baseCurrency: string;

@@ -17,6 +17,7 @@ import type {
   CreateHoldingInput,
   FieldErrorMap,
   HoldingWriteState,
+  ManualValueEntry,
   UpdateHoldingInput,
 } from "@/lib/holdings/holdingWrite.types";
 import {
@@ -57,11 +58,54 @@ export class HoldingWriteValidator {
     return existingHolding;
   }
 
+  /**
+   * Validates the whole review before any of it is written: a monthly pass over
+   * five balances that half-applies is worse than one that is rejected, because
+   * the owner cannot tell from the table which lines landed.
+   */
+  public async assertCanRecordManualValues(
+    userId: string,
+    entries: ManualValueEntry[]
+  ): Promise<void> {
+    const holdings = await this.loadOwnedHoldings(
+      userId,
+      entries.map((entry) => entry.holdingId)
+    );
+
+    const fieldErrors: FieldErrorMap = {};
+    entries.forEach((entry, index) => {
+      this.collectManualValueError(entry, holdings[index], fieldErrors);
+    });
+
+    if (Object.keys(fieldErrors).length > 0) {
+      throw new HoldingValidationError(fieldErrors);
+    }
+  }
+
   public async assertCanDeleteHolding(
     userId: string,
     holdingId: string
   ): Promise<Holding> {
     return this.loadOwnedHolding(userId, holdingId);
+  }
+
+  private collectManualValueError(
+    entry: ManualValueEntry,
+    holding: Holding,
+    fieldErrors: FieldErrorMap
+  ): void {
+    const field = `values.${entry.holdingId}`;
+
+    if (holding.priceSource !== PriceSource.MANUAL) {
+      fieldErrors[field] =
+        `Only a manually priced holding stores a value; this one is priced from ${holding.priceSource} (assetName: ${holding.assetName})`;
+      return;
+    }
+
+    const amountError = describeManualValueAmountError(entry.manualValueNis);
+    if (amountError) {
+      fieldErrors[field] = amountError;
+    }
   }
 
   private async assertStateIsValid(
@@ -148,10 +192,11 @@ export class HoldingWriteValidator {
   ): void {
     if (state.manualValueNis === null) {
       fieldErrors.manualValueNis = `A manual value in NIS is required for price source ${PriceSource.MANUAL}`;
-    } else if (!Number.isFinite(state.manualValueNis)) {
-      fieldErrors.manualValueNis = `Manual value must be a finite number (received: ${state.manualValueNis})`;
-    } else if (state.manualValueNis < 0) {
-      fieldErrors.manualValueNis = `Manual value cannot be negative (received: ${state.manualValueNis})`;
+    } else {
+      const amountError = describeManualValueAmountError(state.manualValueNis);
+      if (amountError) {
+        fieldErrors.manualValueNis = amountError;
+      }
     }
     if (state.sourceSymbol !== null) {
       fieldErrors.sourceSymbol = `A source symbol cannot be stored for price source ${PriceSource.MANUAL} (received: ${state.sourceSymbol})`;
@@ -184,6 +229,39 @@ export class HoldingWriteValidator {
     }
     return holding;
   }
+
+  /** Returned in the order asked for, so a caller can walk both lists together. */
+  private async loadOwnedHoldings(
+    userId: string,
+    holdingIds: string[]
+  ): Promise<Holding[]> {
+    const holdings = await this.repository.findHoldingsOwnedBy(
+      userId,
+      holdingIds
+    );
+    const holdingsById = new Map(
+      holdings.map((holding) => [holding.id, holding])
+    );
+
+    return holdingIds.map((holdingId) => {
+      const holding = holdingsById.get(holdingId);
+      if (!holding) {
+        throw new HoldingNotFoundError(holdingId);
+      }
+      return holding;
+    });
+  }
+}
+
+/** The one place the stored amount's bounds are stated, for both write paths. */
+function describeManualValueAmountError(value: number): string | null {
+  if (!Number.isFinite(value)) {
+    return `Manual value must be a finite number (received: ${value})`;
+  }
+  if (value < 0) {
+    return `Manual value cannot be negative (received: ${value})`;
+  }
+  return null;
 }
 
 export const holdingWriteValidator = new HoldingWriteValidator();

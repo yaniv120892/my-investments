@@ -5,6 +5,7 @@ import type {
   CreateHoldingInput,
   CreatePlatformInput,
   FieldErrorMap,
+  ManualValueEntry,
   UpdateHoldingInput,
 } from "@/lib/holdings/holdingWrite.types";
 
@@ -27,6 +28,23 @@ const createHoldingSchema = z.strictObject({
 
 const updateHoldingSchema = createHoldingSchema.partial();
 
+/**
+ * Keyed by holding rather than an array of pairs: the key is the only stable
+ * name a field error can carry back to the form, and a map cannot confirm the
+ * same holding twice.
+ */
+const recordManualValuesSchema = z.strictObject({
+  values: z
+    .record(
+      z.string().min(1, "A holding must be identified"),
+      z.number({ error: "A manual value must be a number in NIS" })
+    )
+    .refine(
+      (values) => Object.keys(values).length > 0,
+      "At least one manual value must be confirmed"
+    ),
+});
+
 const createPlatformSchema = z.strictObject({
   name: z.string().trim(),
   baseCurrency: z.string().trim(),
@@ -38,6 +56,16 @@ export function parseCreateHoldingBody(body: unknown): CreateHoldingInput {
 
 export function parseUpdateHoldingBody(body: unknown): UpdateHoldingInput {
   return parseWithSchema(updateHoldingSchema, body);
+}
+
+export function parseRecordManualValuesBody(
+  body: unknown
+): ManualValueEntry[] {
+  const { values } = parseWithSchema(recordManualValuesSchema, body);
+  return Object.entries(values).map(([holdingId, manualValueNis]) => ({
+    holdingId,
+    manualValueNis,
+  }));
 }
 
 export function parseCreatePlatformBody(body: unknown): CreatePlatformInput {

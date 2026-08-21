@@ -4,6 +4,7 @@ import type {
   HoldingPersistenceData,
   HoldingUpdateData,
   HoldingWithPlatform,
+  ManualValueEntry,
 } from "@/lib/holdings/holdingWrite.types";
 
 export class HoldingRepository {
@@ -12,6 +13,15 @@ export class HoldingRepository {
     holdingId: string
   ): Promise<Holding | null> {
     return prisma.holding.findFirst({ where: { id: holdingId, userId } });
+  }
+
+  public async findHoldingsOwnedBy(
+    userId: string,
+    holdingIds: string[]
+  ): Promise<Holding[]> {
+    return prisma.holding.findMany({
+      where: { userId, id: { in: holdingIds } },
+    });
   }
 
   public async findPlatformOwnedBy(
@@ -63,6 +73,28 @@ export class HoldingRepository {
       data,
       include: { platform: true },
     });
+  }
+
+  /**
+   * One transaction, because a review is written whole: a monthly pass that
+   * lands three of five balances leaves a table nobody can read.
+   */
+  public async recordManualValues(
+    userId: string,
+    entries: ManualValueEntry[],
+    confirmedAt: Date
+  ): Promise<void> {
+    await prisma.$transaction(
+      entries.map((entry) =>
+        prisma.holding.update({
+          where: { id: entry.holdingId, userId },
+          data: {
+            manualValueNis: entry.manualValueNis,
+            manualValueUpdatedAt: confirmedAt,
+          },
+        })
+      )
+    );
   }
 
   public async deleteHoldingWithSnapshots(

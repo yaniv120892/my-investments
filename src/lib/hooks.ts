@@ -102,6 +102,18 @@ export const useUpdateHolding = () => {
   });
 };
 
+export const useRecordManualValues = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (values: Record<string, number>) =>
+      api.holdings.recordManualValues(values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["holdings"] });
+    },
+  });
+};
+
 export const useDeleteHolding = () => {
   const queryClient = useQueryClient();
 

@@ -99,6 +99,11 @@ export interface HoldingMutationResponse {
   holding: Holding & { platform: Platform };
 }
 
+export interface ManualValuesResponse {
+  confirmedAt: string;
+  confirmedCount: number;
+}
+
 export interface PlatformsResponse {
   platforms: Platform[];
 }
@@ -200,6 +205,12 @@ export const api = {
       data: UpdateHoldingInput
     ): Promise<HoldingMutationResponse> => {
       return sendJson(`/holdings/${holdingId}`, "PATCH", data);
+    },
+
+    recordManualValues: async (
+      values: Record<string, number>
+    ): Promise<ManualValuesResponse> => {
+      return sendJson("/holdings/manual-values", "PATCH", { values });
     },
 
     remove: async (holdingId: string): Promise<{ id: string }> => {

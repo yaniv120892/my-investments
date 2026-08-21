@@ -13,6 +13,7 @@
     "test:unit": "vitest run --exclude '**/*.contract.test.ts'",
     "test:contract": "vitest run contract.test",
     "db:import-sheet": "tsx scripts/importFromSheet.ts",
+    "db:add-savings": "tsx scripts/addSavingsHoldings.ts",
     "snapshot:trigger": "tsx scripts/triggerSnapshot.ts",
     "db:generate": "prisma generate --schema src/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema src/prisma/schema.prisma",
