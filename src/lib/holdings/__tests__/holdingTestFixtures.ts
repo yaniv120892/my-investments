@@ -40,6 +40,21 @@ export function holdingFixture(overrides: Partial<Holding> = {}): Holding {
   };
 }
 
+export const MANUAL_VALUE_UPDATED_AT = new Date("2026-07-01T09:00:00.000Z");
+
+export function manualHoldingFixture(
+  overrides: Partial<Holding> = {}
+): Holding {
+  return holdingFixture({
+    priceSource: PriceSource.MANUAL,
+    sourceSymbol: null,
+    currency: "NIS",
+    manualValueNis: 84919,
+    manualValueUpdatedAt: MANUAL_VALUE_UPDATED_AT,
+    ...overrides,
+  });
+}
+
 export function createHoldingInputFixture(
   overrides: Partial<CreateHoldingInput> = {}
 ): CreateHoldingInput {
@@ -73,6 +88,10 @@ export function repositoryStub(
       ...holdingFixture(),
       platform: platformFixture(),
     })),
+    findHoldingsOwnedBy: vi.fn(async (_userId: string, ids: string[]) =>
+      ids.map((id) => holdingFixture({ id }))
+    ),
+    recordManualValues: vi.fn(async () => undefined),
     deleteHoldingWithSnapshots: vi.fn(async () => undefined),
     ...overrides,
   };

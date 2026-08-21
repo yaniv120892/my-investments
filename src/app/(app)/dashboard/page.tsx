@@ -9,6 +9,7 @@ import HoldingFormModal from "@/components/HoldingFormModal";
 import PortfolioChart from "@/components/PortfolioChart";
 import PortfolioPage from "@/components/PortfolioPage";
 import PricingFailuresAlert from "@/components/PricingFailuresAlert";
+import StaleManualValuesAlert from "@/components/StaleManualValuesAlert";
 import SummaryCards from "@/components/SummaryCards";
 import RebalancingSummaryCard from "@/components/dashboard/RebalancingSummaryCard";
 import TopHoldingsCard from "@/components/dashboard/TopHoldingsCard";
@@ -43,6 +44,20 @@ export default function DashboardPage() {
             />
 
             <PricingFailuresAlert failures={data.failures} maxRows={3} />
+
+            <StaleManualValuesAlert
+              holdings={data.holdings}
+              action={
+                <Button
+                  component={Link}
+                  href="/holdings"
+                  color="inherit"
+                  size="small"
+                >
+                  Update
+                </Button>
+              }
+            />
 
             <Box
               sx={{

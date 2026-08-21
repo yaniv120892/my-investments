@@ -32,12 +32,21 @@ npm run db:deploy        # prisma migrate deploy
 npm run db:studio        # prisma studio
 npm run setup            # db:generate && db:migrate
 npm run db:import-sheet  # one-off importer, scripts/importFromSheet.ts
+npm run db:add-savings   # adds the hand-priced savings, scripts/addSavingsHoldings.ts
 npm run snapshot:trigger # POST /api/snapshot against SNAPSHOT_BASE_URL
 ```
 
 The Prisma schema lives at `src/prisma/schema.prisma`, not the default
 location, so every Prisma command passes `--schema`. `postinstall` runs
 `prisma generate`.
+
+`db:import-sheet` replaces the whole portfolio and is spent — it was the
+one-time move off the Google Sheet. `db:add-savings` is the opposite: it only
+adds, skipping any holding whose name already exists, because it runs against a
+live portfolio. It reads the balances from a JSON file
+(`scripts/savingsValues.example.json` is the template; a filled-in copy is
+gitignored) and refuses to create anything unless every row has one, since a
+holding with no manual value fails to price and one failure hides the total.
 
 `npm test` is deliberately `test:unit` rather than `vitest`: watch mode never
 exits, and the pre-push quality gate runs `npm run test`.
@@ -48,7 +57,8 @@ exits, and the pre-push quality gate runs `npm run test`.
   authenticated pages (dashboard, holdings, allocation, rebalancing, history,
   settings) inside the `AppShell` sidebar layout.
 - `src/app/api/**/route.ts` — all endpoints. `auth/{login,logout,signup,verify}`,
-  `holdings` (+ `[id]`, `history`), `platforms`, `user/settings`, `snapshot`.
+  `holdings` (+ `[id]`, `history`, `manual-values`), `platforms`,
+  `user/settings`, `snapshot`.
   Routes read the caller from the `x-user-id` header and return `{ error }`
   with a status; there is no shared handler wrapper.
 - `src/middleware.ts` — the only place a session is verified. It reads the
@@ -71,9 +81,11 @@ exits, and the pre-push quality gate runs `npm run test`.
   `queryClient.ts` (TanStack Query).
 - `src/components/` — `shell/` (AppShell, PageHeader), `dashboard/` cards,
   and the shared pieces. `DisplayCurrencyProvider` + `CurrencyToggle` hold the
-  display currency; `PricingFailuresAlert` renders what could not be priced.
-  `PortfolioChart` defers to `PortfolioChartCanvas` so Chart.js only loads
-  when a chart is actually on screen.
+  display currency; `PricingFailuresAlert` renders what could not be priced and
+  `StaleManualValuesAlert` what has not been re-read lately, with
+  `ManualValuesModal` as the monthly review form. `PortfolioChart` defers to
+  `PortfolioChartCanvas` so Chart.js only loads when a chart is actually on
+  screen.
 - `src/theme.ts`, `src/utils/` (pure helpers), `src/types/`.
 
 ## Key invariants
@@ -110,6 +122,17 @@ exits, and the pre-push quality gate runs `npm run test`.
   instead of after an hour. The cost is that an outage leaves a holding with no
   price rather than a stale one — which is what turns a bad provider day into a
   skipped snapshot.
+- **A manual value is a reading, not a price.** `PATCH /api/holdings/manual-values`
+  re-stamps `manualValueUpdatedAt` on every line of the review, including one
+  whose number did not move: the owner is asserting what the statement says
+  today. `PATCH /api/holdings/[id]` does the opposite and re-stamps only on a
+  change, so renaming an asset cannot pass an old value off as a fresh reading.
+  A review is validated whole and written whole — one transaction, keyed by
+  holding id so a rejected line names itself, because a monthly pass that
+  half-applies leaves the table unreadable. Anything past
+  `MANUAL_VALUE_MAX_AGE_DAYS` (35, a month plus slack) is shown as stale;
+  nothing else in the app notices an old manual value, because it never fails
+  to price.
 - **`x-user-id` and `x-user-email` are proof of authentication**, so the
   middleware strips any client-sent copy on every path where it does not set
   them itself. Never trust them from a request the middleware did not process.
@@ -145,9 +168,17 @@ Postgres via `@prisma/client` + Accelerate. Models: `User`, `Settings`
 Enums: `AssetClass` (EQUITY | CRYPTO | NON_EQUITY), `Liquidity` (LIQUID |
 ILLIQUID), `PriceSource` (FINNHUB | BINANCE | MAYA_ETF | MAYA_FUND | MANUAL).
 
-`MANUAL` holdings are the illiquid positions with no free price source. They
-store `manualValueNis` + `manualValueUpdatedAt`, and pricing them throws when
-no value is stored so they surface as a failure rather than a zero.
+`MANUAL` holdings are the illiquid positions with no free price source — the
+pension funds, the study funds (קרן השתלמות), short-term savings, and anything
+else read off a statement. They store `manualValueNis` +
+`manualValueUpdatedAt`, and pricing them throws when no value is stored so they
+surface as a failure rather than a zero.
+
+No free provider serves an individual's balance in these: the pension clearing
+house (המסלקה הפנסיונית) is open to licensed entities only, and the open
+`data.gov.il` gemel-net / pensia-net datasets publish a fund's monthly yield,
+never a member's holding. So the balances are entered by hand, and the app's
+job is to keep saying how old each reading is rather than to guess a newer one.
 
 ## Crons (vercel.json)
 

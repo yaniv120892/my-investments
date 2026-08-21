@@ -50,3 +50,7 @@ backups/
 # agent scratch/design docs: knowledge belongs in CLAUDE.md, not checked-in plans
 /.superpowers/
 /docs/superpowers/
+
+# filled-in balances for scripts/addSavingsHoldings.ts; only the example is committed
+/scripts/savingsValues*.json
+!/scripts/savingsValues.example.json

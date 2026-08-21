@@ -10,13 +10,12 @@ const { HoldingWriteValidator } = await import(
   "@/lib/holdings/holdingWriteValidator"
 );
 const {
+  MANUAL_VALUE_UPDATED_AT,
   OWNER_USER_ID,
   createHoldingInputFixture,
-  holdingFixture,
+  manualHoldingFixture,
   repositoryStub,
 } = await import("@/lib/holdings/__tests__/holdingTestFixtures");
-
-const MANUAL_VALUE_UPDATED_AT = new Date("2026-07-01T09:00:00.000Z");
 
 function serviceFor(repository: ReturnType<typeof repositoryStub>) {
   return new HoldingWriteService(
@@ -69,15 +68,7 @@ describe("HoldingWriteService.createHolding", () => {
 describe("HoldingWriteService.updateHolding", () => {
   function manualRepository() {
     return repositoryStub({
-      findHoldingOwnedBy: vi.fn(async () =>
-        holdingFixture({
-          priceSource: PriceSource.MANUAL,
-          sourceSymbol: null,
-          currency: "NIS",
-          manualValueNis: 84919,
-          manualValueUpdatedAt: MANUAL_VALUE_UPDATED_AT,
-        })
-      ),
+      findHoldingOwnedBy: vi.fn(async () => manualHoldingFixture()),
     });
   }
 
@@ -154,6 +145,102 @@ describe("HoldingWriteService.updateHolding", () => {
       currency: "USD",
       platformId: "platform-1",
     });
+  });
+});
+
+describe("HoldingWriteService.recordManualValues", () => {
+  function manualRepository() {
+    return repositoryStub({
+      findHoldingsOwnedBy: vi.fn(async (_userId: string, ids: string[]) =>
+        ids.map((id) => manualHoldingFixture({ id }))
+      ),
+    });
+  }
+
+  it("re-dates a value the owner confirmed without changing it", async () => {
+    const repository = manualRepository();
+    const service = serviceFor(repository);
+
+    await service.recordManualValues(OWNER_USER_ID, [
+      { holdingId: "holding-1", manualValueNis: 84919 },
+    ]);
+
+    const [userId, entries, confirmedAt] = vi.mocked(
+      repository.recordManualValues
+    ).mock.calls[0];
+    expect(userId).toBe(OWNER_USER_ID);
+    expect(entries).toEqual([{ holdingId: "holding-1", manualValueNis: 84919 }]);
+    expect(confirmedAt).not.toEqual(MANUAL_VALUE_UPDATED_AT);
+  });
+
+  it("hands the repository one review to write, under one timestamp", async () => {
+    const repository = manualRepository();
+    const service = serviceFor(repository);
+
+    const confirmedAt = await service.recordManualValues(OWNER_USER_ID, [
+      { holdingId: "holding-1", manualValueNis: 310000 },
+      { holdingId: "holding-2", manualValueNis: 96000 },
+    ]);
+
+    expect(repository.recordManualValues).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(repository.recordManualValues).mock.calls[0][2]).toEqual(
+      confirmedAt
+    );
+  });
+
+  it("writes nothing when one line of the review is invalid", async () => {
+    const repository = manualRepository();
+    const service = serviceFor(repository);
+
+    await expect(
+      service.recordManualValues(OWNER_USER_ID, [
+        { holdingId: "holding-1", manualValueNis: 310000 },
+        { holdingId: "holding-2", manualValueNis: -1 },
+      ])
+    ).rejects.toThrow(/cannot be negative/);
+    expect(repository.recordManualValues).not.toHaveBeenCalled();
+  });
+
+  it("refuses to store a value against a market-priced holding", async () => {
+    const repository = repositoryStub();
+    const service = serviceFor(repository);
+
+    await expect(
+      service.recordManualValues(OWNER_USER_ID, [
+        { holdingId: "holding-1", manualValueNis: 310000 },
+      ])
+    ).rejects.toThrow(/Only a manually priced holding/);
+    expect(repository.recordManualValues).not.toHaveBeenCalled();
+  });
+
+  it("refuses a holding that belongs to another user", async () => {
+    const repository = repositoryStub({
+      findHoldingsOwnedBy: vi.fn(async () => []),
+    });
+    const service = serviceFor(repository);
+
+    await expect(
+      service.recordManualValues("user-other", [
+        { holdingId: "holding-1", manualValueNis: 310000 },
+      ])
+    ).rejects.toThrow(/holding-1/);
+    expect(repository.recordManualValues).not.toHaveBeenCalled();
+  });
+
+  it("names each rejected line by its holding, so the form can show it", async () => {
+    const repository = manualRepository();
+    const service = serviceFor(repository);
+
+    await service
+      .recordManualValues(OWNER_USER_ID, [
+        { holdingId: "holding-2", manualValueNis: -1 },
+      ])
+      .catch((error) => {
+        expect(error.fieldErrors["values.holding-2"]).toMatch(
+          /cannot be negative/
+        );
+      });
+    expect.assertions(1);
   });
 });
 
