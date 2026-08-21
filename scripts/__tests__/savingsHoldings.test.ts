@@ -46,8 +46,6 @@ describe("toSeedRows", () => {
         study_fund_yaniv: {
           valueNis: 96000,
           assetClass: AssetClass.NON_EQUITY,
-          liquidity: Liquidity.LIQUID,
-          platform: "Meitav",
         },
       })
     );
@@ -55,8 +53,8 @@ describe("toSeedRows", () => {
     expect(rows.find((row) => row.key === "study_fund_yaniv")).toMatchObject({
       manualValueNis: 96000,
       assetClass: AssetClass.NON_EQUITY,
-      liquidity: Liquidity.LIQUID,
-      platform: "Meitav",
+      liquidity: Liquidity.ILLIQUID,
+      platform: "Long-term savings",
     });
   });
 

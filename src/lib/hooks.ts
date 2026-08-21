@@ -4,7 +4,6 @@ import {
   CreateHoldingInput,
   CreatePlatformInput,
   LoginRequest,
-  ManualValueEntry,
   SignupRequest,
   UpdateHoldingInput,
   VerificationRequest,
@@ -107,7 +106,7 @@ export const useRecordManualValues = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (values: ManualValueEntry[]) =>
+    mutationFn: (values: Record<string, number>) =>
       api.holdings.recordManualValues(values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["holdings"] });

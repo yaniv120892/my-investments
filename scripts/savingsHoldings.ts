@@ -9,8 +9,7 @@ import { AssetClass, Liquidity } from "@prisma/client";
  *
  * The asset class here is only a default. A קרן השתלמות in מסלול מנייתי and one
  * in מסלול אג"ח are the same product with opposite exposure, and only the owner
- * knows which they hold — so the values file can override it per row, and the
- * holdings page can change it later.
+ * knows which they hold — so the values file can override it per row.
  */
 export interface SavingsHoldingDefinition {
   key: string;
@@ -74,11 +73,7 @@ export interface SavingsSeedRow extends SavingsHoldingDefinition {
   manualValueNis: number;
 }
 
-/**
- * Every row must carry a balance. A holding created with no manual value fails
- * to price, and one failure suppresses the portfolio total — so a half-filled
- * values file would blank the dashboard rather than partially fill it.
- */
+/** Every row must carry a balance — see the `db:add-savings` note in CLAUDE.md. */
 export function toSeedRows(values: unknown): SavingsSeedRow[] {
   if (typeof values !== "object" || values === null || Array.isArray(values)) {
     throw new Error(
@@ -137,19 +132,7 @@ function toSeedRow(
 
   return {
     ...holding,
-    assetClass: readEnum(
-      AssetClass,
-      override.assetClass,
-      holding.assetClass,
-      `${holding.key}.assetClass`
-    ),
-    liquidity: readEnum(
-      Liquidity,
-      override.liquidity,
-      holding.liquidity,
-      `${holding.key}.liquidity`
-    ),
-    platform: readPlatform(override.platform, holding),
+    assetClass: readAssetClass(override.assetClass, holding),
     manualValueNis: assertBalance(holding.key, override.valueNis),
   };
 }
@@ -170,39 +153,20 @@ function assertBalance(key: string, value: unknown): number {
   return value;
 }
 
-function readEnum<TEnum extends Record<string, string>>(
-  enumeration: TEnum,
+function readAssetClass(
   provided: unknown,
-  fallback: TEnum[keyof TEnum],
-  field: string
-): TEnum[keyof TEnum] {
+  holding: SavingsHoldingDefinition
+): AssetClass {
   if (provided === undefined) {
-    return fallback;
+    return holding.assetClass;
   }
-  const allowed = Object.values(enumeration);
-  if (typeof provided !== "string" || !allowed.includes(provided)) {
+  const allowed = Object.values(AssetClass);
+  if (typeof provided !== "string" || !allowed.includes(provided as AssetClass)) {
     throw new Error(
-      `${field} must be one of ${allowed.join(
+      `${holding.key}.assetClass must be one of ${allowed.join(
         ", "
       )} (received: ${JSON.stringify(provided)})`
     );
   }
-  return provided as TEnum[keyof TEnum];
-}
-
-function readPlatform(
-  provided: unknown,
-  holding: SavingsHoldingDefinition
-): string {
-  if (provided === undefined) {
-    return holding.platform;
-  }
-  if (typeof provided !== "string" || provided.trim().length === 0) {
-    throw new Error(
-      `${holding.key}.platform must be a non-empty name (received: ${JSON.stringify(
-        provided
-      )})`
-    );
-  }
-  return provided.trim();
+  return provided as AssetClass;
 }

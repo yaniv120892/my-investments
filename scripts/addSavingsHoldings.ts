@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
-import { PriceSource, PrismaClient } from "@prisma/client";
-import type { Platform } from "@prisma/client";
+import { PriceSource } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import { holdingRepository } from "@/lib/holdings/holdingRepository";
+import { holdingWriteService } from "@/lib/holdings/holdingWriteService";
+import { describeError } from "@/utils/describeError";
+import { MANUAL_VALUE_MAX_AGE_DAYS } from "@/utils/manualValueFreshness";
 import { SAVINGS_HOLDINGS, toSeedRows } from "./savingsHoldings";
 import type { SavingsSeedRow } from "./savingsHoldings";
 
@@ -17,8 +21,6 @@ import type { SavingsSeedRow } from "./savingsHoldings";
 const DEFAULT_VALUES_PATH = "scripts/savingsValues.json";
 const MANUAL_HOLDING_QUANTITY = 1;
 
-const prisma = new PrismaClient();
-
 async function main(): Promise<void> {
   const email = process.env.IMPORT_USER_EMAIL;
   if (!email) {
@@ -30,9 +32,7 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const isDryRun = args.includes("--dry-run");
   const valuesPath =
-    args.find((arg) => !arg.startsWith("--")) ??
-    process.env.SAVINGS_VALUES_FILE ??
-    DEFAULT_VALUES_PATH;
+    args.find((arg) => !arg.startsWith("--")) ?? DEFAULT_VALUES_PATH;
 
   const rows = toSeedRows(readValuesFile(valuesPath));
 
@@ -48,67 +48,56 @@ async function main(): Promise<void> {
     throw new Error(`No user found with email ${email}; sign up first`);
   }
 
-  const confirmedAt = new Date();
+  const takenAssetNames = await findTakenAssetNames(user.id, rows);
   const created: string[] = [];
-  const skipped: string[] = [];
 
   for (const row of rows) {
-    const existing = await prisma.holding.findFirst({
-      where: { userId: user.id, assetName: row.assetName },
-    });
-    if (existing) {
-      skipped.push(row.assetName);
+    if (takenAssetNames.has(row.assetName)) {
       continue;
     }
 
-    const platform = await resolvePlatform(user.id, row.platform);
-    await prisma.holding.create({
-      data: {
-        userId: user.id,
-        platformId: platform.id,
-        assetName: row.assetName,
-        assetClass: row.assetClass,
-        liquidity: row.liquidity,
-        quantity: MANUAL_HOLDING_QUANTITY,
-        priceSource: PriceSource.MANUAL,
-        sourceSymbol: null,
-        currency: "NIS",
-        targetPercent: null,
-        manualValueNis: row.manualValueNis,
-        manualValueUpdatedAt: confirmedAt,
-      },
+    const platformId = await resolvePlatformId(user.id, row.platform);
+    // Through the app's own write path rather than raw Prisma, so the script
+    // cannot create a row the holdings page would refuse to save.
+    await holdingWriteService.createHolding(user.id, {
+      platformId,
+      assetName: row.assetName,
+      assetClass: row.assetClass,
+      liquidity: row.liquidity,
+      quantity: MANUAL_HOLDING_QUANTITY,
+      priceSource: PriceSource.MANUAL,
+      sourceSymbol: null,
+      currency: "NIS",
+      targetPercent: null,
+      manualValueNis: row.manualValueNis,
     });
     created.push(row.assetName);
   }
 
-  console.log(
-    `Added ${created.length} holdings for ${email}${
-      created.length > 0 ? `: ${created.join(", ")}` : ""
-    }`
-  );
-  if (skipped.length > 0) {
-    console.log(
-      `Left ${skipped.length} alone because a holding of that name already exists: ${skipped.join(
-        ", "
-      )}`
-    );
-  }
-  console.log(
-    "Confirm these balances monthly from Holdings → Manual values; anything older than 35 days is flagged as stale."
-  );
+  reportOutcome(email, created, [...takenAssetNames]);
 }
 
-async function resolvePlatform(
+async function findTakenAssetNames(
+  userId: string,
+  rows: SavingsSeedRow[]
+): Promise<Set<string>> {
+  const existing = await prisma.holding.findMany({
+    where: { userId, assetName: { in: rows.map((row) => row.assetName) } },
+    select: { assetName: true },
+  });
+  return new Set(existing.map((holding) => holding.assetName));
+}
+
+async function resolvePlatformId(
   userId: string,
   name: string
-): Promise<Platform> {
-  const existing = await prisma.platform.findFirst({ where: { userId, name } });
+): Promise<string> {
+  const existing = await holdingRepository.findPlatformByName(userId, name);
   if (existing) {
-    return existing;
+    return existing.id;
   }
-  return prisma.platform.create({
-    data: { userId, name, baseCurrency: "NIS" },
-  });
+  const created = await holdingRepository.createPlatform(userId, name, "NIS");
+  return created.id;
 }
 
 function readValuesFile(path: string): unknown {
@@ -127,7 +116,7 @@ function readValuesFile(path: string): unknown {
     return JSON.parse(contents);
   } catch (error) {
     throw new Error(
-      `The values file at ${path} is not valid JSON (${String(error)})`
+      `The values file at ${path} is not valid JSON (${describeError(error)})`
     );
   }
 }
@@ -135,18 +124,42 @@ function readValuesFile(path: string): unknown {
 function reportPlan(rows: SavingsSeedRow[], valuesPath: string): void {
   console.log(`Would add ${rows.length} holdings from ${valuesPath}:`);
   for (const row of rows) {
-    console.log(
-      `  ${row.assetName} — ${row.manualValueNis.toLocaleString(
-        "en-US"
-      )} NIS, ${row.platform}, ${row.assetClass}, ${row.liquidity}`
-    );
+    console.log(`  ${describeRow(row)}`);
   }
   console.log("Nothing was written (--dry-run).");
 }
 
+function reportOutcome(
+  email: string,
+  created: string[],
+  skipped: string[]
+): void {
+  console.log(
+    `Added ${created.length} holdings for ${email}${
+      created.length > 0 ? `: ${created.join(", ")}` : ""
+    }`
+  );
+  if (skipped.length > 0) {
+    console.log(
+      `Left ${skipped.length} alone because a holding of that name already exists: ${skipped.join(
+        ", "
+      )}`
+    );
+  }
+  console.log(
+    `Confirm these balances monthly from Holdings → Manual values; anything older than ${MANUAL_VALUE_MAX_AGE_DAYS} days is flagged as stale.`
+  );
+}
+
+function describeRow(row: SavingsSeedRow): string {
+  return `${row.assetName} — ${row.manualValueNis.toLocaleString("en-US")} NIS, ${
+    row.platform
+  }, ${row.assetClass}, ${row.liquidity}`;
+}
+
 main()
   .catch((error) => {
-    console.error(error instanceof Error ? error.message : error);
+    console.error(describeError(error));
     process.exit(1);
   })
   .finally(async () => {

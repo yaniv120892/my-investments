@@ -14,8 +14,10 @@ import {
   Typography,
 } from "@mui/material";
 import type { PricedHolding } from "@/lib/api";
-import { formatDate } from "@/utils/format";
-import { isManualValueStale } from "@/utils/manualValueFreshness";
+import {
+  describeManualValueAsOf,
+  isManualValueStale,
+} from "@/utils/manualValueFreshness";
 
 interface HoldingsTableProps {
   holdings: PricedHolding[];
@@ -78,7 +80,9 @@ export default function HoldingsTable({
                             : "text.disabled"
                         }
                       >
-                        {describeAsOf(holding.manualValueUpdatedAt)}
+                        {describeManualValueAsOf(
+                          holding.manualValueUpdatedAt
+                        )}
                       </Typography>
                     </Stack>
                   ) : (
@@ -121,11 +125,4 @@ export default function HoldingsTable({
       </TableContainer>
     </Card>
   );
-}
-
-function describeAsOf(manualValueUpdatedAt: Date | null): string {
-  if (manualValueUpdatedAt === null) {
-    return "never confirmed";
-  }
-  return `as of ${formatDate(new Date(manualValueUpdatedAt))}`;
 }

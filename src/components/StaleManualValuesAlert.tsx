@@ -1,18 +1,17 @@
 "use client";
 
-import { Alert, AlertTitle, Box, Button, Typography } from "@mui/material";
+import { Alert, AlertTitle, Box, Typography } from "@mui/material";
 import type { ReactNode } from "react";
 import type { PricedHolding } from "@/lib/api";
 import {
   MANUAL_VALUE_MAX_AGE_DAYS,
   describeManualValueAge,
-  isManualValueStale,
+  findStaleManualHoldings,
 } from "@/utils/manualValueFreshness";
 
 interface StaleManualValuesAlertProps {
   holdings: PricedHolding[];
   action?: ReactNode;
-  onReview?: () => void;
 }
 
 /**
@@ -23,7 +22,6 @@ interface StaleManualValuesAlertProps {
 export default function StaleManualValuesAlert({
   holdings,
   action,
-  onReview,
 }: StaleManualValuesAlertProps) {
   const stale = findStaleManualHoldings(holdings);
   if (stale.length === 0) {
@@ -31,17 +29,7 @@ export default function StaleManualValuesAlert({
   }
 
   return (
-    <Alert
-      severity="info"
-      action={
-        action ??
-        (onReview ? (
-          <Button color="inherit" size="small" onClick={onReview}>
-            Review
-          </Button>
-        ) : undefined)
-      }
-    >
+    <Alert severity="info" action={action}>
       <AlertTitle>
         {stale.length} manual value{stale.length === 1 ? " is" : "s are"} older
         than {MANUAL_VALUE_MAX_AGE_DAYS} days
@@ -63,15 +51,5 @@ export default function StaleManualValuesAlert({
         ))}
       </Box>
     </Alert>
-  );
-}
-
-export function findStaleManualHoldings(
-  holdings: PricedHolding[]
-): PricedHolding[] {
-  return holdings.filter(
-    (holding) =>
-      holding.priceSource === "MANUAL" &&
-      isManualValueStale(holding.manualValueUpdatedAt)
   );
 }

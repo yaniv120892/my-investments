@@ -3,6 +3,8 @@ import {
   MANUAL_VALUE_MAX_AGE_DAYS,
   daysSince,
   describeManualValueAge,
+  describeManualValueAsOf,
+  findStaleManualHoldings,
   isManualValueStale,
 } from "@/utils/manualValueFreshness";
 
@@ -39,6 +41,38 @@ describe("daysSince", () => {
 
   it("reports an unparseable date as infinitely old rather than as today", () => {
     expect(daysSince("not a date", NOW)).toBe(Number.POSITIVE_INFINITY);
+  });
+});
+
+describe("findStaleManualHoldings", () => {
+  const holdings = [
+    { priceSource: "MANUAL", manualValueUpdatedAt: daysBefore(40) },
+    { priceSource: "MANUAL", manualValueUpdatedAt: daysBefore(2) },
+    { priceSource: "MANUAL", manualValueUpdatedAt: null },
+    { priceSource: "FINNHUB", manualValueUpdatedAt: null },
+  ];
+
+  it("picks the manual holdings whose reading has aged out", () => {
+    expect(findStaleManualHoldings(holdings, NOW)).toEqual([
+      holdings[0],
+      holdings[2],
+    ]);
+  });
+
+  it("never flags a holding a provider prices, which has no reading to age", () => {
+    expect(findStaleManualHoldings(holdings, NOW)).not.toContain(holdings[3]);
+  });
+});
+
+describe("describeManualValueAsOf", () => {
+  it("names the day the reading was taken", () => {
+    expect(describeManualValueAsOf(new Date("2026-07-01T09:00:00.000Z"))).toBe(
+      "as of July 1, 2026"
+    );
+  });
+
+  it("says so when no reading was ever taken", () => {
+    expect(describeManualValueAsOf(null)).toBe("never confirmed");
   });
 });
 

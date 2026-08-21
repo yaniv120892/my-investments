@@ -66,29 +66,20 @@ export class HoldingWriteValidator {
   public async assertCanRecordManualValues(
     userId: string,
     entries: ManualValueEntry[]
-  ): Promise<Holding[]> {
+  ): Promise<void> {
+    const holdings = await this.loadOwnedHoldings(
+      userId,
+      entries.map((entry) => entry.holdingId)
+    );
+
     const fieldErrors: FieldErrorMap = {};
-    const holdings: Holding[] = [];
-    const seenHoldingIds = new Set<string>();
-
-    for (const [index, entry] of entries.entries()) {
-      const holding = await this.loadOwnedHolding(userId, entry.holdingId);
-      holdings.push(holding);
-
-      if (seenHoldingIds.has(entry.holdingId)) {
-        fieldErrors[`values.${index}.holdingId`] =
-          `The same holding is confirmed twice in one review (holdingId: ${entry.holdingId})`;
-      }
-      seenHoldingIds.add(entry.holdingId);
-
-      this.collectManualValueError(entry, index, holding, fieldErrors);
-    }
+    entries.forEach((entry, index) => {
+      this.collectManualValueError(entry, holdings[index], fieldErrors);
+    });
 
     if (Object.keys(fieldErrors).length > 0) {
       throw new HoldingValidationError(fieldErrors);
     }
-
-    return holdings;
   }
 
   public async assertCanDeleteHolding(
@@ -100,11 +91,10 @@ export class HoldingWriteValidator {
 
   private collectManualValueError(
     entry: ManualValueEntry,
-    index: number,
     holding: Holding,
     fieldErrors: FieldErrorMap
   ): void {
-    const field = `values.${index}.manualValueNis`;
+    const field = `values.${entry.holdingId}`;
 
     if (holding.priceSource !== PriceSource.MANUAL) {
       fieldErrors[field] =
@@ -112,13 +102,9 @@ export class HoldingWriteValidator {
       return;
     }
 
-    if (!Number.isFinite(entry.manualValueNis)) {
-      fieldErrors[field] = `Manual value must be a finite number (received: ${entry.manualValueNis})`;
-      return;
-    }
-
-    if (entry.manualValueNis < 0) {
-      fieldErrors[field] = `Manual value cannot be negative (received: ${entry.manualValueNis})`;
+    const amountError = describeManualValueAmountError(entry.manualValueNis);
+    if (amountError) {
+      fieldErrors[field] = amountError;
     }
   }
 
@@ -206,10 +192,11 @@ export class HoldingWriteValidator {
   ): void {
     if (state.manualValueNis === null) {
       fieldErrors.manualValueNis = `A manual value in NIS is required for price source ${PriceSource.MANUAL}`;
-    } else if (!Number.isFinite(state.manualValueNis)) {
-      fieldErrors.manualValueNis = `Manual value must be a finite number (received: ${state.manualValueNis})`;
-    } else if (state.manualValueNis < 0) {
-      fieldErrors.manualValueNis = `Manual value cannot be negative (received: ${state.manualValueNis})`;
+    } else {
+      const amountError = describeManualValueAmountError(state.manualValueNis);
+      if (amountError) {
+        fieldErrors.manualValueNis = amountError;
+      }
     }
     if (state.sourceSymbol !== null) {
       fieldErrors.sourceSymbol = `A source symbol cannot be stored for price source ${PriceSource.MANUAL} (received: ${state.sourceSymbol})`;
@@ -242,6 +229,39 @@ export class HoldingWriteValidator {
     }
     return holding;
   }
+
+  /** Returned in the order asked for, so a caller can walk both lists together. */
+  private async loadOwnedHoldings(
+    userId: string,
+    holdingIds: string[]
+  ): Promise<Holding[]> {
+    const holdings = await this.repository.findHoldingsOwnedBy(
+      userId,
+      holdingIds
+    );
+    const holdingsById = new Map(
+      holdings.map((holding) => [holding.id, holding])
+    );
+
+    return holdingIds.map((holdingId) => {
+      const holding = holdingsById.get(holdingId);
+      if (!holding) {
+        throw new HoldingNotFoundError(holdingId);
+      }
+      return holding;
+    });
+  }
+}
+
+/** The one place the stored amount's bounds are stated, for both write paths. */
+function describeManualValueAmountError(value: number): string | null {
+  if (!Number.isFinite(value)) {
+    return `Manual value must be a finite number (received: ${value})`;
+  }
+  if (value < 0) {
+    return `Manual value cannot be negative (received: ${value})`;
+  }
+  return null;
 }
 
 export const holdingWriteValidator = new HoldingWriteValidator();

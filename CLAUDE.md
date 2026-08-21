@@ -127,7 +127,8 @@ exits, and the pre-push quality gate runs `npm run test`.
   whose number did not move: the owner is asserting what the statement says
   today. `PATCH /api/holdings/[id]` does the opposite and re-stamps only on a
   change, so renaming an asset cannot pass an old value off as a fresh reading.
-  A review is validated whole and written whole — a monthly pass that
+  A review is validated whole and written whole — one transaction, keyed by
+  holding id so a rejected line names itself, because a monthly pass that
   half-applies leaves the table unreadable. Anything past
   `MANUAL_VALUE_MAX_AGE_DAYS` (35, a month plus slack) is shown as stale;
   nothing else in the app notices an old manual value, because it never fails
