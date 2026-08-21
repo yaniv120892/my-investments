@@ -71,20 +71,12 @@ export class HoldingWriteService {
   public async recordManualValues(
     userId: string,
     entries: ManualValueEntry[]
-  ): Promise<HoldingWithPlatform[]> {
+  ): Promise<Date> {
     await this.validator.assertCanRecordManualValues(userId, entries);
 
     const confirmedAt = new Date();
-    const recorded: HoldingWithPlatform[] = [];
-    for (const entry of entries) {
-      recorded.push(
-        await this.repository.recordManualValue(userId, entry.holdingId, {
-          manualValueNis: entry.manualValueNis,
-          manualValueUpdatedAt: confirmedAt,
-        })
-      );
-    }
-    return recorded;
+    await this.repository.recordManualValues(userId, entries, confirmedAt);
+    return confirmedAt;
   }
 
   public async deleteHolding(

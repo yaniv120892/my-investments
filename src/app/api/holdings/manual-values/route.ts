@@ -4,13 +4,7 @@ import { holdingWriteService } from "@/lib/holdings/holdingWriteService";
 import { toWriteErrorResponse } from "@/lib/holdings/holdingWriteErrorResponse";
 import { readJsonBody } from "@/lib/holdings/requestBody";
 
-/**
- * The monthly pass over the balances that no free provider can fetch — the
- * pension and study funds, and anything else priced by hand. Separate from
- * PATCH /api/holdings/[id] because confirming a balance means something the
- * general edit does not: it re-dates the reading even when the number is
- * unchanged.
- */
+/** The monthly pass over the balances that no free provider can fetch. */
 export async function PATCH(request: NextRequest) {
   const userId = request.headers.get("x-user-id");
   if (!userId) {
@@ -18,12 +12,12 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const { values } = parseRecordManualValuesBody(await readJsonBody(request));
-    const holdings = await holdingWriteService.recordManualValues(
+    const entries = parseRecordManualValuesBody(await readJsonBody(request));
+    const confirmedAt = await holdingWriteService.recordManualValues(
       userId,
-      values
+      entries
     );
-    return NextResponse.json({ holdings });
+    return NextResponse.json({ confirmedAt, confirmedCount: entries.length });
   } catch (error) {
     return toWriteErrorResponse(error);
   }

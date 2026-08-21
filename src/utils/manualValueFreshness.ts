@@ -1,3 +1,5 @@
+import { formatDate } from "@/utils/format";
+
 /**
  * A manual value is a reading, not a price: it is as true as the day it was
  * taken. Pension and study funds are the reason — no free provider serves a
@@ -7,7 +9,13 @@
  */
 export const MANUAL_VALUE_MAX_AGE_DAYS = 35;
 
+const NEVER_CONFIRMED = "never confirmed";
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
+interface ManuallyPriceable {
+  priceSource: string;
+  manualValueUpdatedAt: Date | string | null;
+}
 
 export function daysSince(
   confirmedAt: Date | string,
@@ -34,12 +42,32 @@ export function isManualValueStale(
   return daysSince(manualValueUpdatedAt, now) >= MANUAL_VALUE_MAX_AGE_DAYS;
 }
 
+export function isManualHolding(holding: ManuallyPriceable): boolean {
+  return holding.priceSource === "MANUAL";
+}
+
+export function findManualHoldings<THolding extends ManuallyPriceable>(
+  holdings: THolding[]
+): THolding[] {
+  return holdings.filter(isManualHolding);
+}
+
+export function findStaleManualHoldings<THolding extends ManuallyPriceable>(
+  holdings: THolding[],
+  now: Date = new Date()
+): THolding[] {
+  return findManualHoldings(holdings).filter((holding) =>
+    isManualValueStale(holding.manualValueUpdatedAt, now)
+  );
+}
+
+/** How long ago the reading was taken — what the review form and the alert ask. */
 export function describeManualValueAge(
   manualValueUpdatedAt: Date | string | null,
   now: Date = new Date()
 ): string {
   if (manualValueUpdatedAt === null) {
-    return "never confirmed";
+    return NEVER_CONFIRMED;
   }
 
   const days = daysSince(manualValueUpdatedAt, now);
@@ -50,4 +78,14 @@ export function describeManualValueAge(
     return "confirmed yesterday";
   }
   return `confirmed ${days} days ago`;
+}
+
+/** The day the reading was taken — what the holdings table asks. */
+export function describeManualValueAsOf(
+  manualValueUpdatedAt: Date | string | null
+): string {
+  if (manualValueUpdatedAt === null) {
+    return NEVER_CONFIRMED;
+  }
+  return `as of ${formatDate(new Date(manualValueUpdatedAt))}`;
 }

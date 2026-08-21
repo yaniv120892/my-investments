@@ -48,10 +48,6 @@ export interface ManualValueEntry {
   manualValueNis: number;
 }
 
-export interface RecordManualValuesInput {
-  values: ManualValueEntry[];
-}
-
 export interface CreatePlatformInput {
   name: string;
   baseCurrency: string;
@@ -64,8 +60,3 @@ export interface HoldingPersistenceData extends HoldingWriteState {
 export type HoldingUpdateData = HoldingWriteState & {
   manualValueUpdatedAt?: Date | null;
 };
-
-export interface ManualValueRecord {
-  manualValueNis: number;
-  manualValueUpdatedAt: Date;
-}

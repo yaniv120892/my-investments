@@ -89,7 +89,15 @@ export default function HoldingsPage() {
             <PricingFailuresAlert failures={data.failures} />
             <StaleManualValuesAlert
               holdings={data.holdings}
-              onReview={() => setIsManualValuesOpen(true)}
+              action={
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => setIsManualValuesOpen(true)}
+                >
+                  Review
+                </Button>
+              }
             />
             <HoldingsTable
               holdings={data.holdings}

@@ -15,11 +15,12 @@ import {
   Typography,
 } from "@mui/material";
 import { ApiError } from "@/lib/apiError";
-import type { ManualValueEntry, PricedHolding } from "@/lib/api";
+import type { PricedHolding } from "@/lib/api";
 import { useRecordManualValues } from "@/lib/hooks";
 import { describeError } from "@/utils/describeError";
 import {
   describeManualValueAge,
+  findManualHoldings,
   isManualValueStale,
 } from "@/utils/manualValueFreshness";
 
@@ -31,16 +32,13 @@ interface ManualValuesModalProps {
 /**
  * The monthly pass over everything no provider can price — the pension and
  * study funds above all. They are read off a statement, so they are reviewed
- * together rather than opened one edit form at a time, and submitting re-dates
- * every line whether or not its number moved.
+ * together rather than opened one edit form at a time.
  */
 export default function ManualValuesModal({
   holdings,
   onClose,
 }: ManualValuesModalProps) {
-  const manualHoldings = holdings.filter(
-    (holding) => holding.priceSource === "MANUAL"
-  );
+  const manualHoldings = findManualHoldings(holdings);
   const [valueByHoldingId, setValueByHoldingId] = useState<
     Record<string, string>
   >(() => toInitialValues(manualHoldings));
@@ -56,7 +54,6 @@ export default function ManualValuesModal({
     setFieldErrors({});
     setFormError(null);
 
-    const entries = toEntries(manualHoldings, valueByHoldingId);
     const emptyHolding = manualHoldings.find(
       (holding) => (valueByHoldingId[holding.id] ?? "").trim().length === 0
     );
@@ -68,11 +65,11 @@ export default function ManualValuesModal({
     }
 
     try {
-      await recordManualValues.mutateAsync(entries);
+      await recordManualValues.mutateAsync(toValues(valueByHoldingId));
       onClose();
     } catch (error) {
       if (error instanceof ApiError) {
-        setFieldErrors(toHoldingErrors(error.fieldErrors, manualHoldings));
+        setFieldErrors(error.fieldErrors);
         setFormError(error.message);
         return;
       }
@@ -103,43 +100,40 @@ export default function ManualValuesModal({
         ) : (
           <Stack spacing={2}>
             {manualHoldings.map((holding) => (
-              <Box key={holding.id}>
-                <TextField
-                  id={`manual-value-${holding.id}`}
-                  label={holding.assetName}
-                  type="number"
-                  value={valueByHoldingId[holding.id] ?? ""}
-                  onChange={(event) =>
-                    setValueByHoldingId((current) => ({
-                      ...current,
-                      [holding.id]: event.target.value,
-                    }))
-                  }
-                  slotProps={{
-                    htmlInput: { step: "any", dir: "auto" },
-                    inputLabel: { dir: "auto" },
-                  }}
-                  fullWidth
-                  error={Boolean(fieldErrors[holding.id])}
-                  helperText={
-                    fieldErrors[holding.id] ?? (
-                      <Box
-                        component="span"
-                        sx={{
-                          color: isManualValueStale(
-                            holding.manualValueUpdatedAt
-                          )
-                            ? "warning.main"
-                            : undefined,
-                        }}
-                      >
-                        {holding.platform.name} —{" "}
-                        {describeManualValueAge(holding.manualValueUpdatedAt)}
-                      </Box>
-                    )
-                  }
-                />
-              </Box>
+              <TextField
+                key={holding.id}
+                id={`manual-value-${holding.id}`}
+                label={holding.assetName}
+                type="number"
+                value={valueByHoldingId[holding.id] ?? ""}
+                onChange={(event) =>
+                  setValueByHoldingId((current) => ({
+                    ...current,
+                    [holding.id]: event.target.value,
+                  }))
+                }
+                slotProps={{
+                  htmlInput: { step: "any", dir: "auto" },
+                  inputLabel: { dir: "auto" },
+                }}
+                fullWidth
+                error={Boolean(errorFor(fieldErrors, holding.id))}
+                helperText={
+                  errorFor(fieldErrors, holding.id) ?? (
+                    <Box
+                      component="span"
+                      sx={{
+                        color: isManualValueStale(holding.manualValueUpdatedAt)
+                          ? "warning.main"
+                          : undefined,
+                      }}
+                    >
+                      {holding.platform.name} —{" "}
+                      {describeManualValueAge(holding.manualValueUpdatedAt)}
+                    </Box>
+                  )
+                }
+              />
             ))}
           </Stack>
         )}
@@ -182,34 +176,21 @@ function toInitialValues(
   );
 }
 
-function toEntries(
-  manualHoldings: PricedHolding[],
+function toValues(
   valueByHoldingId: Record<string, string>
-): ManualValueEntry[] {
-  return manualHoldings.map((holding) => ({
-    holdingId: holding.id,
-    manualValueNis: Number(valueByHoldingId[holding.id]),
-  }));
+): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(valueByHoldingId).map(([holdingId, value]) => [
+      holdingId,
+      Number(value),
+    ])
+  );
 }
 
-/**
- * The route keys its errors by position in the submitted array, which is the
- * only thing it can name; the form needs them back on the holding they came
- * from.
- */
-function toHoldingErrors(
+/** The route names each rejected line by its holding, under a `values.` prefix. */
+function errorFor(
   fieldErrors: Record<string, string>,
-  manualHoldings: PricedHolding[]
-): Record<string, string> {
-  const errorsByHoldingId: Record<string, string> = {};
-
-  for (const [field, message] of Object.entries(fieldErrors)) {
-    const index = Number(field.split(".")[1]);
-    const holding = manualHoldings[index];
-    if (holding) {
-      errorsByHoldingId[holding.id] = message;
-    }
-  }
-
-  return errorsByHoldingId;
+  holdingId: string
+): string | undefined {
+  return fieldErrors[`values.${holdingId}`];
 }

@@ -48,7 +48,12 @@ export default function DashboardPage() {
             <StaleManualValuesAlert
               holdings={data.holdings}
               action={
-                <Button component={Link} href="/holdings" color="inherit" size="small">
+                <Button
+                  component={Link}
+                  href="/holdings"
+                  color="inherit"
+                  size="small"
+                >
                   Update
                 </Button>
               }
