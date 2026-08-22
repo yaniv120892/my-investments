@@ -3,7 +3,10 @@ import jwt from "jsonwebtoken";
 import { prisma } from "./db";
 import { AuthSession } from "@/types";
 
-const SESSION_TTL_MINUTES = parseInt(process.env.SESSION_TTL_MINUTES || "60");
+const SESSION_TTL_MINUTES = Number.parseInt(
+  process.env.SESSION_TTL_MINUTES ?? "60",
+  10
+);
 
 function requireJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -37,30 +40,42 @@ export function generateJWT(payload: {
   userId: string;
   email: string;
 }): string {
-  const expiresIn = SESSION_TTL_MINUTES * 60; // Convert to seconds
-  return jwt.sign(payload, requireJwtSecret(), { expiresIn });
+  const expiresInSeconds = SESSION_TTL_MINUTES * 60;
+  return jwt.sign(payload, requireJwtSecret(), { expiresIn: expiresInSeconds });
 }
 
 export function verifyJWT(token: string): AuthSession | null {
   try {
     const decoded = jwt.verify(token, requireJwtSecret());
-    if (
-      typeof decoded === "object" &&
-      decoded !== null &&
-      "userId" in decoded
-    ) {
-      const payload = decoded as JWTPayload;
-      return {
-        userId: payload.userId,
-        email: payload.email,
-        expiresAt: new Date(payload.exp * 1000),
-      };
+    if (!isJwtPayload(decoded)) {
+      return null;
     }
-    return null;
+    return {
+      userId: decoded.userId,
+      email: decoded.email,
+      expiresAt: new Date(decoded.exp * 1000),
+    };
   } catch (error) {
     console.error("JWT verification error:", error);
     return null;
   }
+}
+
+function isJwtPayload(value: unknown): value is JWTPayload {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const hasEveryClaim =
+    "userId" in value && "email" in value && "exp" in value;
+  if (!hasEveryClaim) {
+    return false;
+  }
+  return (
+    typeof value.userId === "string" &&
+    typeof value.email === "string" &&
+    typeof value.exp === "number" &&
+    Number.isFinite(value.exp)
+  );
 }
 
 export async function createUser(email: string, password: string) {

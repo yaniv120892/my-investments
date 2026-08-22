@@ -7,8 +7,8 @@ describe("computeAllocation", () => {
       { key: "a", valueInNis: 250, targetPercent: null },
       { key: "b", valueInNis: 750, targetPercent: null },
     ]);
-    expect(slices.find((s) => s.key === "a")?.actualPercent).toBeCloseTo(25);
-    expect(slices.find((s) => s.key === "b")?.actualPercent).toBeCloseTo(75);
+    expect(slices.find((slice) => slice.key === "a")?.actualPercent).toBeCloseTo(25);
+    expect(slices.find((slice) => slice.key === "b")?.actualPercent).toBeCloseTo(75);
   });
 
   it("computes drift and the rebalance amount against a target", () => {
@@ -16,11 +16,11 @@ describe("computeAllocation", () => {
       { key: "over", valueInNis: 600, targetPercent: 50 },
       { key: "under", valueInNis: 400, targetPercent: 50 },
     ]);
-    const over = slices.find((s) => s.key === "over");
+    const over = slices.find((slice) => slice.key === "over");
     expect(over?.driftPercent).toBeCloseTo(10);
     expect(over?.rebalanceAmountNis).toBeCloseTo(-100);
 
-    const under = slices.find((s) => s.key === "under");
+    const under = slices.find((slice) => slice.key === "under");
     expect(under?.driftPercent).toBeCloseTo(-10);
     expect(under?.rebalanceAmountNis).toBeCloseTo(100);
   });
@@ -32,19 +32,19 @@ describe("computeAllocation", () => {
       { key: "1159169", valueInNis: 92196, targetPercent: 13.5 },
       { key: "5109889", valueInNis: 60799, targetPercent: 10.0 },
     ]);
-    expect(slices.find((s) => s.key === "1159250")?.actualPercent).toBeCloseTo(
+    expect(slices.find((slice) => slice.key === "1159250")?.actualPercent).toBeCloseTo(
       52.61,
       1
     );
-    expect(slices.find((s) => s.key === "1159094")?.actualPercent).toBeCloseTo(
+    expect(slices.find((slice) => slice.key === "1159094")?.actualPercent).toBeCloseTo(
       21.24,
       1
     );
-    expect(slices.find((s) => s.key === "1159169")?.actualPercent).toBeCloseTo(
+    expect(slices.find((slice) => slice.key === "1159169")?.actualPercent).toBeCloseTo(
       15.76,
       1
     );
-    expect(slices.find((s) => s.key === "5109889")?.actualPercent).toBeCloseTo(
+    expect(slices.find((slice) => slice.key === "5109889")?.actualPercent).toBeCloseTo(
       10.39,
       1
     );
@@ -89,7 +89,7 @@ describe("computeAllocation", () => {
       { key: "small", valueInNis: 1, targetPercent: null },
       { key: "big", valueInNis: 100, targetPercent: null },
     ]);
-    expect(slices.map((s) => s.key)).toEqual(["big", "small"]);
+    expect(slices.map((slice) => slice.key)).toEqual(["big", "small"]);
   });
 });
 

@@ -1,33 +1,18 @@
 import nodemailer from "nodemailer";
 
 const EMAIL_HOST = process.env.EMAIL_HOST || "smtp.gmail.com";
-const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || "587");
+const EMAIL_PORT = Number.parseInt(process.env.EMAIL_PORT ?? "587", 10);
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
 
 let transporter: nodemailer.Transporter | null = null;
 
-function getTransporter(): nodemailer.Transporter {
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: EMAIL_HOST,
-      port: EMAIL_PORT,
-      secure: false,
-      auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS,
-      },
-    });
-  }
-  return transporter;
-}
-
 export async function sendVerificationCode(
   email: string,
   code: string
 ): Promise<boolean> {
-  if (!EMAIL_USER || !EMAIL_PASS) {
-    console.error("Email credentials not configured");
+  if (!hasEmailCredentials()) {
+    reportMissingEmailCredentials("the verification email");
     return false;
   }
 
@@ -58,8 +43,8 @@ export async function sendVerificationCode(
 }
 
 export async function sendWelcomeEmail(email: string): Promise<boolean> {
-  if (!EMAIL_USER || !EMAIL_PASS) {
-    console.error("Email credentials not configured");
+  if (!hasEmailCredentials()) {
+    reportMissingEmailCredentials("the welcome email");
     return false;
   }
 
@@ -89,4 +74,31 @@ export async function sendWelcomeEmail(email: string): Promise<boolean> {
     console.error("Error sending welcome email:", error);
     return false;
   }
+}
+
+function getTransporter(): nodemailer.Transporter {
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      host: EMAIL_HOST,
+      port: EMAIL_PORT,
+      secure: false,
+      auth: {
+        user: EMAIL_USER,
+        pass: EMAIL_PASS,
+      },
+    });
+  }
+  return transporter;
+}
+
+function hasEmailCredentials(): boolean {
+  return Boolean(EMAIL_USER) && Boolean(EMAIL_PASS);
+}
+
+function reportMissingEmailCredentials(purpose: string): void {
+  console.error(
+    `Cannot send ${purpose}: email credentials are not configured (EMAIL_USER set: ${Boolean(
+      EMAIL_USER
+    )}, EMAIL_PASS set: ${Boolean(EMAIL_PASS)}, host: ${EMAIL_HOST}:${EMAIL_PORT})`
+  );
 }

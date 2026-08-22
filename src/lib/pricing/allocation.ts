@@ -1,17 +1,12 @@
-export interface WeightedItem {
-  key: string;
-  valueInNis: number;
-  targetPercent: number | null;
-}
+import type {
+  AllocationSlice,
+  WeightedItem,
+} from "@/lib/pricing/allocation.types";
 
-export interface AllocationSlice {
-  key: string;
-  valueInNis: number;
-  actualPercent: number;
-  targetPercent: number | null;
-  driftPercent: number | null;
-  rebalanceAmountNis: number | null;
-}
+export type {
+  AllocationSlice,
+  WeightedItem,
+} from "@/lib/pricing/allocation.types";
 
 export function computeAllocation(items: WeightedItem[]): AllocationSlice[] {
   const total = items.reduce((sum, item) => sum + item.valueInNis, 0);
