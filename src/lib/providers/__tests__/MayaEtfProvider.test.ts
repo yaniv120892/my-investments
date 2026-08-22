@@ -2,7 +2,10 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MayaEtfProvider } from "@/lib/providers/MayaEtfProvider";
-import { fetchCall, mockFetch } from "@/lib/providers/__tests__/mockFetch";
+import {
+  fetchCallArguments,
+  mockFetch,
+} from "@/lib/providers/__tests__/mockFetch";
 
 const tradeData = JSON.parse(
   readFileSync(join(__dirname, "fixtures", "maya-etf-1159250.json"), "utf8")
@@ -16,7 +19,7 @@ describe("MayaEtfProvider", () => {
   it("asks the traded fund endpoint, which is the only one serving security ids", async () => {
     mockFetch(tradeData);
     await new MayaEtfProvider().fetchQuote("1159250");
-    expect(fetchCall()[0]).toBe(
+    expect(fetchCallArguments()[0]).toBe(
       "https://mayaapi.tase.co.il/api/etf/tradedata?fundId=1159250"
     );
   });

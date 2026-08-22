@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { parseRecordManualValuesBody } from "@/lib/holdings/holdingRequestSchemas";
 import { holdingWriteService } from "@/lib/holdings/holdingWriteService";
 import { toWriteErrorResponse } from "@/lib/holdings/holdingWriteErrorResponse";
 import { readJsonBody } from "@/lib/holdings/requestBody";
 
-/** The monthly pass over the balances that no free provider can fetch. */
 export async function PATCH(request: NextRequest) {
   const userId = request.headers.get("x-user-id");
   if (!userId) {

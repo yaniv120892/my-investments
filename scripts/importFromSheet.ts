@@ -67,11 +67,15 @@ async function main(): Promise<void> {
   );
 }
 
-main()
-  .catch((error) => {
+async function run(): Promise<void> {
+  try {
+    await main();
+  } catch (error) {
     console.error(error);
-    process.exit(1);
-  })
-  .finally(async () => {
+    process.exitCode = 1;
+  } finally {
     await prisma.$disconnect();
-  });
+  }
+}
+
+void run();

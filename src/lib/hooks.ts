@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  api,
+import type {
   CreateHoldingInput,
   CreatePlatformInput,
   LoginRequest,
@@ -9,6 +8,7 @@ import {
   VerificationRequest,
   UserSettings,
 } from "./api";
+import { api } from "./api";
 
 export const useLogin = () => {
   return useMutation({

@@ -32,7 +32,7 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const isDryRun = args.includes("--dry-run");
   const valuesPath =
-    args.find((arg) => !arg.startsWith("--")) ?? DEFAULT_VALUES_PATH;
+    args.find((argument) => !argument.startsWith("--")) ?? DEFAULT_VALUES_PATH;
 
   const rows = toSeedRows(readValuesFile(valuesPath));
 
@@ -157,11 +157,15 @@ function describeRow(row: SavingsSeedRow): string {
   }, ${row.assetClass}, ${row.liquidity}`;
 }
 
-main()
-  .catch((error) => {
+async function run(): Promise<void> {
+  try {
+    await main();
+  } catch (error) {
     console.error(describeError(error));
-    process.exit(1);
-  })
-  .finally(async () => {
+    process.exitCode = 1;
+  } finally {
     await prisma.$disconnect();
-  });
+  }
+}
+
+void run();

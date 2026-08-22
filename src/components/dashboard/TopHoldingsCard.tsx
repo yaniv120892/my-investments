@@ -1,13 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  Button,
-  Card,
-  CardContent,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Button, Card, CardContent, Stack, Typography } from "@mui/material";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import SummaryRow from "@/components/dashboard/SummaryRow";
 import type { PricedHolding } from "@/lib/api";

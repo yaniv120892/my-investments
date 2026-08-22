@@ -18,7 +18,6 @@ interface RebalancingSummaryCardProps {
   drift: PlatformDrift[];
   displayCurrency: DisplayCurrency;
   usdToNisRate: number;
-  /** Drift below this is noise rather than an action to take. */
   actionThresholdPercent?: number;
   maxRows?: number;
 }
@@ -90,12 +89,7 @@ export default function RebalancingSummaryCard({
                 label={slice.key}
                 caption={platformName}
                 value={describeAction(slice, displayCurrency, usdToNisRate)}
-                valueColor={
-                  slice.rebalanceAmountNis !== null &&
-                  slice.rebalanceAmountNis >= 0
-                    ? "info.main"
-                    : "warning.main"
-                }
+                valueColor={getActionColor(slice.rebalanceAmountNis)}
               />
             ))}
             {highlights.length > shown.length && (
@@ -148,4 +142,9 @@ function describeAction(
     usdToNisRate
   );
   return `${verb} ${amount} · ${driftLabel}`;
+}
+
+function getActionColor(rebalanceAmountNis: number | null): string {
+  const isBuy = rebalanceAmountNis !== null && rebalanceAmountNis >= 0;
+  return isBuy ? "info.main" : "warning.main";
 }

@@ -8,8 +8,8 @@ export function formatCurrency(
   }).format(amount);
 }
 
-export function formatNumber(num: number): string {
-  return new Intl.NumberFormat("en-US").format(num);
+export function formatNumber(value: number): string {
+  return new Intl.NumberFormat("en-US").format(value);
 }
 
 export function formatPercentage(value: number): string {
@@ -52,8 +52,9 @@ export function formatRelativeTime(date: Date): string {
   }
 }
 
+import type { DisplayCurrency } from "@/utils/format.types";
 
-export type DisplayCurrency = "NIS" | "USD";
+export type { DisplayCurrency };
 
 export function formatMoney(
   valueInNis: number,

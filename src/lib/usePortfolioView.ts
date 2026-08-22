@@ -6,7 +6,6 @@ import type { HoldingsResponse } from "@/lib/api";
 import { useHoldings } from "@/lib/hooks";
 import { formatMoney, type DisplayCurrency } from "@/utils/format";
 
-/** The priced portfolio plus the currency the shell is toggled to. */
 export interface LoadedPortfolioView {
   data: HoldingsResponse;
   displayCurrency: DisplayCurrency;

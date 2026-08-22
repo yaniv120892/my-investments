@@ -7,7 +7,6 @@ import {
 import type { SupportedCurrency } from "@/lib/pricing/supportedCurrencies";
 import type { PriceProvider, Quote } from "@/lib/providers/types";
 
-/** A quote as it comes back out of Redis, where Date has become an ISO string. */
 interface CachedQuote {
   price: number;
   currency: SupportedCurrency;

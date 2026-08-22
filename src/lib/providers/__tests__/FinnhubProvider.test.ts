@@ -24,9 +24,9 @@ describe("FinnhubProvider", () => {
 
   it("throws when the price is zero, which Finnhub returns for unknown symbols", async () => {
     mockFetch({ c: 0 });
-    await expect(
-      new FinnhubProvider("key").fetchQuote("NOPE")
-    ).rejects.toThrow(/NOPE/);
+    await expect(new FinnhubProvider("key").fetchQuote("NOPE")).rejects.toThrow(
+      /NOPE/
+    );
   });
 
   it("throws when the price field is absent", async () => {

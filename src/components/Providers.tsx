@@ -8,11 +8,7 @@ import { queryClient } from "@/lib/queryClient";
 import DisplayCurrencyProvider from "@/components/DisplayCurrencyProvider";
 import theme from "@/theme";
 
-export default function Providers({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme} defaultMode="system">

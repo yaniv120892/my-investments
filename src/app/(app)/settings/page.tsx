@@ -47,9 +47,13 @@ export default function SettingsPage() {
 
   const baseCurrency = baseCurrencyDraft ?? savedBaseCurrency;
 
-  const handleModeChange = (nextMode: ColorMode): void => {
+  const handleModeChange = async (nextMode: ColorMode): Promise<void> => {
     setMode(nextMode);
-    void updateSettings.mutateAsync({ darkMode: nextMode === "dark" });
+    try {
+      await updateSettings.mutateAsync({ darkMode: nextMode === "dark" });
+    } catch (saveFailure) {
+      setNotice({ message: describeError(saveFailure), severity: "error" });
+    }
   };
 
   const handleSave = async (): Promise<void> => {
@@ -102,7 +106,7 @@ export default function SettingsPage() {
               value={mode ?? "system"}
               onChange={(_, next: ColorMode | null) => {
                 if (next) {
-                  handleModeChange(next);
+                  void handleModeChange(next);
                 }
               }}
               aria-label="Color mode"

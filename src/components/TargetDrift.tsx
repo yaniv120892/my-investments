@@ -85,30 +85,17 @@ export default function TargetDrift({
                         align="right"
                         sx={{
                           fontWeight: 600,
-                          color:
-                            slice.driftPercent === null
-                              ? "text.disabled"
-                              : slice.driftPercent >= 0
-                                ? "warning.main"
-                                : "info.main",
+                          color: getDriftColor(slice.driftPercent),
                         }}
                       >
-                        {slice.driftPercent === null
-                          ? "—"
-                          : `${
-                              slice.driftPercent >= 0 ? "+" : ""
-                            }${slice.driftPercent.toFixed(1)}%`}
+                        {describeDrift(slice.driftPercent)}
                       </TableCell>
                       <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
-                        {slice.rebalanceAmountNis === null
-                          ? "—"
-                          : `${
-                              slice.rebalanceAmountNis >= 0 ? "Buy " : "Sell "
-                            }${formatMoney(
-                              Math.abs(slice.rebalanceAmountNis),
-                              displayCurrency,
-                              usdToNisRate
-                            )}`}
+                        {describeRebalance(
+                          slice.rebalanceAmountNis,
+                          displayCurrency,
+                          usdToNisRate
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -120,4 +107,35 @@ export default function TargetDrift({
       ))}
     </Stack>
   );
+}
+
+function getDriftColor(driftPercent: number | null): string {
+  if (driftPercent === null) {
+    return "text.disabled";
+  }
+  return driftPercent >= 0 ? "warning.main" : "info.main";
+}
+
+function describeDrift(driftPercent: number | null): string {
+  if (driftPercent === null) {
+    return "—";
+  }
+  const sign = driftPercent >= 0 ? "+" : "";
+  return `${sign}${driftPercent.toFixed(1)}%`;
+}
+
+function describeRebalance(
+  rebalanceAmountNis: number | null,
+  displayCurrency: DisplayCurrency,
+  usdToNisRate: number
+): string {
+  if (rebalanceAmountNis === null) {
+    return "—";
+  }
+  const verb = rebalanceAmountNis >= 0 ? "Buy" : "Sell";
+  return `${verb} ${formatMoney(
+    Math.abs(rebalanceAmountNis),
+    displayCurrency,
+    usdToNisRate
+  )}`;
 }

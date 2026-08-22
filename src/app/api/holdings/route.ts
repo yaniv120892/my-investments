@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import type { Holding, Platform } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { priceHoldings } from "@/lib/pricing/portfolioPricingService";
@@ -41,12 +42,13 @@ export async function GET(request: NextRequest) {
       ])
     );
 
-    const pricedRows: PricedRow[] = holdings
-      .filter((holding) => valueByHoldingId.has(holding.id))
-      .map((holding) => ({
-        holding,
-        valueInNis: valueByHoldingId.get(holding.id) ?? 0,
-      }));
+    const pricedRows: PricedRow[] = holdings.flatMap((holding) => {
+      const valueInNis = valueByHoldingId.get(holding.id);
+      if (valueInNis === undefined) {
+        return [];
+      }
+      return [{ holding, valueInNis }];
+    });
 
     return NextResponse.json({
       holdings: holdings.map((holding) => ({
@@ -125,9 +127,7 @@ function buildDriftByPlatform(pricedRows: PricedRow[]) {
       const rows = pricedRows.filter(
         (row) => row.holding.platform.name === platformName
       );
-      const hasTargets = rows.some(
-        (row) => row.holding.targetPercent !== null
-      );
+      const hasTargets = rows.some((row) => row.holding.targetPercent !== null);
       if (!hasTargets) {
         return null;
       }

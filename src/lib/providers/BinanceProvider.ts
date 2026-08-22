@@ -27,7 +27,8 @@ export class BinanceProvider implements PriceProvider {
     }
 
     const data: { price?: string } = await response.json();
-    const price = typeof data?.price === "string" ? parseFloat(data.price) : NaN;
+    const price =
+      typeof data?.price === "string" ? parseFloat(data.price) : NaN;
 
     if (!Number.isFinite(price) || price <= 0) {
       throw new Error(

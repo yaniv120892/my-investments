@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { verifyJWT } from "@/lib/auth-edge";
 
 export async function middleware(request: NextRequest) {
@@ -17,7 +18,8 @@ export async function middleware(request: NextRequest) {
   const authToken = request.cookies.get("auth-token")?.value;
 
   if (!authToken) {
-    if (!isPublicRoute && pathname !== "/") {
+    const requiresSession = !isPublicRoute && pathname !== "/";
+    if (requiresSession) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
     return nextWithoutClientIdentityHeaders(request);
@@ -25,26 +27,8 @@ export async function middleware(request: NextRequest) {
 
   const session = await verifyJWT(authToken);
 
-  if (!session) {
-    const response = NextResponse.redirect(new URL("/login", request.url));
-    response.cookies.set("auth-token", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 0,
-    });
-    return response;
-  }
-
-  if (session.expiresAt < new Date()) {
-    const response = NextResponse.redirect(new URL("/login", request.url));
-    response.cookies.set("auth-token", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 0,
-    });
-    return response;
+  if (!session || session.expiresAt < new Date()) {
+    return redirectToLoginClearingSession(request);
   }
 
   if (pathname.startsWith("/api/") && !isPublicApiRoute) {
@@ -66,6 +50,17 @@ export async function middleware(request: NextRequest) {
   return nextWithoutClientIdentityHeaders(request);
 }
 
+function redirectToLoginClearingSession(request: NextRequest): NextResponse {
+  const response = NextResponse.redirect(new URL("/login", request.url));
+  response.cookies.set("auth-token", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 0,
+  });
+  return response;
+}
+
 /**
  * Route handlers treat x-user-id / x-user-email as proof of an authenticated
  * session, so any copy the client sent must be dropped on the paths where this
@@ -84,13 +79,5 @@ function nextWithoutClientIdentityHeaders(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

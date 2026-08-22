@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { parseCreatePlatformBody } from "@/lib/holdings/holdingRequestSchemas";
 import { platformWriteService } from "@/lib/holdings/platformWriteService";
 import { toWriteErrorResponse } from "@/lib/holdings/holdingWriteErrorResponse";
