@@ -125,7 +125,15 @@ provider actually returned.
   endpoint does not serve returns a WAF 403 as often as a 404 — so a caller
   cannot tell "wrong product" from "blocked" and must not guess. That is why
   `MAYA_ETF` and `MAYA_FUND` are separate price sources, each naming exactly
-  one endpoint. Maya quotes are in agorot: multiply by 0.01.
+  one endpoint. Maya quotes are in agorot: multiply by 0.01. Each endpoint
+  passes `fetchMayaJson` a zod schema so a renamed field fails as a shape
+  mismatch naming the fields Maya sent, not as "no usable rate"; that parse
+  stays outside the JSON try/catch, which exists to name the WAF challenge
+  page and would otherwise swallow it.
+  A traded fund has no `LastRate` between the open and its first deal, so the
+  ETF endpoint falls back to `BaseRate`, the previous close — one throw
+  suppresses the whole portfolio total, and an hour-long hole is not worth
+  that.
 - **The `MAYA_HEADERS` in `mayaApi.ts` are load-bearing.** `mayaapi.tase.co.il`
   serves only what looks like its own front end; without `X-Maya-With` _and_
   `Accept-Language` the same request 403s from Node while succeeding from curl.
@@ -171,7 +179,9 @@ provider actually returned.
   scripts included, so a row a script writes is a row the holdings page would
   accept. `importFromSheet.ts` is the one exception, and it is spent.
 - Redis is a cache, not a store: `getCachedData` swallows errors and returns
-  null, so every read path must work with the cache down.
+  null, so every read path must work with the cache down. Unconfigured Upstash
+  is therefore survivable, and says so once at boot rather than as an error
+  line per key.
 
 ## Testing
 
