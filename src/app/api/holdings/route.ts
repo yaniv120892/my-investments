@@ -42,12 +42,13 @@ export async function GET(request: NextRequest) {
       ])
     );
 
-    const pricedRows: PricedRow[] = holdings
-      .filter((holding) => valueByHoldingId.has(holding.id))
-      .map((holding) => ({
-        holding,
-        valueInNis: valueByHoldingId.get(holding.id) ?? 0,
-      }));
+    const pricedRows: PricedRow[] = holdings.flatMap((holding) => {
+      const valueInNis = valueByHoldingId.get(holding.id);
+      if (valueInNis === undefined) {
+        return [];
+      }
+      return [{ holding, valueInNis }];
+    });
 
     return NextResponse.json({
       holdings: holdings.map((holding) => ({
