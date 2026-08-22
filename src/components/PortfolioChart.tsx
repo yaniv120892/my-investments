@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import { useHoldingHistory } from "@/lib/hooks";
 import type { DisplayCurrency } from "@/utils/format";
+import { describeError } from "@/utils/describeError";
 
 // chart.js is ~90kB of the dashboard's first load, so it streams in behind the
 // card rather than blocking the page it sits on.
@@ -69,7 +70,7 @@ export default function PortfolioChart({
     if (error) {
       return (
         <Typography color="error" variant="body2">
-          Could not load history: {(error as Error).message}
+          Could not load history: {describeError(error)}
         </Typography>
       );
     }

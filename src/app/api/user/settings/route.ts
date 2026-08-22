@@ -1,6 +1,14 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { SUPPORTED_CURRENCIES } from "@/lib/pricing/supportedCurrencies";
+import { describeError } from "@/utils/describeError";
+
+const updateSettingsSchema = z.object({
+  darkMode: z.boolean().optional(),
+  baseCurrency: z.enum(SUPPORTED_CURRENCIES).optional(),
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,11 +29,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       email: user.email,
-      darkMode: user.settings?.darkMode || false,
-      baseCurrency: user.settings?.baseCurrency || "NIS",
+      darkMode: user.settings?.darkMode ?? false,
+      baseCurrency: user.settings?.baseCurrency ?? "NIS",
     });
   } catch (error) {
-    console.error("Error fetching user settings:", error);
+    console.error("Error fetching user settings:", describeError(error));
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -40,24 +48,33 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { darkMode, baseCurrency } = await request.json();
+    const parsed = updateSettingsSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: `Invalid settings (baseCurrency must be one of ${SUPPORTED_CURRENCIES.join(", ")})`,
+        },
+        { status: 400 }
+      );
+    }
+    const { darkMode, baseCurrency } = parsed.data;
 
     const settings = await prisma.settings.upsert({
       where: { userId },
       update: {
         ...(darkMode !== undefined && { darkMode }),
-        ...(baseCurrency && { baseCurrency }),
+        ...(baseCurrency !== undefined && { baseCurrency }),
       },
       create: {
         userId,
-        darkMode: darkMode || false,
-        baseCurrency: baseCurrency || "NIS",
+        darkMode: darkMode ?? false,
+        baseCurrency: baseCurrency ?? "NIS",
       },
     });
 
     return NextResponse.json(settings);
   } catch (error) {
-    console.error("Error updating user settings:", error);
+    console.error("Error updating user settings:", describeError(error));
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

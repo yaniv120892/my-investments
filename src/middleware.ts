@@ -18,7 +18,8 @@ export async function middleware(request: NextRequest) {
   const authToken = request.cookies.get("auth-token")?.value;
 
   if (!authToken) {
-    if (!isPublicRoute && pathname !== "/") {
+    const requiresSession = !isPublicRoute && pathname !== "/";
+    if (requiresSession) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
     return nextWithoutClientIdentityHeaders(request);
@@ -26,26 +27,8 @@ export async function middleware(request: NextRequest) {
 
   const session = await verifyJWT(authToken);
 
-  if (!session) {
-    const response = NextResponse.redirect(new URL("/login", request.url));
-    response.cookies.set("auth-token", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 0,
-    });
-    return response;
-  }
-
-  if (session.expiresAt < new Date()) {
-    const response = NextResponse.redirect(new URL("/login", request.url));
-    response.cookies.set("auth-token", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 0,
-    });
-    return response;
+  if (!session || session.expiresAt < new Date()) {
+    return redirectToLoginClearingSession(request);
   }
 
   if (pathname.startsWith("/api/") && !isPublicApiRoute) {
@@ -65,6 +48,17 @@ export async function middleware(request: NextRequest) {
   }
 
   return nextWithoutClientIdentityHeaders(request);
+}
+
+function redirectToLoginClearingSession(request: NextRequest): NextResponse {
+  const response = NextResponse.redirect(new URL("/login", request.url));
+  response.cookies.set("auth-token", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 0,
+  });
+  return response;
 }
 
 /**

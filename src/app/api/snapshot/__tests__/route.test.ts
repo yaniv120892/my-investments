@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const priceHoldings = vi.fn();
@@ -32,8 +33,10 @@ vi.mock("@/lib/snapshotAuthorization", () => ({
 
 const { POST } = await import("@/app/api/snapshot/route");
 
-function request(): Request {
-  return new Request("https://example.test/api/snapshot", { method: "POST" });
+function request(): NextRequest {
+  return new NextRequest("https://example.test/api/snapshot", {
+    method: "POST",
+  });
 }
 
 describe("POST /api/snapshot", () => {
@@ -51,8 +54,7 @@ describe("POST /api/snapshot", () => {
   it("alerts when the run dies before any user is priced", async () => {
     findManyUsers.mockRejectedValue(new Error("Frankfurter is unreachable"));
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await POST(request() as any);
+    const response = await POST(request());
 
     expect(response.status).toBe(500);
     expect(sendErrorNotification).toHaveBeenCalledTimes(1);
@@ -79,8 +81,7 @@ describe("POST /api/snapshot", () => {
       totalValueNis: null,
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await POST(request() as any);
+    await POST(request());
 
     expect(sendErrorNotification).toHaveBeenCalledTimes(1);
     expect(sendErrorNotification.mock.calls[0][0]).toContain("user-1");
@@ -106,8 +107,7 @@ describe("POST /api/snapshot", () => {
       totalValueNis: null,
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await POST(request() as any);
+    const response = await POST(request());
     const body = await response.json();
 
     expect(body.usersSkipped).toBe(2);

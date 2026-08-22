@@ -52,7 +52,9 @@ export function formatRelativeTime(date: Date): string {
   }
 }
 
-export type DisplayCurrency = "NIS" | "USD";
+import type { DisplayCurrency } from "@/utils/format.types";
+
+export type { DisplayCurrency };
 
 export function formatMoney(
   valueInNis: number,

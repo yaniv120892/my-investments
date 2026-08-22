@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { Alert, Box, Card, CardContent, Skeleton, Stack } from "@mui/material";
 import PageHeader from "@/components/shell/PageHeader";
+import { describeError } from "@/utils/describeError";
 import {
   usePortfolioView,
   type LoadedPortfolioView,
@@ -44,7 +45,7 @@ export default function PortfolioPage({
       <>
         {header}
         <Alert severity="error">
-          {(error as Error)?.message ?? "Could not load your portfolio."}
+          {error ? describeError(error) : "Could not load your portfolio."}
         </Alert>
       </>
     );

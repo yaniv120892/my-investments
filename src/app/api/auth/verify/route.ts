@@ -3,8 +3,11 @@ import { NextResponse } from "next/server";
 import { getCachedData, deleteCachedData } from "@/lib/redis";
 import { generateJWT, findUserById, markUserAsVerified } from "@/lib/auth";
 import { sendWelcomeEmail } from "@/lib/emailService";
+import { describeError } from "@/utils/describeError";
 
 export const runtime = "nodejs";
+
+const NEW_USER_WINDOW_MS = 60_000;
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,9 +68,10 @@ export async function POST(request: NextRequest) {
 
     await markUserAsVerified(user.id);
 
-    const isNewUser = user.createdAt.getTime() > now.getTime() - 60000;
+    const isNewUser =
+      user.createdAt.getTime() > now.getTime() - NEW_USER_WINDOW_MS;
     if (isNewUser) {
-      sendWelcomeEmail(user.email);
+      void sendWelcomeEmailQuietly(user.email);
     }
 
     const response = NextResponse.json(
@@ -89,5 +93,15 @@ export async function POST(request: NextRequest) {
       { error: "Internal server error" },
       { status: 500 }
     );
+  }
+}
+
+// A welcome email is a courtesy; a failed one must not cost the user the
+// session they just verified.
+async function sendWelcomeEmailQuietly(email: string): Promise<void> {
+  try {
+    await sendWelcomeEmail(email);
+  } catch (error) {
+    console.warn(`Welcome email failed for ${email}:`, describeError(error));
   }
 }
