@@ -1,12 +1,8 @@
 import type { Holding } from "@prisma/client";
-import {
-  HoldingRepository,
-  holdingRepository,
-} from "@/lib/holdings/holdingRepository";
-import {
-  HoldingWriteValidator,
-  holdingWriteValidator,
-} from "@/lib/holdings/holdingWriteValidator";
+import type { HoldingRepository } from "@/lib/holdings/holdingRepository";
+import { holdingRepository } from "@/lib/holdings/holdingRepository";
+import type { HoldingWriteValidator } from "@/lib/holdings/holdingWriteValidator";
+import { holdingWriteValidator } from "@/lib/holdings/holdingWriteValidator";
 import {
   mergeHoldingWriteState,
   toHoldingWriteState,
@@ -79,10 +75,7 @@ export class HoldingWriteService {
     return confirmedAt;
   }
 
-  public async deleteHolding(
-    userId: string,
-    holdingId: string
-  ): Promise<void> {
+  public async deleteHolding(userId: string, holdingId: string): Promise<void> {
     await this.validator.assertCanDeleteHolding(userId, holdingId);
     await this.repository.deleteHoldingWithSnapshots(userId, holdingId);
   }
@@ -106,7 +99,9 @@ export class HoldingWriteService {
     };
   }
 
-  private resolveManualValueTimestamp(manualValueNis: number | null): Date | null {
+  private resolveManualValueTimestamp(
+    manualValueNis: number | null
+  ): Date | null {
     if (manualValueNis === null) {
       return null;
     }

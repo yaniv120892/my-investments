@@ -1,9 +1,7 @@
 import { PriceSource } from "@prisma/client";
 import type { Holding } from "@prisma/client";
-import {
-  HoldingRepository,
-  holdingRepository,
-} from "@/lib/holdings/holdingRepository";
+import type { HoldingRepository } from "@/lib/holdings/holdingRepository";
+import { holdingRepository } from "@/lib/holdings/holdingRepository";
 import {
   HoldingNotFoundError,
   HoldingValidationError,
@@ -175,10 +173,7 @@ export class HoldingWriteValidator {
     state: HoldingWriteState,
     fieldErrors: FieldErrorMap
   ): void {
-    if (
-      state.sourceSymbol === null ||
-      state.sourceSymbol.trim().length === 0
-    ) {
+    if (state.sourceSymbol === null || state.sourceSymbol.trim().length === 0) {
       fieldErrors.sourceSymbol = `A source symbol is required for price source ${state.priceSource}`;
     }
     if (state.manualValueNis !== null) {
@@ -220,10 +215,7 @@ export class HoldingWriteValidator {
     userId: string,
     holdingId: string
   ): Promise<Holding> {
-    const holding = await this.repository.findHoldingOwnedBy(
-      userId,
-      holdingId
-    );
+    const holding = await this.repository.findHoldingOwnedBy(userId, holdingId);
     if (!holding) {
       throw new HoldingNotFoundError(holdingId);
     }

@@ -11,7 +11,7 @@ logic. It stores holdings, prices them live from free providers, and shows
 allocation, target drift, rebalancing, and currency exposure in NIS.
 
 Stack: Next.js 15 + React 19 + TypeScript, Prisma/Postgres, Upstash Redis
-(quote and FX cache), Chart.js, Tailwind v4, Vitest.
+(quote and FX cache), MUI v7 + Emotion, Chart.js, Vitest.
 
 Out of scope by design: cost basis and transactions, XIRR, dividends,
 benchmark comparison, two-way sheet sync, multi-user.
@@ -21,7 +21,11 @@ benchmark comparison, two-way sheet sync, multi-user.
 ```bash
 npm run dev              # Next dev server with Turbopack
 npm run build            # prisma generate && next build
-npm run lint             # next lint
+npm run lint             # eslint, no warnings tolerated
+npm run lint:fix         # eslint --fix
+npm run format           # prettier --write
+npm run format:check     # prettier --check, for the pre-push gate
+npm run typecheck        # tsc --noEmit
 npm test                 # test:unit — terminates, so the pre-push gate can run it
 npm run test:watch       # vitest watch
 npm run test:unit        # vitest run, excluding *.contract.test.ts
@@ -34,6 +38,7 @@ npm run setup            # db:generate && db:migrate
 npm run db:import-sheet  # one-off importer, scripts/importFromSheet.ts
 npm run db:add-savings   # adds the hand-priced savings, scripts/addSavingsHoldings.ts
 npm run snapshot:trigger # POST /api/snapshot against SNAPSHOT_BASE_URL
+docker-compose up -d     # local Postgres on 5432
 ```
 
 The Prisma schema lives at `src/prisma/schema.prisma`, not the default
@@ -51,6 +56,15 @@ holding with no manual value fails to price and one failure hides the total.
 `npm test` is deliberately `test:unit` rather than `vitest`: watch mode never
 exits, and the pre-push quality gate runs `npm run test`.
 
+Lint enforces the craft rules mechanically — braces, `T[]` over `Array<T>`,
+explicit class access modifiers, `await` over `.then()`, and a denylist of
+abbreviated identifiers — so they are caught before review rather than in it.
+In `eslint.config.mjs`, `eslint-config-prettier` must stay **above** the rule
+block: it switches `curly` off along with the formatting rules, and below the
+block it silently disables the rule instead of the formatting. Prettier skips
+`src/lib/providers/__tests__/fixtures`, which stays byte-faithful to what the
+provider actually returned.
+
 ## Architecture
 
 - `src/app/` — App Router. `(auth)/` login and signup; `(app)/` the six
@@ -60,7 +74,10 @@ exits, and the pre-push quality gate runs `npm run test`.
   `holdings` (+ `[id]`, `history`, `manual-values`), `platforms`,
   `user/settings`, `snapshot`.
   Routes read the caller from the `x-user-id` header and return `{ error }`
-  with a status; there is no shared handler wrapper.
+  with a status; there is no shared handler wrapper. Validation failures also
+  carry `fieldErrors` keyed by input name — `holdingWriteErrorResponse.ts`
+  writes it, `src/lib/apiError.ts` reads it back into the form that raised it,
+  so a rejected field names itself in the UI.
 - `src/middleware.ts` — the only place a session is verified. It reads the
   `auth-token` cookie, verifies the JWT with `src/lib/auth-edge.ts`, redirects
   unauthenticated page requests to `/login`, and sets `x-user-id` /
@@ -75,9 +92,11 @@ exits, and the pre-push quality gate runs `npm run test`.
 - `src/lib/holdings/` — write path split into schemas (zod) → validator →
   service → repository, with typed errors mapped to responses by
   `holdingWriteErrorResponse.ts`.
-- `src/lib/` — `db.ts` (Prisma + Accelerate), `redis.ts`, `auth.ts`,
-  `auth-edge.ts`, `emailService.ts`, `telegramNotifier.ts`,
-  `snapshotAuthorization.ts`, `usePortfolioView.ts`, `hooks.ts` +
+- `src/lib/` — `db.ts` (the one `PrismaClient`, memoised on `globalThis`
+  outside production so dev hot-reload does not open a connection per edit),
+  `redis.ts`, `auth.ts`, `auth-edge.ts`, `emailService.ts`,
+  `telegramNotifier.ts`, `snapshotAuthorization.ts`, `api.ts` + `apiError.ts`
+  (the browser's typed fetch layer), `usePortfolioView.ts`, `hooks.ts` +
   `queryClient.ts` (TanStack Query).
 - `src/components/` — `shell/` (AppShell, PageHeader), `dashboard/` cards,
   and the shared pieces. `DisplayCurrencyProvider` + `CurrencyToggle` hold the
@@ -87,6 +106,9 @@ exits, and the pre-push quality gate runs `npm run test`.
   `PortfolioChartCanvas` so Chart.js only loads when a chart is actually on
   screen.
 - `src/theme.ts`, `src/utils/` (pure helpers), `src/types/`.
+- A module's shared types live beside it in `<module>.types.ts`, and the module
+  re-exports them, so a type has one definition and callers still import from
+  the implementation. `src/types/` holds only what belongs to no single module.
 
 ## Key invariants
 
@@ -103,18 +125,25 @@ exits, and the pre-push quality gate runs `npm run test`.
   endpoint does not serve returns a WAF 403 as often as a 404 — so a caller
   cannot tell "wrong product" from "blocked" and must not guess. That is why
   `MAYA_ETF` and `MAYA_FUND` are separate price sources, each naming exactly
-  one endpoint. Maya quotes are in agorot: multiply by 0.01.
+  one endpoint. Maya quotes are in agorot: multiply by 0.01. Each endpoint
+  passes `fetchMayaJson` a zod schema so a renamed field fails as a shape
+  mismatch naming the fields Maya sent, not as "no usable rate"; that parse
+  stays outside the JSON try/catch, which exists to name the WAF challenge
+  page and would otherwise swallow it.
+  A traded fund has no `LastRate` between the open and its first deal, so the
+  ETF endpoint falls back to `BaseRate`, the previous close — one throw
+  suppresses the whole portfolio total, and an hour-long hole is not worth
+  that.
 - **The `MAYA_HEADERS` in `mayaApi.ts` are load-bearing.** `mayaapi.tase.co.il`
-  serves only what looks like its own front end; without `X-Maya-With` *and*
+  serves only what looks like its own front end; without `X-Maya-With` _and_
   `Accept-Language` the same request 403s from Node while succeeding from curl.
   Change nothing there without re-running `mayaApi.contract.test.ts`.
 - **FX is memoised per pricing run, and a failure is fatal to the holding.**
   `NisRateBook` keys on the in-flight promise so concurrent callers share one
   lookup, and evicts on failure so one blip does not condemn the rest of the
   run. The USD rate is always fetched, even with no USD holding, because the
-  dashboard converts every displayed figure with it. The bug that prompted
-  this design summed raw USD into a NIS total by using a missing rate as a
-  truthiness guard, understating the portfolio by 37%.
+  dashboard converts every displayed figure with it. A missing rate is never a
+  truthiness guard: the holding fails, and mixed currencies are never summed.
 - **Only NIS, USD, and EUR convert.** `SUPPORTED_CURRENCIES` is the whole list;
   anything else throws rather than passing through unconverted.
 - **Quote failures are deliberately not cached.** `CachedPriceProvider` caches
@@ -143,8 +172,16 @@ exits, and the pre-push quality gate runs `npm run test`.
   and logged; they never fail the read path. Pricing failures are logged at
   error level because a run that prices 22 of 29 holdings otherwise looks
   identical in the logs to a complete one.
+- **Telegram messages go out as HTML**, so anything interpolated from an error
+  is escaped first: a provider failure routinely carries a query string, and
+  one unescaped `&` makes Telegram reject the alert about the failure.
+- **Every holding is created and updated through `holdingWriteService`**, the
+  scripts included, so a row a script writes is a row the holdings page would
+  accept. `importFromSheet.ts` is the one exception, and it is spent.
 - Redis is a cache, not a store: `getCachedData` swallows errors and returns
-  null, so every read path must work with the cache down.
+  null, so every read path must work with the cache down. Unconfigured Upstash
+  is therefore survivable, and says so once at boot rather than as an error
+  line per key.
 
 ## Testing
 
@@ -155,15 +192,18 @@ The providers are the entire risk surface; the rest is arithmetic.
   changing its free-tier policy. Excluded from `test:unit` because they need
   network and a key; run them with `npm run test:contract`.
 - Unit tests mock the network through `__tests__/mockFetch.ts` and JSON
-  fixtures. The pricing suite must keep covering the case that caused the
-  rewrite: FX unavailable fails, and never falls through to summing mixed
-  currencies.
+  fixtures. The pricing suite must keep asserting that an unavailable FX rate
+  fails the holding and never falls through to summing mixed currencies.
+- `vitest.config.mts` includes `scripts/**/*.test.ts` as well as `src/`, so the
+  one-off scripts are covered by the same run.
 
 ## Database (Prisma)
 
-Postgres via `@prisma/client` + Accelerate. Models: `User`, `Settings`
-(baseCurrency, darkMode), `Platform` (unique per `[userId, name]`), `Holding`,
-`HoldingSnapshot` (unique per `[holdingId, date]`).
+Postgres via `@prisma/client`. Every query goes through the single client
+exported by `src/lib/db.ts`; nothing else constructs a `PrismaClient` on a
+request path. Models: `User`, `Settings` (baseCurrency, darkMode, one row per
+user), `Platform` (unique per `[userId, name]`), `Holding`, `HoldingSnapshot`
+(unique per `[holdingId, date]`).
 
 Enums: `AssetClass` (EQUITY | CRYPTO | NON_EQUITY), `Liquidity` (LIQUID |
 ILLIQUID), `PriceSource` (FINNHUB | BINANCE | MAYA_ETF | MAYA_FUND | MANUAL).
@@ -182,16 +222,18 @@ job is to keep saying how old each reading is rather than to guess a newer one.
 
 ## Crons (vercel.json)
 
-| Path            | Schedule                    |
-| --------------- | --------------------------- |
-| `/api/snapshot` | `0 22 * * 1-5` (weekdays)   |
+| Path            | Schedule                  |
+| --------------- | ------------------------- |
+| `/api/snapshot` | `0 22 * * 1-5` (weekdays) |
 
 The snapshot writes one `HoldingSnapshot` row per holding and skips any user
 with a pricing failure entirely, so history never contains a partial day.
 
 ## Deployment
 
-Vercel, region `fra1`. Set every variable from `.env.example`; `CRON_SECRET`
+Vercel, region `fra1` — Binance answers 451 to US-hosted requests, so a US
+region breaks every crypto holding rather than merely slowing it down. Set
+every variable from `.env.example`; `CRON_SECRET`
 must be set or the scheduled snapshot 401s, and `FINNHUB_API_KEY` must be set
 or every US equity fails to price.
 

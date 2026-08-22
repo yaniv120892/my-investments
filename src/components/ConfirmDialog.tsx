@@ -31,7 +31,12 @@ export default function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   return (
-    <Dialog open onClose={isPending ? undefined : onCancel} maxWidth="xs" fullWidth>
+    <Dialog
+      open
+      onClose={isPending ? undefined : onCancel}
+      maxWidth="xs"
+      fullWidth
+    >
       <DialogTitle sx={{ typography: "h4" }}>{title}</DialogTitle>
       <DialogContent>
         <Stack spacing={2}>

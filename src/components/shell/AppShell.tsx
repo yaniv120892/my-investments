@@ -32,6 +32,7 @@ import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 import CurrencyToggle from "@/components/CurrencyToggle";
+import { describeError } from "@/utils/describeError";
 import { useLogout, useUserSettings } from "@/lib/hooks";
 
 const DRAWER_WIDTH = 248;
@@ -118,9 +119,16 @@ function DrawerContent({ onNavigate }: { onNavigate?: () => void }) {
   const { data: settings } = useUserSettings();
   const email = settings?.email ?? "";
 
+  // A failed server logout must not strand someone who asked to leave, so the
+  // redirect happens either way and the cookie the middleware checks is gone.
   const handleLogout = async (): Promise<void> => {
-    await logoutMutation.mutateAsync();
-    router.push("/login");
+    try {
+      await logoutMutation.mutateAsync();
+    } catch (logoutFailure) {
+      console.warn("Logout request failed:", describeError(logoutFailure));
+    } finally {
+      router.push("/login");
+    }
   };
 
   return (
@@ -168,7 +176,7 @@ function DrawerContent({ onNavigate }: { onNavigate?: () => void }) {
           <Tooltip title="Log out">
             <IconButton
               size="small"
-              onClick={handleLogout}
+              onClick={() => void handleLogout()}
               disabled={logoutMutation.isPending}
               aria-label="Log out"
             >

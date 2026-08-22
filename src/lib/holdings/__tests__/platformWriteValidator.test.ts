@@ -2,15 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 
-const { PlatformWriteValidator } = await import(
-  "@/lib/holdings/platformWriteValidator"
-);
-const { HoldingValidationError, PlatformNameConflictError } = await import(
-  "@/lib/holdings/holdingWriteErrors"
-);
-const { OWNER_USER_ID, platformFixture, repositoryStub } = await import(
-  "@/lib/holdings/__tests__/holdingTestFixtures"
-);
+const { PlatformWriteValidator } =
+  await import("@/lib/holdings/platformWriteValidator");
+const { HoldingValidationError, PlatformNameConflictError } =
+  await import("@/lib/holdings/holdingWriteErrors");
+const { OWNER_USER_ID, platformFixture, repositoryStub } =
+  await import("@/lib/holdings/__tests__/holdingTestFixtures");
 
 describe("PlatformWriteValidator.assertCanCreatePlatform", () => {
   it("accepts a new platform name for the requesting user", async () => {

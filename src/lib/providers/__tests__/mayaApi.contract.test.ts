@@ -24,13 +24,21 @@ describe("Maya contract", () => {
   it.each([
     { fundId: "1159250", name: "iShares Core S&P 500", min: 1000, max: 6000 },
     { fundId: "1159169", name: "iShares Core MSCI EM IMI", min: 50, max: 500 },
-    { fundId: "1159094", name: "iShares Core MSCI Europe", min: 100, max: 1200 },
-  ])("prices traded fund $fundId — $name in NIS", async ({ fundId, min, max }) => {
-    const quote = await etfProvider.fetchQuote(fundId);
-    expect(quote.currency).toBe("NIS");
-    expect(quote.price).toBeGreaterThan(min);
-    expect(quote.price).toBeLessThan(max);
-  });
+    {
+      fundId: "1159094",
+      name: "iShares Core MSCI Europe",
+      min: 100,
+      max: 1200,
+    },
+  ])(
+    "prices traded fund $fundId — $name in NIS",
+    async ({ fundId, min, max }) => {
+      const quote = await etfProvider.fetchQuote(fundId);
+      expect(quote.currency).toBe("NIS");
+      expect(quote.price).toBeGreaterThan(min);
+      expect(quote.price).toBeLessThan(max);
+    }
+  );
 
   it('prices mutual fund 5109889 — MTF מחקה ת"א 125 in NIS', async () => {
     const quote = await fundProvider.fetchQuote("5109889");

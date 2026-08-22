@@ -58,9 +58,7 @@ export function parseUpdateHoldingBody(body: unknown): UpdateHoldingInput {
   return parseWithSchema(updateHoldingSchema, body);
 }
 
-export function parseRecordManualValuesBody(
-  body: unknown
-): ManualValueEntry[] {
+export function parseRecordManualValuesBody(body: unknown): ManualValueEntry[] {
   const { values } = parseWithSchema(recordManualValuesSchema, body);
   return Object.entries(values).map(([holdingId, manualValueNis]) => ({
     holdingId,

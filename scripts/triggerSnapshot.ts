@@ -1,3 +1,5 @@
+import { describeError } from "@/utils/describeError";
+
 const SNAPSHOT_PATH = "/api/snapshot";
 
 async function main(): Promise<void> {
@@ -34,7 +36,13 @@ async function main(): Promise<void> {
   console.log(`Snapshot triggered at ${endpoint}: ${body}`);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+async function run(): Promise<void> {
+  try {
+    await main();
+  } catch (error) {
+    console.error(describeError(error));
+    process.exitCode = 1;
+  }
+}
+
+void run();

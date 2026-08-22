@@ -90,8 +90,8 @@ const theme = createTheme({
     },
     MuiCard: {
       styleOverrides: {
-        root: ({ theme: t }) => ({
-          border: `1px solid ${t.vars.palette.divider}`,
+        root: ({ theme: muiTheme }) => ({
+          border: `1px solid ${muiTheme.vars.palette.divider}`,
         }),
       },
     },

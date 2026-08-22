@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { priceHoldings } from "@/lib/pricing/portfolioPricingService";
 import {
@@ -35,7 +36,10 @@ export async function GET(request: NextRequest) {
 }
 
 function unauthorized(reason: string): NextResponse {
-  return NextResponse.json({ error: `Unauthorized: ${reason}` }, { status: 401 });
+  return NextResponse.json(
+    { error: `Unauthorized: ${reason}` },
+    { status: 401 }
+  );
 }
 
 async function runSnapshot(): Promise<NextResponse> {

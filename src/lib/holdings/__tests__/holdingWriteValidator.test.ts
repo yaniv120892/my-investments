@@ -3,14 +3,10 @@ import { PriceSource } from "@prisma/client";
 
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 
-const { HoldingWriteValidator } = await import(
-  "@/lib/holdings/holdingWriteValidator"
-);
-const {
-  HoldingNotFoundError,
-  HoldingValidationError,
-  PlatformNotFoundError,
-} = await import("@/lib/holdings/holdingWriteErrors");
+const { HoldingWriteValidator } =
+  await import("@/lib/holdings/holdingWriteValidator");
+const { HoldingNotFoundError, HoldingValidationError, PlatformNotFoundError } =
+  await import("@/lib/holdings/holdingWriteErrors");
 const {
   OTHER_USER_ID,
   OWNER_USER_ID,

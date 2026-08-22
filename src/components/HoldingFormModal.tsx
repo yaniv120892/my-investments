@@ -255,7 +255,10 @@ export default function HoldingFormModal({
             label="Liquidity"
             value={values.liquidity}
             onChange={(event) => {
-              const selected = findOption(LIQUIDITY_OPTIONS, event.target.value);
+              const selected = findOption(
+                LIQUIDITY_OPTIONS,
+                event.target.value
+              );
               if (selected) {
                 updateValue("liquidity", selected);
               }
@@ -327,7 +330,9 @@ export default function HoldingFormModal({
                 id="currency"
                 label="Currency"
                 value={values.currency}
-                onChange={(event) => updateValue("currency", event.target.value)}
+                onChange={(event) =>
+                  updateValue("currency", event.target.value)
+                }
                 fullWidth
                 {...errorProps("currency")}
               >

@@ -5,7 +5,9 @@ const ORIGINAL_ENV = { ...process.env };
 function mockFetch(ok = true, body: unknown = { ok: true }): void {
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue({ ok, status: ok ? 200 : 400, json: async () => body })
+    vi
+      .fn()
+      .mockResolvedValue({ ok, status: ok ? 200 : 400, json: async () => body })
   );
 }
 

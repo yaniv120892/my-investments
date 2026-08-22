@@ -1,0 +1,10 @@
+.next
+node_modules
+package-lock.json
+src/prisma/migrations
+public
+*.log
+
+# Captured provider responses — kept byte-faithful to what the API returned,
+# so a fixture can be diffed against a fresh capture.
+src/lib/providers/__tests__/fixtures

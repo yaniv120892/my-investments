@@ -61,7 +61,6 @@ export function findStaleManualHoldings<THolding extends ManuallyPriceable>(
   );
 }
 
-/** How long ago the reading was taken — what the review form and the alert ask. */
 export function describeManualValueAge(
   manualValueUpdatedAt: Date | string | null,
   now: Date = new Date()
@@ -80,7 +79,6 @@ export function describeManualValueAge(
   return `confirmed ${days} days ago`;
 }
 
-/** The day the reading was taken — what the holdings table asks. */
 export function describeManualValueAsOf(
   manualValueUpdatedAt: Date | string | null
 ): string {

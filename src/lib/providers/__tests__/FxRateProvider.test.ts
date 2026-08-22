@@ -25,11 +25,6 @@ describe("FxRateProvider", () => {
     expect(url).toContain("symbols=ILS");
   });
 
-  /**
-   * The shekel is NIS internally and ILS to every FX API. Sending the internal
-   * name on the base side would work by accident for USD and EUR and break for
-   * the first currency whose names diverge — which is the shekel itself.
-   */
   it("sends ISO codes on both sides of the pair, not the app's own names", async () => {
     await new FxRateProvider().getRateToNis("USD");
     const [url] = vi.mocked(fetch).mock.calls[0];

@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BinanceProvider } from "@/lib/providers/BinanceProvider";
-import { fetchCall, mockFetch } from "@/lib/providers/__tests__/mockFetch";
+import {
+  fetchCallArguments,
+  mockFetch,
+} from "@/lib/providers/__tests__/mockFetch";
 
 describe("BinanceProvider", () => {
   afterEach(() => {
@@ -25,7 +28,7 @@ describe("BinanceProvider", () => {
   ])("normalises %s to the pair %s", async (input, expected) => {
     mockFetch({ price: "1.0" });
     await new BinanceProvider().fetchQuote(input);
-    expect(fetchCall()[0]).toContain(expected);
+    expect(fetchCallArguments()[0]).toContain(expected);
   });
 
   it("names the region as the cause when Binance replies 451", async () => {

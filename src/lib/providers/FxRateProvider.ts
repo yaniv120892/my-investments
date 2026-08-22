@@ -1,4 +1,4 @@
-import { MarketData } from "@/types";
+import type { MarketData } from "@/types";
 import {
   generateMarketDataKey,
   getCachedData,
@@ -21,9 +21,7 @@ const ISO_CODES: Record<SupportedCurrency, string> = {
 };
 
 export class FxRateProvider {
-  public async getRateToNis(
-    currency: SupportedCurrency
-  ): Promise<MarketData> {
+  public async getRateToNis(currency: SupportedCurrency): Promise<MarketData> {
     this.assertIsForeignCurrency(currency);
 
     const cacheKey = generateMarketDataKey(currency, "currency");

@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import type { Quote } from "@/lib/providers/types";
 import type { SupportedCurrency } from "@/lib/pricing/supportedCurrencies";
 
@@ -5,6 +6,9 @@ const MAYA_API_ORIGIN = "https://mayaapi.tase.co.il/api";
 const MAYA_CURRENCY: SupportedCurrency = "NIS";
 const MAYA_SOURCE_LABEL = "Maya (TASE)";
 const AGOROT_TO_NIS = 0.01;
+
+const FORBIDDEN_HINT =
+  " — Maya answers 403 both for an id this endpoint does not serve and for a request its hotlink filter rejected, so check the id belongs to this endpoint before suspecting the headers";
 
 /**
  * mayaapi serves only what looks like maya.tase.co.il's own front end, and
@@ -33,7 +37,8 @@ const MAYA_HEADERS: Record<string, string> = {
 export async function fetchMayaJson<T>(
   path: string,
   fundId: string,
-  describeTarget: string
+  describeTarget: string,
+  schema: z.ZodType<T>
 ): Promise<T> {
   const url = `${MAYA_API_ORIGIN}/${path}?fundId=${encodeURIComponent(fundId)}`;
   const response = await fetch(url, { headers: MAYA_HEADERS });
@@ -48,14 +53,26 @@ export async function fetchMayaJson<T>(
 
   // A WAF challenge can arrive as a 200 carrying HTML, and the SyntaxError that
   // raises names neither the security nor the url — it would reach the Telegram
-  // alert as a bare "Unexpected token '<'".
+  // alert as a bare "Unexpected token '<'". The schema check stays outside this
+  // block, or a shape mismatch would be reported as that same WAF page.
+  let body: unknown;
   try {
-    return (await response.json()) as T;
+    body = await response.json();
   } catch {
     throw new Error(
       `Maya returned a ${response.status} that was not JSON, which usually means a WAF challenge page (${describeTarget}, url: ${url})`
     );
   }
+
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    throw new Error(
+      `Maya returned a body this endpoint does not recognise (${describeTarget}, url: ${url}, fields returned: ${describeFields(
+        body
+      )})`
+    );
+  }
+  return parsed.data;
 }
 
 export function buildMayaQuote(
@@ -79,10 +96,9 @@ export function buildMayaQuote(
   };
 }
 
-/**
- * A 403 is Maya's answer to both "this id is not mine" and "I do not like this
- * client", and the contract tests cannot tell them apart either, so the message
- * has to carry both readings rather than assert one.
- */
-const FORBIDDEN_HINT =
-  " — Maya answers 403 both for an id this endpoint does not serve and for a request its hotlink filter rejected, so check the id belongs to this endpoint before suspecting the headers";
+function describeFields(body: unknown): string {
+  if (typeof body !== "object" || body === null) {
+    return typeof body;
+  }
+  return Object.keys(body).join(", ");
+}

@@ -20,9 +20,9 @@ describe("isManualValueStale", () => {
   });
 
   it("treats a value confirmed beyond the review window as stale", () => {
-    expect(
-      isManualValueStale(daysBefore(MANUAL_VALUE_MAX_AGE_DAYS), NOW)
-    ).toBe(true);
+    expect(isManualValueStale(daysBefore(MANUAL_VALUE_MAX_AGE_DAYS), NOW)).toBe(
+      true
+    );
   });
 
   it("treats a value that was never confirmed as stale", () => {

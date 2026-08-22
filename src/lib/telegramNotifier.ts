@@ -1,16 +1,17 @@
+import type { SnapshotNotification } from "@/lib/telegramNotifier.types";
+
+export type { SnapshotNotification } from "@/lib/telegramNotifier.types";
+
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-export interface SnapshotNotification {
-  date: Date;
-  netWorth: number;
-  changePercent: number;
-  previousNetWorth?: number;
-}
-
 export async function sendTelegramMessage(message: string): Promise<boolean> {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-    console.error("Telegram credentials not configured");
+    console.error(
+      `Cannot send the Telegram message: credentials are not configured (TELEGRAM_BOT_TOKEN set: ${Boolean(
+        TELEGRAM_BOT_TOKEN
+      )}, TELEGRAM_CHAT_ID set: ${Boolean(TELEGRAM_CHAT_ID)})`
+    );
     return false;
   }
 
@@ -31,7 +32,10 @@ export async function sendTelegramMessage(message: string): Promise<boolean> {
     );
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const failureBody = await readResponseBody(response);
+      throw new Error(
+        `Telegram rejected the message (status: ${response.status}, body: ${failureBody})`
+      );
     }
 
     const result = await response.json();
@@ -50,7 +54,7 @@ export function formatSnapshotMessage(snapshot: SnapshotNotification): string {
   message += `📅 Date: ${date} ${time}\n`;
   message += `💰 Net Worth: ₪${snapshot.netWorth.toLocaleString("he-IL")}\n`;
 
-  if (snapshot.previousNetWorth) {
+  if (snapshot.previousNetWorth !== undefined) {
     const change = snapshot.netWorth - snapshot.previousNetWorth;
     const changeSymbol = change >= 0 ? "📈" : "📉";
     const changeText = change >= 0 ? "+" : "";
@@ -89,4 +93,12 @@ function escapeHtml(text: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+async function readResponseBody(response: Response): Promise<string> {
+  try {
+    return await response.text();
+  } catch {
+    return "<unreadable>";
+  }
 }
