@@ -38,7 +38,7 @@ npm run setup            # db:generate && db:migrate
 npm run db:import-sheet  # one-off importer, scripts/importFromSheet.ts
 npm run db:add-savings   # adds the hand-priced savings, scripts/addSavingsHoldings.ts
 npm run snapshot:trigger # POST /api/snapshot against SNAPSHOT_BASE_URL
-docker-compose up -d     # local Postgres (5432) and Redis (6381, not 6379)
+docker-compose up -d     # local Postgres on 5432
 ```
 
 The Prisma schema lives at `src/prisma/schema.prisma`, not the default

@@ -1,9 +1,19 @@
 import { Redis } from "@upstash/redis";
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL ?? "";
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN ?? "";
+
+// Unconfigured Upstash is survivable — the cache is not a store — but it must
+// say so once at boot rather than as an error line per key, forever.
+if (!redisUrl || !redisToken) {
+  console.warn(
+    `Upstash is not configured; every price will be fetched live (UPSTASH_REDIS_REST_URL set: ${Boolean(
+      redisUrl
+    )}, UPSTASH_REDIS_REST_TOKEN set: ${Boolean(redisToken)})`
+  );
+}
+
+const redis = new Redis({ url: redisUrl, token: redisToken });
 
 const CACHE_TTL_SECONDS = 3600;
 

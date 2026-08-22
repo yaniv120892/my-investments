@@ -157,11 +157,15 @@ function describeRow(row: SavingsSeedRow): string {
   }, ${row.assetClass}, ${row.liquidity}`;
 }
 
-main()
-  .catch((error) => {
+async function run(): Promise<void> {
+  try {
+    await main();
+  } catch (error) {
     console.error(describeError(error));
-    process.exit(1);
-  })
-  .finally(async () => {
+    process.exitCode = 1;
+  } finally {
     await prisma.$disconnect();
-  });
+  }
+}
+
+void run();
