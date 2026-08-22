@@ -75,7 +75,7 @@ export interface SavingsSeedRow extends SavingsHoldingDefinition {
 
 /** Every row must carry a balance — see the `db:add-savings` note in CLAUDE.md. */
 export function toSeedRows(values: unknown): SavingsSeedRow[] {
-  if (typeof values !== "object" || values === null || Array.isArray(values)) {
+  if (!isJsonObject(values)) {
     throw new Error(
       `The values file must be a JSON object keyed by holding (received: ${JSON.stringify(
         values
@@ -83,7 +83,7 @@ export function toSeedRows(values: unknown): SavingsSeedRow[] {
     );
   }
 
-  const entries = values as Record<string, unknown>;
+  const entries = values;
   const knownKeys = new Set(SAVINGS_HOLDINGS.map((holding) => holding.key));
   const unknownKeys = Object.keys(entries).filter((key) => !knownKeys.has(key));
   if (unknownKeys.length > 0) {
@@ -118,7 +118,7 @@ function toSeedRow(
     return { ...holding, manualValueNis: assertBalance(holding.key, entry) };
   }
 
-  if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+  if (!isJsonObject(entry)) {
     throw new Error(
       `A balance must be a number, or an object carrying valueNis (holding: ${
         holding.key
@@ -126,7 +126,7 @@ function toSeedRow(
     );
   }
 
-  const override = entry as Record<string, unknown>;
+  const override = entry;
 
   return {
     ...holding,
@@ -159,15 +159,20 @@ function readAssetClass(
     return holding.assetClass;
   }
   const allowed = Object.values(AssetClass);
-  if (
-    typeof provided !== "string" ||
-    !allowed.includes(provided as AssetClass)
-  ) {
+  if (!isAssetClass(provided)) {
     throw new Error(
       `${holding.key}.assetClass must be one of ${allowed.join(
         ", "
       )} (received: ${JSON.stringify(provided)})`
     );
   }
-  return provided as AssetClass;
+  return provided;
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isAssetClass(value: unknown): value is AssetClass {
+  return Object.values(AssetClass).some((allowed) => allowed === value);
 }

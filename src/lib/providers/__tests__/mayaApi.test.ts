@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { buildMayaQuote, fetchMayaJson } from "@/lib/providers/mayaApi";
 import {
   fetchCallArguments,
   mockFetch,
 } from "@/lib/providers/__tests__/mockFetch";
+
+const anyBodySchema = z.looseObject({});
 
 describe("fetchMayaJson", () => {
   afterEach(() => {
@@ -12,7 +15,12 @@ describe("fetchMayaJson", () => {
 
   it("sends the hotlink headers mayaapi requires", async () => {
     mockFetch({});
-    await fetchMayaJson("etf/tradedata", "1159250", "security: 1159250");
+    await fetchMayaJson(
+      "etf/tradedata",
+      "1159250",
+      "security: 1159250",
+      anyBodySchema
+    );
     const [, options] = fetchCallArguments();
     expect(options?.headers).toMatchObject({
       Referer: "https://maya.tase.co.il/",
@@ -23,7 +31,12 @@ describe("fetchMayaJson", () => {
 
   it("builds the url from the endpoint and fund id", async () => {
     mockFetch({});
-    await fetchMayaJson("fund/details", "5109889", "fund: 5109889");
+    await fetchMayaJson(
+      "fund/details",
+      "5109889",
+      "fund: 5109889",
+      anyBodySchema
+    );
     const [url] = fetchCallArguments();
     expect(url).toBe(
       "https://mayaapi.tase.co.il/api/fund/details?fundId=5109889"
@@ -33,14 +46,19 @@ describe("fetchMayaJson", () => {
   it("names the target and status when the request fails", async () => {
     mockFetch({}, false, 500);
     await expect(
-      fetchMayaJson("fund/details", "5109889", "fund: 5109889")
+      fetchMayaJson("fund/details", "5109889", "fund: 5109889", anyBodySchema)
     ).rejects.toThrow(/5109889[\s\S]*500/);
   });
 
   it("explains that a 403 means either a wrong id or a rejected client", async () => {
     mockFetch({}, false, 403);
     await expect(
-      fetchMayaJson("etf/tradedata", "5109889", "security: 5109889")
+      fetchMayaJson(
+        "etf/tradedata",
+        "5109889",
+        "security: 5109889",
+        anyBodySchema
+      )
     ).rejects.toThrow(/does not serve[\s\S]*hotlink/);
   });
 
@@ -57,8 +75,25 @@ describe("fetchMayaJson", () => {
     );
 
     await expect(
-      fetchMayaJson("etf/tradedata", "1159250", "security: 1159250")
+      fetchMayaJson(
+        "etf/tradedata",
+        "1159250",
+        "security: 1159250",
+        anyBodySchema
+      )
     ).rejects.toThrow(/1159250[\s\S]*etf\/tradedata/);
+  });
+
+  it("names the fields Maya sent when the body does not match the schema", async () => {
+    mockFetch({ SomeRenamedField: 1 });
+    await expect(
+      fetchMayaJson(
+        "etf/tradedata",
+        "1159250",
+        "security: 1159250",
+        z.looseObject({ LastRate: z.number() })
+      )
+    ).rejects.toThrow(/does not recognise[\s\S]*SomeRenamedField/);
   });
 });
 

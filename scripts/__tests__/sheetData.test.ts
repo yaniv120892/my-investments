@@ -80,7 +80,9 @@ describe("sheet data reconciliation", () => {
   });
 
   it("maps S&P to IVV, not SPY", () => {
-    const sp = SHEET_HOLDINGS.find((holding) => holding.assetName === "S&P");
-    expect(sp?.sourceSymbol).toBe("IVV");
+    const sp500Holding = SHEET_HOLDINGS.find(
+      (holding) => holding.assetName === "S&P"
+    );
+    expect(sp500Holding?.sourceSymbol).toBe("IVV");
   });
 });

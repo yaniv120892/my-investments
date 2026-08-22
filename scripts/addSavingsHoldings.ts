@@ -32,7 +32,7 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const isDryRun = args.includes("--dry-run");
   const valuesPath =
-    args.find((arg) => !arg.startsWith("--")) ?? DEFAULT_VALUES_PATH;
+    args.find((argument) => !argument.startsWith("--")) ?? DEFAULT_VALUES_PATH;
 
   const rows = toSeedRows(readValuesFile(valuesPath));
 

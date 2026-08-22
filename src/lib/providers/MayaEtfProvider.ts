@@ -1,11 +1,12 @@
 import { PriceSource } from "@prisma/client";
+import { z } from "zod";
 import { buildMayaQuote, fetchMayaJson } from "@/lib/providers/mayaApi";
 import type { PriceProvider, Quote } from "@/lib/providers/types";
 
-interface MayaEtfTradeData {
-  LastRate?: number;
-  BaseRate?: number;
-}
+const mayaEtfTradeDataSchema = z.looseObject({
+  LastRate: z.number().optional(),
+  BaseRate: z.number().optional(),
+});
 
 /**
  * Traded funds (קרן סל), including the foreign ETFs cross-listed on TASE. TASE
@@ -18,10 +19,11 @@ export class MayaEtfProvider implements PriceProvider {
 
   public async fetchQuote(sourceSymbol: string): Promise<Quote> {
     const target = `security: ${sourceSymbol}`;
-    const data = await fetchMayaJson<MayaEtfTradeData>(
+    const data = await fetchMayaJson(
       "etf/tradedata",
       sourceSymbol,
-      target
+      target,
+      mayaEtfTradeDataSchema
     );
 
     // LastRate is absent between a trading day opening and the security's first
