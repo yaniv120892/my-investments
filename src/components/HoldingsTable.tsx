@@ -80,9 +80,7 @@ export default function HoldingsTable({
                             : "text.disabled"
                         }
                       >
-                        {describeManualValueAsOf(
-                          holding.manualValueUpdatedAt
-                        )}
+                        {describeManualValueAsOf(holding.manualValueUpdatedAt)}
                       </Typography>
                     </Stack>
                   ) : (

@@ -68,7 +68,12 @@ describe("POST /api/snapshot", () => {
     priceHoldings.mockResolvedValue({
       valuations: [],
       failures: [
-        { holdingId: "h1", assetName: "TLV 125", sourceSymbol: "5109889", reason: "Maya request failed" },
+        {
+          holdingId: "h1",
+          assetName: "TLV 125",
+          sourceSymbol: "5109889",
+          reason: "Maya request failed",
+        },
       ],
       usdToNisRate: 3.05,
       totalValueNis: null,
@@ -90,7 +95,12 @@ describe("POST /api/snapshot", () => {
     priceHoldings.mockResolvedValue({
       valuations: [],
       failures: [
-        { holdingId: "h1", assetName: "TLV 125", sourceSymbol: "5109889", reason: "Maya request failed" },
+        {
+          holdingId: "h1",
+          assetName: "TLV 125",
+          sourceSymbol: "5109889",
+          reason: "Maya request failed",
+        },
       ],
       usdToNisRate: 3.05,
       totalValueNis: null,

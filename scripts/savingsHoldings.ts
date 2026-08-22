@@ -85,9 +85,7 @@ export function toSeedRows(values: unknown): SavingsSeedRow[] {
 
   const entries = values as Record<string, unknown>;
   const knownKeys = new Set(SAVINGS_HOLDINGS.map((holding) => holding.key));
-  const unknownKeys = Object.keys(entries).filter(
-    (key) => !knownKeys.has(key)
-  );
+  const unknownKeys = Object.keys(entries).filter((key) => !knownKeys.has(key));
   if (unknownKeys.length > 0) {
     throw new Error(
       `The values file names holdings this script does not create (unknown: ${unknownKeys.join(
@@ -161,7 +159,10 @@ function readAssetClass(
     return holding.assetClass;
   }
   const allowed = Object.values(AssetClass);
-  if (typeof provided !== "string" || !allowed.includes(provided as AssetClass)) {
+  if (
+    typeof provided !== "string" ||
+    !allowed.includes(provided as AssetClass)
+  ) {
     throw new Error(
       `${holding.key}.assetClass must be one of ${allowed.join(
         ", "

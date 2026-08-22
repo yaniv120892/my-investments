@@ -1,12 +1,8 @@
 import type { Platform } from "@prisma/client";
-import {
-  HoldingRepository,
-  holdingRepository,
-} from "@/lib/holdings/holdingRepository";
-import {
-  PlatformWriteValidator,
-  platformWriteValidator,
-} from "@/lib/holdings/platformWriteValidator";
+import type { HoldingRepository } from "@/lib/holdings/holdingRepository";
+import { holdingRepository } from "@/lib/holdings/holdingRepository";
+import type { PlatformWriteValidator } from "@/lib/holdings/platformWriteValidator";
+import { platformWriteValidator } from "@/lib/holdings/platformWriteValidator";
 import type { CreatePlatformInput } from "@/lib/holdings/holdingWrite.types";
 
 export class PlatformWriteService {

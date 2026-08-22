@@ -105,7 +105,7 @@ exits, and the pre-push quality gate runs `npm run test`.
   `MAYA_ETF` and `MAYA_FUND` are separate price sources, each naming exactly
   one endpoint. Maya quotes are in agorot: multiply by 0.01.
 - **The `MAYA_HEADERS` in `mayaApi.ts` are load-bearing.** `mayaapi.tase.co.il`
-  serves only what looks like its own front end; without `X-Maya-With` *and*
+  serves only what looks like its own front end; without `X-Maya-With` _and_
   `Accept-Language` the same request 403s from Node while succeeding from curl.
   Change nothing there without re-running `mayaApi.contract.test.ts`.
 - **FX is memoised per pricing run, and a failure is fatal to the holding.**
@@ -182,9 +182,9 @@ job is to keep saying how old each reading is rather than to guess a newer one.
 
 ## Crons (vercel.json)
 
-| Path            | Schedule                    |
-| --------------- | --------------------------- |
-| `/api/snapshot` | `0 22 * * 1-5` (weekdays)   |
+| Path            | Schedule                  |
+| --------------- | ------------------------- |
+| `/api/snapshot` | `0 22 * * 1-5` (weekdays) |
 
 The snapshot writes one `HoldingSnapshot` row per holding and skips any user
 with a pricing failure entirely, so history never contains a partial day.

@@ -1,7 +1,5 @@
-import {
-  HoldingRepository,
-  holdingRepository,
-} from "@/lib/holdings/holdingRepository";
+import type { HoldingRepository } from "@/lib/holdings/holdingRepository";
+import { holdingRepository } from "@/lib/holdings/holdingRepository";
 import {
   HoldingValidationError,
   PlatformNameConflictError,

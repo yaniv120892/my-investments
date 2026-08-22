@@ -1,4 +1,4 @@
-import { AuthSession } from "@/types";
+import type { AuthSession } from "@/types";
 
 const SUPPORTED_ALGORITHM = "HS256";
 

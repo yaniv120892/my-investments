@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { parseRecordManualValuesBody } from "@/lib/holdings/holdingRequestSchemas";
 import { holdingWriteService } from "@/lib/holdings/holdingWriteService";
 import { toWriteErrorResponse } from "@/lib/holdings/holdingWriteErrorResponse";

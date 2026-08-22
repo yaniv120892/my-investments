@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import type { Holding, Platform } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { priceHoldings } from "@/lib/pricing/portfolioPricingService";
@@ -125,9 +126,7 @@ function buildDriftByPlatform(pricedRows: PricedRow[]) {
       const rows = pricedRows.filter(
         (row) => row.holding.platform.name === platformName
       );
-      const hasTargets = rows.some(
-        (row) => row.holding.targetPercent !== null
-      );
+      const hasTargets = rows.some((row) => row.holding.targetPercent !== null);
       if (!hasTargets) {
         return null;
       }

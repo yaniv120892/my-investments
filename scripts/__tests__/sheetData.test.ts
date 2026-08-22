@@ -70,9 +70,7 @@ describe("sheet data reconciliation", () => {
   });
 
   it("references only platforms that are declared", () => {
-    const declared = new Set(
-      SHEET_HOLDINGS.map((holding) => holding.platform)
-    );
+    const declared = new Set(SHEET_HOLDINGS.map((holding) => holding.platform));
     for (const platform of declared) {
       expect(
         SHEET_HOLDINGS.some((holding) => holding.platform === platform)

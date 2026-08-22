@@ -12,9 +12,8 @@ vi.mock("@/lib/redis", () => ({
   setCachedData: (key: string, data: unknown) => setCachedData(key, data),
 }));
 
-const { CachedPriceProvider } = await import(
-  "@/lib/providers/CachedPriceProvider"
-);
+const { CachedPriceProvider } =
+  await import("@/lib/providers/CachedPriceProvider");
 
 const fetchQuote = vi.fn();
 
@@ -91,7 +90,9 @@ describe("CachedPriceProvider", () => {
   });
 
   it("does not cache a failed fetch", async () => {
-    fetchQuote.mockRejectedValue(new Error("Maya request failed (status: 403)"));
+    fetchQuote.mockRejectedValue(
+      new Error("Maya request failed (status: 403)")
+    );
     await expect(
       new CachedPriceProvider(upstream).fetchQuote("1159250")
     ).rejects.toThrow(/403/);

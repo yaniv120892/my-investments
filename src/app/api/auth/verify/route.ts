@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { getCachedData, deleteCachedData } from "@/lib/redis";
 import { generateJWT, findUserById, markUserAsVerified } from "@/lib/auth";
 import { sendWelcomeEmail } from "@/lib/emailService";

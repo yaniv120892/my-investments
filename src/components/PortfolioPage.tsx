@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Alert, Box, Card, CardContent, Skeleton, Stack } from "@mui/material";
 import PageHeader from "@/components/shell/PageHeader";
 import {
@@ -26,7 +26,9 @@ export default function PortfolioPage({
   const { data, isLoading, error, displayCurrency, usdToNisRate, money } =
     usePortfolioView();
 
-  const header = <PageHeader title={title} subtitle={subtitle} action={action} />;
+  const header = (
+    <PageHeader title={title} subtitle={subtitle} action={action} />
+  );
 
   if (isLoading) {
     return (

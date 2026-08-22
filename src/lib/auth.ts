@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "./db";
-import { AuthSession } from "@/types";
+import type { AuthSession } from "@/types";
 
 const SESSION_TTL_MINUTES = Number.parseInt(
   process.env.SESSION_TTL_MINUTES ?? "60",
@@ -65,8 +65,7 @@ function isJwtPayload(value: unknown): value is JWTPayload {
   if (typeof value !== "object" || value === null) {
     return false;
   }
-  const hasEveryClaim =
-    "userId" in value && "email" in value && "exp" in value;
+  const hasEveryClaim = "userId" in value && "email" in value && "exp" in value;
   if (!hasEveryClaim) {
     return false;
   }

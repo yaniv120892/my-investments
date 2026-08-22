@@ -3,12 +3,10 @@ import { PriceSource } from "@prisma/client";
 
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 
-const { HoldingWriteService } = await import(
-  "@/lib/holdings/holdingWriteService"
-);
-const { HoldingWriteValidator } = await import(
-  "@/lib/holdings/holdingWriteValidator"
-);
+const { HoldingWriteService } =
+  await import("@/lib/holdings/holdingWriteService");
+const { HoldingWriteValidator } =
+  await import("@/lib/holdings/holdingWriteValidator");
 const {
   MANUAL_VALUE_UPDATED_AT,
   OWNER_USER_ID,
@@ -169,7 +167,9 @@ describe("HoldingWriteService.recordManualValues", () => {
       repository.recordManualValues
     ).mock.calls[0];
     expect(userId).toBe(OWNER_USER_ID);
-    expect(entries).toEqual([{ holdingId: "holding-1", manualValueNis: 84919 }]);
+    expect(entries).toEqual([
+      { holdingId: "holding-1", manualValueNis: 84919 },
+    ]);
     expect(confirmedAt).not.toEqual(MANUAL_VALUE_UPDATED_AT);
   });
 

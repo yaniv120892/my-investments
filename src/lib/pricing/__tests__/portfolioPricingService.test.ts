@@ -23,9 +23,7 @@ vi.mock("@/lib/providers/FxRateProvider", () => ({
   },
 }));
 
-const { priceHoldings } = await import(
-  "@/lib/pricing/portfolioPricingService"
-);
+const { priceHoldings } = await import("@/lib/pricing/portfolioPricingService");
 
 function holding(overrides: Partial<Holding> = {}): Holding {
   return {
@@ -70,10 +68,7 @@ describe("priceHoldings", () => {
       148 * 742.36 * USD_TO_NIS_RATE,
       0
     );
-    expect(result.totalValueNis).toBeCloseTo(
-      148 * 742.36 * USD_TO_NIS_RATE,
-      0
-    );
+    expect(result.totalValueNis).toBeCloseTo(148 * 742.36 * USD_TO_NIS_RATE, 0);
   });
 
   it("converts a EUR holding at the EUR rate, not the USD one", async () => {
@@ -84,7 +79,11 @@ describe("priceHoldings", () => {
       source: "Yahoo Finance",
     });
     const result = await priceHoldings([
-      holding({ quantity: 342, priceSource: PriceSource.MAYA_ETF, sourceSymbol: "1159094" }),
+      holding({
+        quantity: 342,
+        priceSource: PriceSource.MAYA_ETF,
+        sourceSymbol: "1159094",
+      }),
     ]);
     expect(result.failures).toHaveLength(0);
     expect(result.valuations[0].valueInNis).toBeCloseTo(

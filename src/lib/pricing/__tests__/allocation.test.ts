@@ -7,8 +7,12 @@ describe("computeAllocation", () => {
       { key: "a", valueInNis: 250, targetPercent: null },
       { key: "b", valueInNis: 750, targetPercent: null },
     ]);
-    expect(slices.find((slice) => slice.key === "a")?.actualPercent).toBeCloseTo(25);
-    expect(slices.find((slice) => slice.key === "b")?.actualPercent).toBeCloseTo(75);
+    expect(
+      slices.find((slice) => slice.key === "a")?.actualPercent
+    ).toBeCloseTo(25);
+    expect(
+      slices.find((slice) => slice.key === "b")?.actualPercent
+    ).toBeCloseTo(75);
   });
 
   it("computes drift and the rebalance amount against a target", () => {
@@ -32,22 +36,18 @@ describe("computeAllocation", () => {
       { key: "1159169", valueInNis: 92196, targetPercent: 13.5 },
       { key: "5109889", valueInNis: 60799, targetPercent: 10.0 },
     ]);
-    expect(slices.find((slice) => slice.key === "1159250")?.actualPercent).toBeCloseTo(
-      52.61,
-      1
-    );
-    expect(slices.find((slice) => slice.key === "1159094")?.actualPercent).toBeCloseTo(
-      21.24,
-      1
-    );
-    expect(slices.find((slice) => slice.key === "1159169")?.actualPercent).toBeCloseTo(
-      15.76,
-      1
-    );
-    expect(slices.find((slice) => slice.key === "5109889")?.actualPercent).toBeCloseTo(
-      10.39,
-      1
-    );
+    expect(
+      slices.find((slice) => slice.key === "1159250")?.actualPercent
+    ).toBeCloseTo(52.61, 1);
+    expect(
+      slices.find((slice) => slice.key === "1159094")?.actualPercent
+    ).toBeCloseTo(21.24, 1);
+    expect(
+      slices.find((slice) => slice.key === "1159169")?.actualPercent
+    ).toBeCloseTo(15.76, 1);
+    expect(
+      slices.find((slice) => slice.key === "5109889")?.actualPercent
+    ).toBeCloseTo(10.39, 1);
   });
 
   it("rebalance amounts sum to zero when every item has a target", () => {
@@ -108,6 +108,12 @@ describe("groupBy", () => {
   });
 
   it("returns an empty object for no items", () => {
-    expect(groupBy([], () => "k", () => 1)).toEqual({});
+    expect(
+      groupBy(
+        [],
+        () => "k",
+        () => 1
+      )
+    ).toEqual({});
   });
 });

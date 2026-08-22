@@ -185,7 +185,6 @@ export const api = {
       return response.json();
     },
   },
-
 };
 
 async function sendJson<T>(
