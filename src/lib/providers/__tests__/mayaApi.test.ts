@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildMayaQuote, fetchMayaJson } from "@/lib/providers/mayaApi";
-import { fetchCall, mockFetch } from "@/lib/providers/__tests__/mockFetch";
+import {
+  fetchCallArguments,
+  mockFetch,
+} from "@/lib/providers/__tests__/mockFetch";
 
 describe("fetchMayaJson", () => {
   afterEach(() => {
@@ -10,7 +13,7 @@ describe("fetchMayaJson", () => {
   it("sends the hotlink headers mayaapi requires", async () => {
     mockFetch({});
     await fetchMayaJson("etf/tradedata", "1159250", "security: 1159250");
-    const [, options] = fetchCall();
+    const [, options] = fetchCallArguments();
     expect(options?.headers).toMatchObject({
       Referer: "https://maya.tase.co.il/",
       "X-Maya-With": "allow",
@@ -21,7 +24,7 @@ describe("fetchMayaJson", () => {
   it("builds the url from the endpoint and fund id", async () => {
     mockFetch({});
     await fetchMayaJson("fund/details", "5109889", "fund: 5109889");
-    const [url] = fetchCall();
+    const [url] = fetchCallArguments();
     expect(url).toBe(
       "https://mayaapi.tase.co.il/api/fund/details?fundId=5109889"
     );
@@ -34,11 +37,6 @@ describe("fetchMayaJson", () => {
     ).rejects.toThrow(/5109889[\s\S]*500/);
   });
 
-  /**
-   * A 403 is the one status a reader cannot interpret alone — it is both "wrong
-   * endpoint for this id" and "hotlink filter rejected you" — so the message
-   * has to offer both readings rather than send someone straight to the headers.
-   */
   it("explains that a 403 means either a wrong id or a rejected client", async () => {
     mockFetch({}, false, 403);
     await expect(
@@ -46,11 +44,6 @@ describe("fetchMayaJson", () => {
     ).rejects.toThrow(/does not serve[\s\S]*hotlink/);
   });
 
-  /**
-   * A WAF challenge arrives as a 200 carrying HTML. The SyntaxError that raises
-   * names neither the security nor the url, and it is the error text that ends
-   * up in the Telegram alert.
-   */
   it("names the target when a 200 turns out not to be JSON", async () => {
     vi.stubGlobal(
       "fetch",

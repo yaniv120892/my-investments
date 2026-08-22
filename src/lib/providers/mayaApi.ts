@@ -79,10 +79,5 @@ export function buildMayaQuote(
   };
 }
 
-/**
- * A 403 is Maya's answer to both "this id is not mine" and "I do not like this
- * client", and the contract tests cannot tell them apart either, so the message
- * has to carry both readings rather than assert one.
- */
 const FORBIDDEN_HINT =
   " — Maya answers 403 both for an id this endpoint does not serve and for a request its hotlink filter rejected, so check the id belongs to this endpoint before suspecting the headers";

@@ -18,7 +18,6 @@ interface RebalancingSummaryCardProps {
   drift: PlatformDrift[];
   displayCurrency: DisplayCurrency;
   usdToNisRate: number;
-  /** Drift below this is noise rather than an action to take. */
   actionThresholdPercent?: number;
   maxRows?: number;
 }

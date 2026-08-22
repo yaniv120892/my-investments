@@ -63,7 +63,6 @@ export async function POST(request: NextRequest) {
 
     await deleteCachedData(verificationKey);
 
-    // Mark user as verified so future logins skip verification
     await markUserAsVerified(user.id);
 
     const isNewUser = user.createdAt.getTime() > now.getTime() - 60000;

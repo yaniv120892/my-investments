@@ -38,7 +38,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // If the user is already verified, issue JWT and return
     if (user.isVerified) {
       const token = generateJWT({ userId: user.id, email: user.email });
       const response = NextResponse.json(
@@ -54,7 +53,6 @@ export async function POST(request: NextRequest) {
       return response;
     }
 
-    // Otherwise, send verification code for first-time verification
     const verificationCode = generateVerificationCode();
     const verificationKey = `verification:${email}`;
     await setCachedData(verificationKey, {

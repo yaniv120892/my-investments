@@ -2,7 +2,10 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MayaFundProvider } from "@/lib/providers/MayaFundProvider";
-import { fetchCall, mockFetch } from "@/lib/providers/__tests__/mockFetch";
+import {
+  fetchCallArguments,
+  mockFetch,
+} from "@/lib/providers/__tests__/mockFetch";
 
 const fundDetails = JSON.parse(
   readFileSync(join(__dirname, "fixtures", "maya-fund-5109889.json"), "utf8")
@@ -16,7 +19,7 @@ describe("MayaFundProvider", () => {
   it("asks the mutual fund endpoint, which is the only one serving fund ids", async () => {
     mockFetch(fundDetails);
     await new MayaFundProvider().fetchQuote("5109889");
-    expect(fetchCall()[0]).toBe(
+    expect(fetchCallArguments()[0]).toBe(
       "https://mayaapi.tase.co.il/api/fund/details?fundId=5109889"
     );
   });
