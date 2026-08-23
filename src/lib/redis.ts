@@ -52,7 +52,3 @@ export async function deleteCachedData(key: string): Promise<void> {
 export function generateMarketDataKey(symbol: string, type: string): string {
   return `market_data:${type}:${symbol.toLowerCase()}`;
 }
-
-export function generatePortfolioKey(userId: string): string {
-  return `portfolio:${userId}`;
-}
