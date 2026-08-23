@@ -24,7 +24,8 @@ npm run build            # prisma generate && next build
 npm run lint             # eslint, no warnings tolerated
 npm run lint:fix         # eslint --fix
 npm run format           # prettier --write
-npm run format:check     # prettier --check, for the pre-push gate
+npm run format:check     # prettier --check
+npm run prettier         # alias of format:check, the name the pre-push gate looks for
 npm run typecheck        # tsc --noEmit
 npm test                 # test:unit — terminates, so the pre-push gate can run it
 npm run test:watch       # vitest watch
@@ -55,6 +56,13 @@ holding with no manual value fails to price and one failure hides the total.
 
 `npm test` is deliberately `test:unit` rather than `vitest`: watch mode never
 exits, and the pre-push quality gate runs `npm run test`.
+
+That gate runs `build`, `lint`, `prettier`, and `test` by those exact names, each
+under `--if-present` — so a script it cannot find is skipped in silence rather
+than reported. `prettier` exists only to be found: it aliases `format:check`, and
+without it the formatting gate passes by never running. `.claude/ship.json` names
+the same commands for the delivery pipeline, along with what a fresh checkout
+needs before the app will start.
 
 Lint enforces the craft rules mechanically — braces, `T[]` over `Array<T>`,
 explicit class access modifiers, `await` over `.then()`, and a denylist of

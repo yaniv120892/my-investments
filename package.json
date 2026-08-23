@@ -10,6 +10,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "prettier": "npm run format:check",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:unit",
     "test:watch": "vitest",
