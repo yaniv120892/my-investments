@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "yaniv-claude-config": {
+      "source": {
+        "source": "github",
+        "repo": "yaniv120892/claude-config"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "pr-workflows@yaniv-claude-config": true,
+    "dev-workflows@yaniv-claude-config": true
+  }
+}
