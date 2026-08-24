@@ -24,7 +24,8 @@ npm run build            # prisma generate && next build
 npm run lint             # eslint, no warnings tolerated
 npm run lint:fix         # eslint --fix
 npm run format           # prettier --write
-npm run format:check     # prettier --check, for the pre-push gate
+npm run format:check     # prettier --check
+npm run prettier         # alias of format:check, the name the pre-push gate looks for
 npm run typecheck        # tsc --noEmit
 npm test                 # test:unit — terminates, so the pre-push gate can run it
 npm run test:watch       # vitest watch
@@ -55,6 +56,13 @@ holding with no manual value fails to price and one failure hides the total.
 
 `npm test` is deliberately `test:unit` rather than `vitest`: watch mode never
 exits, and the pre-push quality gate runs `npm run test`.
+
+That gate runs `build`, `lint`, `prettier`, and `test` by those exact names, each
+under `--if-present` — so a script it cannot find is skipped in silence rather
+than reported. `prettier` exists only to be found: it aliases `format:check`, and
+without it the formatting gate passes by never running. `.claude/ship.json` names
+the same commands for the delivery pipeline, along with what a fresh checkout
+needs before the app will start.
 
 Lint enforces the craft rules mechanically — braces, `T[]` over `Array<T>`,
 explicit class access modifiers, `await` over `.then()`, and a denylist of
@@ -250,3 +258,32 @@ command, a route, a cron, a model — updates the matching section in the same
 PR. Record the rule the code now follows, not the story of the change; git log
 already holds that. If a change fits no existing section and is not a rule
 future work must follow, it does not belong here.
+
+## Agent configuration
+
+`.claude/` is committed so a session gets the same setup wherever it runs — a
+laptop with `~/.claude` installed, Claude Code on the web, a routine, a Claude
+Tag run. The two halves reach a session by different routes.
+
+`settings.json` only _references_ the `yaniv120892/claude-config` marketplace
+and names the plugins to enable, so skills, commands and hooks are fetched
+rather than copied and stay current. Only `pr-workflows` and `dev-workflows`
+are enabled; `issue-tracker` wants a Jira this project does not have,
+`infra-workflows` a Helm/AWS stack it does not use, and `cmux` a terminal no
+remote session has. Plugin keys apply only once the workspace is trusted.
+
+The marketplace repo is public, so fetching it needs no credentials — but a
+`github` source clones over SSH by default, and a fresh container has no key
+and no `known_hosts` entry. `CLAUDE_CODE_PLUGIN_PREFER_HTTPS` is what keeps
+that clone on HTTPS; without it the plugins are a laptop-only feature again.
+
+`rules/` is copied, because that route does not exist for rules: a plugin
+cannot carry `paths:`-scoped rules, and a symlink into `~/.claude` resolves to
+nothing in a fresh container. Each file is byte-identical to its upstream apart
+from a provenance comment naming the commit it came from, and `.prettierignore`
+keeps it that way so re-syncing one is a diff of the rule text alone. Upstream
+is the source of truth: change a rule there, then re-copy. The `paths:`
+frontmatter is what keeps them free — they load only when a matching file is
+read, not on every prompt.
+
+`ship.json` is this repo's own, not synced from anywhere.
