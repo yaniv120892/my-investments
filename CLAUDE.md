@@ -272,6 +272,11 @@ are enabled; `issue-tracker` wants a Jira this project does not have,
 `infra-workflows` a Helm/AWS stack it does not use, and `cmux` a terminal no
 remote session has. Plugin keys apply only once the workspace is trusted.
 
+The marketplace repo is public, so fetching it needs no credentials — but a
+`github` source clones over SSH by default, and a fresh container has no key
+and no `known_hosts` entry. `CLAUDE_CODE_PLUGIN_PREFER_HTTPS` is what keeps
+that clone on HTTPS; without it the plugins are a laptop-only feature again.
+
 `rules/` is copied, because that route does not exist for rules: a plugin
 cannot carry `paths:`-scoped rules, and a symlink into `~/.claude` resolves to
 nothing in a fresh container. Each file is byte-identical to its upstream apart
