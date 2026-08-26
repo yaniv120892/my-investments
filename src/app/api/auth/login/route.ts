@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth";
 import { sendVerificationCode } from "@/lib/emailService";
 import { setCachedData } from "@/lib/redis";
+import { AUTH_COOKIE_NAME } from "@/lib/authTokens";
 
 export const runtime = "nodejs";
 
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
         { message: "Login successful", verificationRequired: false },
         { status: 200 }
       );
-      response.cookies.set("auth-token", token, {
+      response.cookies.set(AUTH_COOKIE_NAME, token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",

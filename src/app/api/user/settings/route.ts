@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { SUPPORTED_CURRENCIES } from "@/lib/pricing/supportedCurrencies";
 import { describeError } from "@/utils/describeError";
+import { USER_ID_HEADER } from "@/lib/authTokens";
 
 const updateSettingsSchema = z.object({
   darkMode: z.boolean().optional(),
@@ -12,7 +13,7 @@ const updateSettingsSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get("x-user-id");
+    const userId = request.headers.get(USER_ID_HEADER);
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const userId = request.headers.get("x-user-id");
+    const userId = request.headers.get(USER_ID_HEADER);
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

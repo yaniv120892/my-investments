@@ -52,6 +52,7 @@ export function formatRelativeTime(date: Date): string {
   }
 }
 
+import type { PriceSource } from "@prisma/client";
 import type { DisplayCurrency } from "@/utils/format.types";
 
 export type { DisplayCurrency };
@@ -89,7 +90,7 @@ export function getAssetClassLabel(assetClass: string): string {
  * holding — but it can at least be posed in TASE's own words rather than as an
  * enum member.
  */
-export function getPriceSourceLabel(priceSource: string): string {
+export function getPriceSourceLabel(priceSource: PriceSource): string {
   switch (priceSource) {
     case "FINNHUB":
       return "Finnhub (US stocks)";
