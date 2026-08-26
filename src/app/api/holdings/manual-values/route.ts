@@ -4,9 +4,10 @@ import { parseRecordManualValuesBody } from "@/lib/holdings/holdingRequestSchema
 import { holdingWriteService } from "@/lib/holdings/holdingWriteService";
 import { toWriteErrorResponse } from "@/lib/holdings/holdingWriteErrorResponse";
 import { readJsonBody } from "@/lib/holdings/requestBody";
+import { USER_ID_HEADER } from "@/lib/authTokens";
 
 export async function PATCH(request: NextRequest) {
-  const userId = request.headers.get("x-user-id");
+  const userId = request.headers.get(USER_ID_HEADER);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

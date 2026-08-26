@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PriceSource } from "@prisma/client";
 import {
   MANUAL_VALUE_MAX_AGE_DAYS,
   daysSince,
@@ -46,10 +47,10 @@ describe("daysSince", () => {
 
 describe("findStaleManualHoldings", () => {
   const holdings = [
-    { priceSource: "MANUAL", manualValueUpdatedAt: daysBefore(40) },
-    { priceSource: "MANUAL", manualValueUpdatedAt: daysBefore(2) },
-    { priceSource: "MANUAL", manualValueUpdatedAt: null },
-    { priceSource: "FINNHUB", manualValueUpdatedAt: null },
+    { priceSource: PriceSource.MANUAL, manualValueUpdatedAt: daysBefore(40) },
+    { priceSource: PriceSource.MANUAL, manualValueUpdatedAt: daysBefore(2) },
+    { priceSource: PriceSource.MANUAL, manualValueUpdatedAt: null },
+    { priceSource: PriceSource.FINNHUB, manualValueUpdatedAt: null },
   ];
 
   it("picks the manual holdings whose reading has aged out", () => {

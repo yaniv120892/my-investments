@@ -1,6 +1,11 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { verifyJWT } from "@/lib/auth-edge";
+import {
+  AUTH_COOKIE_NAME,
+  USER_EMAIL_HEADER,
+  USER_ID_HEADER,
+} from "@/lib/authTokens";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -15,7 +20,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith(route)
   );
 
-  const authToken = request.cookies.get("auth-token")?.value;
+  const authToken = request.cookies.get(AUTH_COOKIE_NAME)?.value;
 
   if (!authToken) {
     const requiresSession = !isPublicRoute && pathname !== "/";
@@ -33,8 +38,8 @@ export async function middleware(request: NextRequest) {
 
   if (pathname.startsWith("/api/") && !isPublicApiRoute) {
     const requestHeaders = new Headers(request.headers);
-    requestHeaders.set("x-user-id", session.userId);
-    requestHeaders.set("x-user-email", session.email);
+    requestHeaders.set(USER_ID_HEADER, session.userId);
+    requestHeaders.set(USER_EMAIL_HEADER, session.email);
 
     return NextResponse.next({
       request: {
@@ -52,7 +57,7 @@ export async function middleware(request: NextRequest) {
 
 function redirectToLoginClearingSession(request: NextRequest): NextResponse {
   const response = NextResponse.redirect(new URL("/login", request.url));
-  response.cookies.set("auth-token", "", {
+  response.cookies.set(AUTH_COOKIE_NAME, "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -68,8 +73,8 @@ function redirectToLoginClearingSession(request: NextRequest): NextResponse {
  */
 function nextWithoutClientIdentityHeaders(request: NextRequest): NextResponse {
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.delete("x-user-id");
-  requestHeaders.delete("x-user-email");
+  requestHeaders.delete(USER_ID_HEADER);
+  requestHeaders.delete(USER_EMAIL_HEADER);
 
   return NextResponse.next({
     request: {

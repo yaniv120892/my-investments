@@ -9,6 +9,7 @@ import { holdingWriteService } from "@/lib/holdings/holdingWriteService";
 import { toWriteErrorResponse } from "@/lib/holdings/holdingWriteErrorResponse";
 import { readJsonBody } from "@/lib/holdings/requestBody";
 import { describeError } from "@/utils/describeError";
+import { USER_ID_HEADER } from "@/lib/authTokens";
 
 type PricedRow = {
   holding: Holding & { platform: Platform };
@@ -16,7 +17,7 @@ type PricedRow = {
 };
 
 export async function GET(request: NextRequest) {
-  const userId = request.headers.get("x-user-id");
+  const userId = request.headers.get(USER_ID_HEADER);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -103,7 +104,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const userId = request.headers.get("x-user-id");
+  const userId = request.headers.get(USER_ID_HEADER);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

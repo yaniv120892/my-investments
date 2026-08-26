@@ -102,10 +102,12 @@ provider actually returned.
   `holdingWriteErrorResponse.ts`.
 - `src/lib/` — `db.ts` (the one `PrismaClient`, memoised on `globalThis`
   outside production so dev hot-reload does not open a connection per edit),
-  `redis.ts`, `auth.ts`, `auth-edge.ts`, `emailService.ts`,
-  `telegramNotifier.ts`, `snapshotAuthorization.ts`, `api.ts` + `apiError.ts`
-  (the browser's typed fetch layer), `usePortfolioView.ts`, `hooks.ts` +
-  `queryClient.ts` (TanStack Query).
+  `redis.ts`, `auth.ts`, `auth-edge.ts`, `authTokens.ts` (the cookie and
+  header names the middleware and the routes agree on, import-free so the edge
+  runtime can load it), `emailService.ts`, `telegramNotifier.ts`,
+  `snapshotAuthorization.ts`, `api.ts` + `apiError.ts` (the browser's typed
+  fetch layer), `usePortfolioView.ts`, `hooks.ts` + `queryClient.ts`
+  (TanStack Query).
 - `src/components/` — `shell/` (AppShell, PageHeader), `dashboard/` cards,
   and the shared pieces. `DisplayCurrencyProvider` + `CurrencyToggle` hold the
   display currency; `PricingFailuresAlert` renders what could not be priced and
