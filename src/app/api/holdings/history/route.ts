@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { USER_ID_HEADER } from "@/lib/authTokens";
 import { describeError } from "@/utils/describeError";
 
 interface DailyTotal {
@@ -10,7 +11,7 @@ interface DailyTotal {
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get("x-user-id");
+    const userId = request.headers.get(USER_ID_HEADER);
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

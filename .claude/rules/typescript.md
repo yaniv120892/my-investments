@@ -6,7 +6,7 @@ description: TypeScript-specific typing, layout, and tooling rules.
 ---
 
 <!--
-  Vendored from yaniv120892/claude-config rules/typescript.md at 728373f.
+  Vendored from yaniv120892/claude-config rules/typescript.md at 22dc13f.
   That repo is the source of truth: edit there, then re-copy here.
   This copy exists because a remote session (Claude Code on the web,
   a routine, a Claude Tag run) has no ~/.claude install and cannot

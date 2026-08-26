@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getCachedData, deleteCachedData } from "@/lib/redis";
 import { generateJWT, findUserById, markUserAsVerified } from "@/lib/auth";
 import { sendWelcomeEmail } from "@/lib/emailService";
+import { AUTH_COOKIE_NAME } from "@/lib/authTokens";
 import { describeError } from "@/utils/describeError";
 
 export const runtime = "nodejs";
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
-    response.cookies.set("auth-token", token, {
+    response.cookies.set(AUTH_COOKIE_NAME, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

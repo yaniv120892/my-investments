@@ -1,3 +1,4 @@
+import type { PriceSource } from "@prisma/client";
 import { formatDate } from "@/utils/format";
 
 /**
@@ -13,7 +14,7 @@ const NEVER_CONFIRMED = "never confirmed";
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 interface ManuallyPriceable {
-  priceSource: string;
+  priceSource: PriceSource;
   manualValueUpdatedAt: Date | string | null;
 }
 
