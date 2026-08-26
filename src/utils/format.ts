@@ -103,9 +103,9 @@ export function getPriceSourceLabel(priceSource: PriceSource): string {
     case "MANUAL":
       return "Manual";
     default: {
-      // Never reached: adding a PriceSource fails to compile here until it has
-      // a label. The return still matters — a tab loaded before a deploy can
-      // be handed a member its bundle predates.
+      // A sixth PriceSource fails to compile here until it has a label. The
+      // return still matters: a tab loaded before a deploy can be handed a
+      // member its bundle predates.
       const unlabelled: never = priceSource;
       return unlabelled;
     }
