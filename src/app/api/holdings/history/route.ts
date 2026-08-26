@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { describeError } from "@/utils/describeError";
 import { USER_ID_HEADER } from "@/lib/authTokens";
+import { describeError } from "@/utils/describeError";
 
 interface DailyTotal {
   date: string;

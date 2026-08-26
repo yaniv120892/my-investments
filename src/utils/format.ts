@@ -1,3 +1,6 @@
+import type { PriceSource } from "@prisma/client";
+import type { DisplayCurrency } from "@/utils/format.types";
+
 export function formatCurrency(
   amount: number,
   currency: string = "USD"
@@ -52,9 +55,6 @@ export function formatRelativeTime(date: Date): string {
   }
 }
 
-import type { PriceSource } from "@prisma/client";
-import type { DisplayCurrency } from "@/utils/format.types";
-
 export type { DisplayCurrency };
 
 export function formatMoney(
@@ -102,8 +102,13 @@ export function getPriceSourceLabel(priceSource: PriceSource): string {
       return "Maya — mutual fund (קרן נאמנות)";
     case "MANUAL":
       return "Manual";
-    default:
-      return priceSource;
+    default: {
+      // Never reached: adding a PriceSource fails to compile here until it has
+      // a label. The return still matters — a tab loaded before a deploy can
+      // be handed a member its bundle predates.
+      const unlabelled: never = priceSource;
+      return unlabelled;
+    }
   }
 }
 
