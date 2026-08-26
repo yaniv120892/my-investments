@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { SUPPORTED_CURRENCIES } from "@/lib/pricing/supportedCurrencies";
-import { describeError } from "@/utils/describeError";
 import { USER_ID_HEADER } from "@/lib/authTokens";
+import { describeError } from "@/utils/describeError";
 
 const updateSettingsSchema = z.object({
   darkMode: z.boolean().optional(),

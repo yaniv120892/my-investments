@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { getCachedData, deleteCachedData } from "@/lib/redis";
 import { generateJWT, findUserById, markUserAsVerified } from "@/lib/auth";
 import { sendWelcomeEmail } from "@/lib/emailService";
-import { describeError } from "@/utils/describeError";
 import { AUTH_COOKIE_NAME } from "@/lib/authTokens";
+import { describeError } from "@/utils/describeError";
 
 export const runtime = "nodejs";
 

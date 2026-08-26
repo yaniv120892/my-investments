@@ -1,4 +1,4 @@
-import { PriceSource } from "@prisma/client";
+import type { PriceSource } from "@prisma/client";
 import { formatDate } from "@/utils/format";
 
 /**
@@ -44,7 +44,7 @@ export function isManualValueStale(
 }
 
 export function isManualHolding(holding: ManuallyPriceable): boolean {
-  return holding.priceSource === PriceSource.MANUAL;
+  return holding.priceSource === "MANUAL";
 }
 
 export function findManualHoldings<THolding extends ManuallyPriceable>(
