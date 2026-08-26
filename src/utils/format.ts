@@ -1,3 +1,6 @@
+import type { PriceSource } from "@prisma/client";
+import type { DisplayCurrency } from "@/utils/format.types";
+
 export function formatCurrency(
   amount: number,
   currency: string = "USD"
@@ -52,8 +55,6 @@ export function formatRelativeTime(date: Date): string {
   }
 }
 
-import type { DisplayCurrency } from "@/utils/format.types";
-
 export type { DisplayCurrency };
 
 export function formatMoney(
@@ -89,7 +90,7 @@ export function getAssetClassLabel(assetClass: string): string {
  * holding — but it can at least be posed in TASE's own words rather than as an
  * enum member.
  */
-export function getPriceSourceLabel(priceSource: string): string {
+export function getPriceSourceLabel(priceSource: PriceSource): string {
   switch (priceSource) {
     case "FINNHUB":
       return "Finnhub (US stocks)";
@@ -101,8 +102,13 @@ export function getPriceSourceLabel(priceSource: string): string {
       return "Maya — mutual fund (קרן נאמנות)";
     case "MANUAL":
       return "Manual";
-    default:
-      return priceSource;
+    default: {
+      // A sixth PriceSource fails to compile here until it has a label. The
+      // return still matters: a tab loaded before a deploy can be handed a
+      // member its bundle predates.
+      const unlabelled: never = priceSource;
+      return unlabelled;
+    }
   }
 }
 

@@ -17,7 +17,7 @@ description: Language-agnostic craft rules: comments, naming, control flow, erro
 ---
 
 <!--
-  Vendored from yaniv120892/claude-config rules/code.md at 728373f.
+  Vendored from yaniv120892/claude-config rules/code.md at 22dc13f.
   That repo is the source of truth: edit there, then re-copy here.
   This copy exists because a remote session (Claude Code on the web,
   a routine, a Claude Tag run) has no ~/.claude install and cannot
@@ -51,6 +51,16 @@ Language-agnostic. TypeScript specifics are in `typescript.md`, Python in `pytho
 > Pattern: Full words. `connectionConfig`, `FingerprintAccumulator`.
 > Avoid: `cfg`, `ctx`, `mgr`, `svc`, `evt`, `res`, `req`, `msg`, `acc`; single letters outside
 > loop indices (`i`, `j`) and sort comparators (`a`, `b`).
+
+**Name Opaque Tokens Once, In the Module That Owns Them** — the compiler cannot catch a
+typo'd protocol token; a pasted copy compiles clean and fails at runtime
+> Pattern: A literal meaningful only to whoever memorized the protocol (`'P2025'`,
+> `'yyyy-MM-dd'`, a header name, a model id) becomes a named constant in the module that owns
+> the protocol (`PRISMA_ERROR_CODES.RECORD_NOT_FOUND`, `DAY_FORMAT`), imported everywhere
+> else. The owning module's own definition table and the tests that pin the protocol keep the
+> raw literal — there the scannable value is the point, and a drifted constant must fail loudly.
+> Avoid: The same raw token pasted across call sites; wrapping compiler-checked literals
+> (union members, enum values) — the type system already rejects those typos.
 
 **Public-First Method Ordering** — top-down readability
 > Pattern: Public/exported members at the top, private helpers at the bottom.

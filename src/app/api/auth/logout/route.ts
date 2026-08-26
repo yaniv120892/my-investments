@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { AUTH_COOKIE_NAME } from "@/lib/authTokens";
 
 export async function POST() {
   const response = NextResponse.json(
@@ -6,7 +7,7 @@ export async function POST() {
     { status: 200 }
   );
 
-  response.cookies.set("auth-token", "", {
+  response.cookies.set(AUTH_COOKIE_NAME, "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

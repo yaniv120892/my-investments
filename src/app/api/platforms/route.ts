@@ -4,9 +4,10 @@ import { parseCreatePlatformBody } from "@/lib/holdings/holdingRequestSchemas";
 import { platformWriteService } from "@/lib/holdings/platformWriteService";
 import { toWriteErrorResponse } from "@/lib/holdings/holdingWriteErrorResponse";
 import { readJsonBody } from "@/lib/holdings/requestBody";
+import { USER_ID_HEADER } from "@/lib/authTokens";
 
 export async function GET(request: NextRequest) {
-  const userId = request.headers.get("x-user-id");
+  const userId = request.headers.get(USER_ID_HEADER);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const userId = request.headers.get("x-user-id");
+  const userId = request.headers.get(USER_ID_HEADER);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

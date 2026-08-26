@@ -4,6 +4,7 @@ import { parseUpdateHoldingBody } from "@/lib/holdings/holdingRequestSchemas";
 import { holdingWriteService } from "@/lib/holdings/holdingWriteService";
 import { toWriteErrorResponse } from "@/lib/holdings/holdingWriteErrorResponse";
 import { readJsonBody } from "@/lib/holdings/requestBody";
+import { USER_ID_HEADER } from "@/lib/authTokens";
 
 interface HoldingRouteContext {
   params: Promise<{ id: string }>;
@@ -13,7 +14,7 @@ export async function PATCH(
   request: NextRequest,
   context: HoldingRouteContext
 ) {
-  const userId = request.headers.get("x-user-id");
+  const userId = request.headers.get(USER_ID_HEADER);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -32,7 +33,7 @@ export async function DELETE(
   request: NextRequest,
   context: HoldingRouteContext
 ) {
-  const userId = request.headers.get("x-user-id");
+  const userId = request.headers.get(USER_ID_HEADER);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

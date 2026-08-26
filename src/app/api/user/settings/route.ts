@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { SUPPORTED_CURRENCIES } from "@/lib/pricing/supportedCurrencies";
+import { USER_ID_HEADER } from "@/lib/authTokens";
 import { describeError } from "@/utils/describeError";
 
 const updateSettingsSchema = z.object({
@@ -12,7 +13,7 @@ const updateSettingsSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get("x-user-id");
+    const userId = request.headers.get(USER_ID_HEADER);
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const userId = request.headers.get("x-user-id");
+    const userId = request.headers.get(USER_ID_HEADER);
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

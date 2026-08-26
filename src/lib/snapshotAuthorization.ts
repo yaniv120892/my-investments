@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "crypto";
+import { USER_ID_HEADER } from "@/lib/authTokens";
 
 const BEARER_PREFIX = "Bearer ";
 
@@ -16,7 +17,7 @@ export function isCronSecretAuthorized(headers: Headers): boolean {
 }
 
 function hasAuthenticatedSession(headers: Headers): boolean {
-  const userId = headers.get("x-user-id");
+  const userId = headers.get(USER_ID_HEADER);
   return userId !== null && userId.trim().length > 0;
 }
 
