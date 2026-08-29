@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import InitColorSchemeScript from "@mui/material/InitColorSchemeScript";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
+import { Analytics } from "@vercel/analytics/next";
 import Providers from "@/components/Providers";
 import "./globals.css";
 
@@ -31,6 +32,7 @@ export default function RootLayout({
         <AppRouterCacheProvider>
           <Providers>{children}</Providers>
         </AppRouterCacheProvider>
+        <Analytics />
       </body>
     </html>
   );
