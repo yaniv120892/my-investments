@@ -40,6 +40,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/nodemailer": "^6.4.17",
     "@upstash/redis": "^1.35.3",
+    "@vercel/analytics": "^2.0.1",
     "bcryptjs": "^3.0.2",
     "chart.js": "^4.5.0",
     "jsonwebtoken": "^9.0.2",
