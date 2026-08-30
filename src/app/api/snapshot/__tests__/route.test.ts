@@ -5,13 +5,15 @@ const priceHoldings = vi.fn();
 const sendErrorNotification = vi.fn();
 const sendSnapshotNotification = vi.fn();
 const findManyUsers = vi.fn();
+const createSnapshot = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: { findMany: () => findManyUsers() },
     holdingSnapshot: {
-      create: vi.fn().mockResolvedValue({}),
+      create: (...args: unknown[]) => createSnapshot(...args),
       findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
     },
   },
 }));
@@ -44,6 +46,7 @@ describe("POST /api/snapshot", () => {
     vi.clearAllMocks();
     sendErrorNotification.mockResolvedValue(true);
     sendSnapshotNotification.mockResolvedValue(true);
+    createSnapshot.mockResolvedValue({});
   });
 
   /**
@@ -113,5 +116,99 @@ describe("POST /api/snapshot", () => {
     expect(body.usersSkipped).toBe(2);
     expect(sendErrorNotification).toHaveBeenCalledTimes(2);
     expect(sendSnapshotNotification).not.toHaveBeenCalled();
+  });
+
+  /**
+   * A run that skipped every user used to answer 200, so the scheduled cron
+   * recorded a success and five weeks of empty history looked like five weeks
+   * of working history.
+   */
+  it("fails the run when no rows were written but holdings exist", async () => {
+    findManyUsers.mockResolvedValue([
+      { id: "user-1", holdings: [{ id: "h1", quantity: 1 }] },
+    ]);
+    priceHoldings.mockResolvedValue({
+      valuations: [],
+      failures: [
+        {
+          holdingId: "h1",
+          assetName: "TLV 125",
+          sourceSymbol: "5109889",
+          reason: "Maya request failed",
+        },
+      ],
+      usdToNisRate: 3.05,
+      totalValueNis: null,
+    });
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.snapshotRowsWritten).toBe(0);
+    expect(body.error).toContain("no rows");
+  });
+
+  it("succeeds without writing when no user holds anything", async () => {
+    findManyUsers.mockResolvedValue([{ id: "user-1", holdings: [] }]);
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.snapshotRowsWritten).toBe(0);
+    expect(priceHoldings).not.toHaveBeenCalled();
+  });
+
+  it("reports the row count and duration of a successful run", async () => {
+    const logged: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((line: unknown) => {
+      logged.push(String(line));
+    });
+
+    findManyUsers.mockResolvedValue([
+      {
+        id: "user-1",
+        holdings: [
+          { id: "h1", quantity: 2 },
+          { id: "h2", quantity: 4 },
+        ],
+      },
+    ]);
+    priceHoldings.mockResolvedValue({
+      valuations: [
+        {
+          holdingId: "h1",
+          assetName: "VOO",
+          valueInNis: 100,
+          unitPrice: 50,
+          currency: "USD",
+          fxRateUsed: 3.05,
+          fetchedAt: new Date(),
+        },
+        {
+          holdingId: "h2",
+          assetName: "TLV 125",
+          valueInNis: 200,
+          unitPrice: 50,
+          currency: "NIS",
+          fxRateUsed: 1,
+          fetchedAt: new Date(),
+        },
+      ],
+      failures: [],
+      usdToNisRate: 3.05,
+      totalValueNis: 300,
+    });
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.usersProcessed).toBe(1);
+    expect(body.snapshotRowsWritten).toBe(2);
+    expect(createSnapshot).toHaveBeenCalledTimes(2);
+    expect(logged.join("\n")).toContain("snapshotRowsWritten=2");
+    expect(typeof body.durationMs).toBe("number");
   });
 });

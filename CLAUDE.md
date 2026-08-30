@@ -239,6 +239,14 @@ job is to keep saying how old each reading is rather than to guess a newer one.
 The snapshot writes one `HoldingSnapshot` row per holding and skips any user
 with a pricing failure entirely, so history never contains a partial day.
 
+A run that writes no rows while holdings exist answers 500, not 200, so a
+scheduled run that priced nobody is recorded as a failed cron rather than a
+successful one carrying `usersSkipped`. Every run logs exactly one completion
+line — `usersProcessed`, `usersWithHoldings`, `usersSkipped`,
+`snapshotRowsWritten`, `durationMs` — at error level when it wrote nothing and
+info otherwise. Vercel Hobby keeps runtime logs for about an hour, so that line
+is the only evidence a run leaves behind.
+
 ## Deployment
 
 Vercel, region `fra1` — Binance answers 451 to US-hosted requests, so a US
@@ -246,6 +254,13 @@ region breaks every crypto holding rather than merely slowing it down. Set
 every variable from `.env.example`; `CRON_SECRET`
 must be set or the scheduled snapshot 401s, and `FINNHUB_API_KEY` must be set
 or every US equity fails to price.
+
+`CRON_SECRET` has to exist on the Vercel project, not merely in the code that
+reads it: Vercel attaches the `Authorization: Bearer` header to a cron
+invocation only when the variable is set, so an unset secret makes every
+scheduled GET 401 before it reaches the handler. That is what stalled history
+between 2026-07-25 and 2026-08-29, silently, because the route was never
+entered and the run left no log.
 
 ## Documentation
 

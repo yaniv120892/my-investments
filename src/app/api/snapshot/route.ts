@@ -17,6 +17,13 @@ interface SkippedUser {
   reasons: string[];
 }
 
+interface SnapshotRunSummary {
+  usersProcessed: number;
+  usersWithHoldings: number;
+  snapshotRowsWritten: number;
+  skipped: SkippedUser[];
+}
+
 export async function POST(request: NextRequest) {
   if (!isSnapshotRequestAuthorized(request.headers)) {
     return unauthorized(
@@ -43,60 +50,35 @@ function unauthorized(reason: string): NextResponse {
 }
 
 async function runSnapshot(): Promise<NextResponse> {
+  const startedAt = Date.now();
+
   try {
-    const users = await prisma.user.findMany({ include: { holdings: true } });
+    const summary = await writeSnapshots();
+    const durationMs = Date.now() - startedAt;
+    logSnapshotCompletion(summary, durationMs);
 
-    const skipped: SkippedUser[] = [];
-    let usersProcessed = 0;
+    const body = {
+      usersProcessed: summary.usersProcessed,
+      usersSkipped: summary.skipped.length,
+      snapshotRowsWritten: summary.snapshotRowsWritten,
+      durationMs,
+      skipped: summary.skipped,
+    };
 
-    for (const user of users) {
-      if (user.holdings.length === 0) {
-        continue;
-      }
-
-      const pricing = await priceHoldings(user.holdings);
-
-      if (pricing.failures.length > 0) {
-        const reasons = pricing.failures.map(
-          (failure) => `${failure.assetName}: ${failure.reason}`
-        );
-        skipped.push({ userId: user.id, reasons });
-        await notifySkippedSnapshot(user.id, reasons);
-        continue;
-      }
-
-      const date = new Date();
-      const quantityByHoldingId = new Map(
-        user.holdings.map((holding) => [holding.id, holding.quantity])
+    // A run that prices nobody used to answer 200 with usersSkipped set, so
+    // Vercel recorded a successful cron and five weeks of empty history looked
+    // exactly like five weeks of working history.
+    if (wroteNothingDespiteHoldings(summary)) {
+      return NextResponse.json(
+        {
+          error: `Snapshot wrote no rows for ${summary.usersWithHoldings} user(s) with holdings`,
+          ...body,
+        },
+        { status: 500 }
       );
-
-      for (const valuation of pricing.valuations) {
-        const quantity = quantityByHoldingId.get(valuation.holdingId) ?? 0;
-        await prisma.holdingSnapshot.create({
-          data: {
-            holdingId: valuation.holdingId,
-            date,
-            quantity,
-            unitPrice:
-              valuation.unitPrice ??
-              (quantity > 0 ? valuation.valueInNis / quantity : 0),
-            currency: valuation.currency,
-            fxRateUsed: valuation.fxRateUsed,
-            valueNis: valuation.valueInNis,
-          },
-        });
-      }
-
-      usersProcessed += 1;
-      await notifySnapshot(user.id, date, pricing.totalValueNis ?? 0);
     }
 
-    return NextResponse.json({
-      message: "Snapshot completed",
-      usersProcessed,
-      usersSkipped: skipped.length,
-      skipped,
-    });
+    return NextResponse.json({ message: "Snapshot completed", ...body });
   } catch (error) {
     // The per-holding failures above are announced one user at a time, but
     // anything thrown out of the loop — an FX outage, a database error — kills
@@ -108,6 +90,92 @@ async function runSnapshot(): Promise<NextResponse> {
       { status: 500 }
     );
   }
+}
+
+async function writeSnapshots(): Promise<SnapshotRunSummary> {
+  const users = await prisma.user.findMany({ include: { holdings: true } });
+
+  const skipped: SkippedUser[] = [];
+  let usersProcessed = 0;
+  let usersWithHoldings = 0;
+  let snapshotRowsWritten = 0;
+
+  for (const user of users) {
+    if (user.holdings.length === 0) {
+      continue;
+    }
+
+    usersWithHoldings += 1;
+
+    const pricing = await priceHoldings(user.holdings);
+
+    if (pricing.failures.length > 0) {
+      const reasons = pricing.failures.map(
+        (failure) => `${failure.assetName}: ${failure.reason}`
+      );
+      skipped.push({ userId: user.id, reasons });
+      await notifySkippedSnapshot(user.id, reasons);
+      continue;
+    }
+
+    const date = new Date();
+    const quantityByHoldingId = new Map(
+      user.holdings.map((holding) => [holding.id, holding.quantity])
+    );
+
+    for (const valuation of pricing.valuations) {
+      const quantity = quantityByHoldingId.get(valuation.holdingId) ?? 0;
+      await prisma.holdingSnapshot.create({
+        data: {
+          holdingId: valuation.holdingId,
+          date,
+          quantity,
+          unitPrice:
+            valuation.unitPrice ??
+            (quantity > 0 ? valuation.valueInNis / quantity : 0),
+          currency: valuation.currency,
+          fxRateUsed: valuation.fxRateUsed,
+          valueNis: valuation.valueInNis,
+        },
+      });
+      snapshotRowsWritten += 1;
+    }
+
+    usersProcessed += 1;
+    await notifySnapshot(user.id, date, pricing.totalValueNis ?? 0);
+  }
+
+  return { usersProcessed, usersWithHoldings, snapshotRowsWritten, skipped };
+}
+
+function wroteNothingDespiteHoldings(summary: SnapshotRunSummary): boolean {
+  return summary.snapshotRowsWritten === 0 && summary.usersWithHoldings > 0;
+}
+
+/**
+ * Vercel keeps Hobby runtime logs for about an hour, so the only evidence a run
+ * ever leaves is what it says while finishing. One line per run carries the
+ * counts, and a run that wrote nothing says so at error level with the users it
+ * skipped — a skipped user reads differently from the total failure logged by
+ * notifyFailedSnapshot.
+ */
+function logSnapshotCompletion(
+  summary: SnapshotRunSummary,
+  durationMs: number
+): void {
+  const counts = `usersProcessed=${summary.usersProcessed} usersWithHoldings=${summary.usersWithHoldings} usersSkipped=${summary.skipped.length} snapshotRowsWritten=${summary.snapshotRowsWritten} durationMs=${durationMs}`;
+
+  if (wroteNothingDespiteHoldings(summary)) {
+    const skippedUserIds = summary.skipped
+      .map((entry) => entry.userId)
+      .join(", ");
+    console.error(
+      `Snapshot run wrote no rows: ${counts} skippedUserIds=${skippedUserIds || "none"}`
+    );
+    return;
+  }
+
+  console.log(`Snapshot run completed: ${counts}`);
 }
 
 async function notifyFailedSnapshot(error: unknown): Promise<void> {
