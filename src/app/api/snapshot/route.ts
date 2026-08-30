@@ -51,23 +51,32 @@ function unauthorized(reason: string): NextResponse {
 
 async function runSnapshot(): Promise<NextResponse> {
   const startedAt = Date.now();
+  // Mutated in place rather than returned, so a throw part-way through still
+  // reports how far the run got.
+  const summary: SnapshotRunSummary = {
+    usersProcessed: 0,
+    usersWithHoldings: 0,
+    snapshotRowsWritten: 0,
+    skipped: [],
+  };
 
   try {
-    const summary = await writeSnapshots();
+    await writeSnapshots(summary);
     const durationMs = Date.now() - startedAt;
     logSnapshotCompletion(summary, durationMs);
 
     const body = {
       usersProcessed: summary.usersProcessed,
+      usersWithHoldings: summary.usersWithHoldings,
       usersSkipped: summary.skipped.length,
       snapshotRowsWritten: summary.snapshotRowsWritten,
       durationMs,
       skipped: summary.skipped,
     };
 
-    // A run that prices nobody used to answer 200 with usersSkipped set, so
-    // Vercel recorded a successful cron and five weeks of empty history looked
-    // exactly like five weeks of working history.
+    // Vercel reads the status code as the cron's outcome, so a run that stored
+    // nothing has to answer 500 — a 200 leaves a stalled history looking
+    // exactly like a working one.
     if (wroteNothingDespiteHoldings(summary)) {
       return NextResponse.json(
         {
@@ -80,32 +89,32 @@ async function runSnapshot(): Promise<NextResponse> {
 
     return NextResponse.json({ message: "Snapshot completed", ...body });
   } catch (error) {
+    const reason = describeError(error);
+    console.error(
+      `Snapshot run failed: ${describeCounts(summary, Date.now() - startedAt)} reason=${reason}`
+    );
+
     // The per-holding failures above are announced one user at a time, but
     // anything thrown out of the loop — an FX outage, a database error — kills
     // every remaining user at once and would otherwise be the one total failure
     // nobody hears about.
-    await notifyFailedSnapshot(error);
+    await notifyFailedSnapshot(reason);
     return NextResponse.json(
-      { error: `Snapshot failed (${describeError(error)})` },
+      { error: `Snapshot failed (${reason})` },
       { status: 500 }
     );
   }
 }
 
-async function writeSnapshots(): Promise<SnapshotRunSummary> {
+async function writeSnapshots(summary: SnapshotRunSummary): Promise<void> {
   const users = await prisma.user.findMany({ include: { holdings: true } });
-
-  const skipped: SkippedUser[] = [];
-  let usersProcessed = 0;
-  let usersWithHoldings = 0;
-  let snapshotRowsWritten = 0;
 
   for (const user of users) {
     if (user.holdings.length === 0) {
       continue;
     }
 
-    usersWithHoldings += 1;
+    summary.usersWithHoldings += 1;
 
     const pricing = await priceHoldings(user.holdings);
 
@@ -113,7 +122,7 @@ async function writeSnapshots(): Promise<SnapshotRunSummary> {
       const reasons = pricing.failures.map(
         (failure) => `${failure.assetName}: ${failure.reason}`
       );
-      skipped.push({ userId: user.id, reasons });
+      summary.skipped.push({ userId: user.id, reasons });
       await notifySkippedSnapshot(user.id, reasons);
       continue;
     }
@@ -138,14 +147,12 @@ async function writeSnapshots(): Promise<SnapshotRunSummary> {
           valueNis: valuation.valueInNis,
         },
       });
-      snapshotRowsWritten += 1;
+      summary.snapshotRowsWritten += 1;
     }
 
-    usersProcessed += 1;
+    summary.usersProcessed += 1;
     await notifySnapshot(user.id, date, pricing.totalValueNis ?? 0);
   }
-
-  return { usersProcessed, usersWithHoldings, snapshotRowsWritten, skipped };
 }
 
 function wroteNothingDespiteHoldings(summary: SnapshotRunSummary): boolean {
@@ -153,24 +160,21 @@ function wroteNothingDespiteHoldings(summary: SnapshotRunSummary): boolean {
 }
 
 /**
- * Vercel keeps Hobby runtime logs for about an hour, so the only evidence a run
- * ever leaves is what it says while finishing. One line per run carries the
- * counts, and a run that wrote nothing says so at error level with the users it
- * skipped — a skipped user reads differently from the total failure logged by
- * notifyFailedSnapshot.
+ * Vercel keeps Hobby runtime logs for about an hour, so this line is the only
+ * evidence a run leaves behind.
  */
 function logSnapshotCompletion(
   summary: SnapshotRunSummary,
   durationMs: number
 ): void {
-  const counts = `usersProcessed=${summary.usersProcessed} usersWithHoldings=${summary.usersWithHoldings} usersSkipped=${summary.skipped.length} snapshotRowsWritten=${summary.snapshotRowsWritten} durationMs=${durationMs}`;
+  const counts = describeCounts(summary, durationMs);
 
   if (wroteNothingDespiteHoldings(summary)) {
     const skippedUserIds = summary.skipped
-      .map((entry) => entry.userId)
+      .map((skippedUser) => skippedUser.userId)
       .join(", ");
     console.error(
-      `Snapshot run wrote no rows: ${counts} skippedUserIds=${skippedUserIds || "none"}`
+      `Snapshot run wrote no rows: ${counts} skippedUserIds=${skippedUserIds}`
     );
     return;
   }
@@ -178,10 +182,14 @@ function logSnapshotCompletion(
   console.log(`Snapshot run completed: ${counts}`);
 }
 
-async function notifyFailedSnapshot(error: unknown): Promise<void> {
-  const reason = describeError(error);
-  console.error("Snapshot error:", reason);
+function describeCounts(
+  summary: SnapshotRunSummary,
+  durationMs: number
+): string {
+  return `usersProcessed=${summary.usersProcessed} usersWithHoldings=${summary.usersWithHoldings} usersSkipped=${summary.skipped.length} snapshotRowsWritten=${summary.snapshotRowsWritten} durationMs=${durationMs}`;
+}
 
+async function notifyFailedSnapshot(reason: string): Promise<void> {
   const wasSent = await sendErrorNotification(
     `Snapshot run failed before it could finish, so no user was priced: ${reason}`
   );

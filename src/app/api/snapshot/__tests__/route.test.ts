@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const priceHoldings = vi.fn();
 const sendErrorNotification = vi.fn();
@@ -13,7 +13,6 @@ vi.mock("@/lib/db", () => ({
     holdingSnapshot: {
       create: (...args: unknown[]) => createSnapshot(...args),
       findFirst: vi.fn().mockResolvedValue(null),
-      findMany: vi.fn().mockResolvedValue([]),
     },
   },
 }));
@@ -41,6 +40,34 @@ function request(): NextRequest {
   });
 }
 
+function pricingResultWithUnpricedHolding() {
+  return {
+    valuations: [],
+    failures: [
+      {
+        holdingId: "h1",
+        assetName: "TLV 125",
+        sourceSymbol: "5109889",
+        reason: "Maya request failed",
+      },
+    ],
+    usdToNisRate: 3.05,
+    totalValueNis: null,
+  };
+}
+
+function pricedValuation(holdingId: string, valueInNis: number) {
+  return {
+    holdingId,
+    assetName: `asset-${holdingId}`,
+    valueInNis,
+    unitPrice: 50,
+    currency: "NIS",
+    fxRateUsed: 1,
+    fetchedAt: new Date(),
+  };
+}
+
 describe("POST /api/snapshot", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -49,17 +76,30 @@ describe("POST /api/snapshot", () => {
     createSnapshot.mockResolvedValue({});
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   /**
    * A throw out of the per-user loop — an FX outage, a database error — takes
    * down every user at once, unlike a single unpriced holding. It used to reach
    * only console.error, making the one total failure the quietest one.
    */
   it("alerts when the run dies before any user is priced", async () => {
+    const logged: string[] = [];
+    vi.spyOn(console, "error").mockImplementation((line: unknown) => {
+      logged.push(String(line));
+    });
     findManyUsers.mockRejectedValue(new Error("Frankfurter is unreachable"));
 
     const response = await POST(request());
 
     expect(response.status).toBe(500);
+    // A throw part-way through is exactly when the counts matter, so the run
+    // still reports how far it got.
+    expect(logged.join("\n")).toContain(
+      "Snapshot run failed: usersProcessed=0"
+    );
     expect(sendErrorNotification).toHaveBeenCalledTimes(1);
     expect(sendErrorNotification.mock.calls[0][0]).toContain(
       "Frankfurter is unreachable"
@@ -70,19 +110,7 @@ describe("POST /api/snapshot", () => {
     findManyUsers.mockResolvedValue([
       { id: "user-1", holdings: [{ id: "h1", quantity: 1 }] },
     ]);
-    priceHoldings.mockResolvedValue({
-      valuations: [],
-      failures: [
-        {
-          holdingId: "h1",
-          assetName: "TLV 125",
-          sourceSymbol: "5109889",
-          reason: "Maya request failed",
-        },
-      ],
-      usdToNisRate: 3.05,
-      totalValueNis: null,
-    });
+    priceHoldings.mockResolvedValue(pricingResultWithUnpricedHolding());
 
     await POST(request());
 
@@ -96,19 +124,7 @@ describe("POST /api/snapshot", () => {
       { id: "user-1", holdings: [{ id: "h1", quantity: 1 }] },
       { id: "user-2", holdings: [{ id: "h2", quantity: 2 }] },
     ]);
-    priceHoldings.mockResolvedValue({
-      valuations: [],
-      failures: [
-        {
-          holdingId: "h1",
-          assetName: "TLV 125",
-          sourceSymbol: "5109889",
-          reason: "Maya request failed",
-        },
-      ],
-      usdToNisRate: 3.05,
-      totalValueNis: null,
-    });
+    priceHoldings.mockResolvedValue(pricingResultWithUnpricedHolding());
 
     const response = await POST(request());
     const body = await response.json();
@@ -118,28 +134,11 @@ describe("POST /api/snapshot", () => {
     expect(sendSnapshotNotification).not.toHaveBeenCalled();
   });
 
-  /**
-   * A run that skipped every user used to answer 200, so the scheduled cron
-   * recorded a success and five weeks of empty history looked like five weeks
-   * of working history.
-   */
   it("fails the run when no rows were written but holdings exist", async () => {
     findManyUsers.mockResolvedValue([
       { id: "user-1", holdings: [{ id: "h1", quantity: 1 }] },
     ]);
-    priceHoldings.mockResolvedValue({
-      valuations: [],
-      failures: [
-        {
-          holdingId: "h1",
-          assetName: "TLV 125",
-          sourceSymbol: "5109889",
-          reason: "Maya request failed",
-        },
-      ],
-      usdToNisRate: 3.05,
-      totalValueNis: null,
-    });
+    priceHoldings.mockResolvedValue(pricingResultWithUnpricedHolding());
 
     const response = await POST(request());
     const body = await response.json();
@@ -160,6 +159,34 @@ describe("POST /api/snapshot", () => {
     expect(priceHoldings).not.toHaveBeenCalled();
   });
 
+  /**
+   * The predicate has to be "nothing was written", not "someone was skipped" —
+   * otherwise one unpriceable user would fail a run that snapshotted everyone
+   * else, and the cron would report a failure that lost no history.
+   */
+  it("succeeds when one user is skipped but another is snapshotted", async () => {
+    findManyUsers.mockResolvedValue([
+      { id: "user-1", holdings: [{ id: "h1", quantity: 2 }] },
+      { id: "user-2", holdings: [{ id: "h2", quantity: 3 }] },
+    ]);
+    priceHoldings
+      .mockResolvedValueOnce({
+        valuations: [pricedValuation("h1", 100)],
+        failures: [],
+        usdToNisRate: 3.05,
+        totalValueNis: 100,
+      })
+      .mockResolvedValueOnce(pricingResultWithUnpricedHolding());
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.usersProcessed).toBe(1);
+    expect(body.usersSkipped).toBe(1);
+    expect(body.snapshotRowsWritten).toBe(1);
+  });
+
   it("reports the row count and duration of a successful run", async () => {
     const logged: string[] = [];
     vi.spyOn(console, "log").mockImplementation((line: unknown) => {
@@ -176,26 +203,7 @@ describe("POST /api/snapshot", () => {
       },
     ]);
     priceHoldings.mockResolvedValue({
-      valuations: [
-        {
-          holdingId: "h1",
-          assetName: "VOO",
-          valueInNis: 100,
-          unitPrice: 50,
-          currency: "USD",
-          fxRateUsed: 3.05,
-          fetchedAt: new Date(),
-        },
-        {
-          holdingId: "h2",
-          assetName: "TLV 125",
-          valueInNis: 200,
-          unitPrice: 50,
-          currency: "NIS",
-          fxRateUsed: 1,
-          fetchedAt: new Date(),
-        },
-      ],
+      valuations: [pricedValuation("h1", 100), pricedValuation("h2", 200)],
       failures: [],
       usdToNisRate: 3.05,
       totalValueNis: 300,
