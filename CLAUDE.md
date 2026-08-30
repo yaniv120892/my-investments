@@ -244,7 +244,7 @@ scheduled run that priced nobody is recorded as a failed cron rather than a
 successful one carrying `usersSkipped`. A run that skipped one user while
 snapshotting another still answers 200: nothing was lost.
 
-Every run logs exactly one line carrying `usersProcessed`, `usersWithHoldings`,
+Every run logs exactly one summary line carrying `usersProcessed`, `usersWithHoldings`,
 `usersSkipped`, `snapshotRowsWritten`, and `durationMs` — at error level when it
 wrote nothing despite holdings or threw part-way, at info otherwise. A run that
 throws still reports how far it got, which is why the counts accumulate into a

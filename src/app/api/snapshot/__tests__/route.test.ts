@@ -86,23 +86,58 @@ describe("POST /api/snapshot", () => {
    * only console.error, making the one total failure the quietest one.
    */
   it("alerts when the run dies before any user is priced", async () => {
-    const logged: string[] = [];
-    vi.spyOn(console, "error").mockImplementation((line: unknown) => {
-      logged.push(String(line));
-    });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     findManyUsers.mockRejectedValue(new Error("Frankfurter is unreachable"));
 
     const response = await POST(request());
 
     expect(response.status).toBe(500);
-    // A throw part-way through is exactly when the counts matter, so the run
-    // still reports how far it got.
-    expect(logged.join("\n")).toContain(
-      "Snapshot run failed: usersProcessed=0"
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining("Snapshot run failed: usersProcessed=0")
     );
     expect(sendErrorNotification).toHaveBeenCalledTimes(1);
     expect(sendErrorNotification.mock.calls[0][0]).toContain(
       "Frankfurter is unreachable"
+    );
+  });
+
+  /**
+   * The counts exist for the throw that lands part-way: some users hold a fresh
+   * day of history and the rest do not, and the alert is what says which. A run
+   * that died before it started would pass on a summary the loop returned.
+   */
+  it("reports how far it got when the run throws part-way", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    findManyUsers.mockResolvedValue([
+      { id: "user-1", holdings: [{ id: "h1", quantity: 2 }] },
+      { id: "user-2", holdings: [{ id: "h2", quantity: 3 }] },
+    ]);
+    priceHoldings
+      .mockResolvedValueOnce({
+        valuations: [pricedValuation("h1", 100)],
+        failures: [],
+        usdToNisRate: 3.05,
+        totalValueNis: 100,
+      })
+      .mockRejectedValueOnce(new Error("Frankfurter is unreachable"));
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.usersProcessed).toBe(1);
+    expect(body.snapshotRowsWritten).toBe(1);
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "usersProcessed=1 usersWithHoldings=2 usersSkipped=0 snapshotRowsWritten=1"
+      )
+    );
+    expect(sendErrorNotification.mock.calls[0][0]).toContain(
+      "after pricing 1 of 2 user(s) and writing 1 row(s)"
     );
   });
 
@@ -135,6 +170,9 @@ describe("POST /api/snapshot", () => {
   });
 
   it("fails the run when no rows were written but holdings exist", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     findManyUsers.mockResolvedValue([
       { id: "user-1", holdings: [{ id: "h1", quantity: 1 }] },
     ]);
@@ -146,6 +184,14 @@ describe("POST /api/snapshot", () => {
     expect(response.status).toBe(500);
     expect(body.snapshotRowsWritten).toBe(0);
     expect(body.error).toContain("no rows");
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "Snapshot run wrote no rows: usersProcessed=0 usersWithHoldings=1"
+      )
+    );
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining("skippedUserIds=user-1")
+    );
   });
 
   it("succeeds without writing when no user holds anything", async () => {
@@ -188,10 +234,7 @@ describe("POST /api/snapshot", () => {
   });
 
   it("reports the row count and duration of a successful run", async () => {
-    const logged: string[] = [];
-    vi.spyOn(console, "log").mockImplementation((line: unknown) => {
-      logged.push(String(line));
-    });
+    const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
 
     findManyUsers.mockResolvedValue([
       {
@@ -216,7 +259,9 @@ describe("POST /api/snapshot", () => {
     expect(body.usersProcessed).toBe(1);
     expect(body.snapshotRowsWritten).toBe(2);
     expect(createSnapshot).toHaveBeenCalledTimes(2);
-    expect(logged.join("\n")).toContain("snapshotRowsWritten=2");
+    expect(consoleLog).toHaveBeenCalledWith(
+      expect.stringContaining("snapshotRowsWritten=2")
+    );
     expect(typeof body.durationMs).toBe("number");
   });
 });
