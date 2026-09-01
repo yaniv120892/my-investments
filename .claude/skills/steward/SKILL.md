@@ -19,7 +19,7 @@ every event and every check-in ends in exactly one of three states:
 
 1. **A pushed fix** — the deliverable is the push, never a comment describing it.
 2. **An established blocker** — the failure is proven not to be this change's
-   (see *Standing down*), recorded once.
+   (see _Standing down_), recorded once.
 3. **A question** — asked once, with enough context to answer without scrolling
    back, only when both sides of a decision lose behavior.
 

@@ -1,5 +1,7 @@
 # My Investments – Personal Investment Tracker
 
+**Live app: <https://my-investments-rose.vercel.app>**
+
 My Investments is a simple web app that helps you see your entire portfolio in one place. Add your holdings across categories like stocks/ETFs, cryptocurrencies, pension and education funds, money‑market funds, and foreign currencies. The app fetches live market data, converts everything to NIS, and presents a clean dashboard with allocation and performance over time.
 
 What you can do:
