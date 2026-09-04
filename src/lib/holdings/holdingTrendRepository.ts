@@ -1,3 +1,4 @@
+import { Liquidity } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { HoldingTrendPoint } from "@/lib/holdings/holdingTrendRepository.types";
 
@@ -35,6 +36,7 @@ export class HoldingTrendRepository {
     return prisma.holding.findMany({
       where: {
         userId,
+        liquidity: Liquidity.LIQUID,
         assetName: { contains: assetName, mode: "insensitive" },
       },
       select: { id: true, assetName: true },

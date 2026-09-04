@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import {
   Card,
   CardContent,
@@ -26,7 +28,7 @@ interface ContributionPlanTableProps {
   usdToNisRate: number;
 }
 
-export default function ContributionPlanTable({
+function ContributionPlanTable({
   plan,
   displayCurrency,
   usdToNisRate,
@@ -133,3 +135,6 @@ export default function ContributionPlanTable({
     </Card>
   );
 }
+
+// Rendered beside a streaming chat, but the plan only arrives once it ends.
+export default memo(ContributionPlanTable);

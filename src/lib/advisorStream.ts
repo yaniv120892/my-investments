@@ -1,10 +1,13 @@
+import {
+  EVENT_STREAM_CONTENT_TYPE,
+  FRAME_SEPARATOR,
+  decodeFrame,
+} from "@/lib/advisor/advisorStreamProtocol";
 import type { ContributionPlanAccepted } from "@/lib/pricing/contributionPlanner.types";
 import type { AdvisorChatMessage } from "@/lib/advisor/advisorMessages.types";
 
 const ADVISOR_CHAT_PATH = "/api/advisor/chat";
-const EVENT_STREAM_CONTENT_TYPE = "text/event-stream";
-const FRAME_SEPARATOR = "\n\n";
-const FRAME_PREFIX = "data: ";
+const UNAUTHORIZED = 401;
 
 export interface AdvisorStreamHandlers {
   onDelta: (delta: string) => void;
@@ -28,17 +31,15 @@ export async function streamAdvisorMessage(
     signal,
   });
 
-  // The middleware answers an unauthenticated API request with a redirect to
-  // the login page, not a 401, and fetch follows it — so a 200 here can still
-  // be HTML. The content type is the only reliable signal.
+  if (response.status === UNAUTHORIZED) {
+    handlers.onSessionExpired();
+    return;
+  }
+
   const isEventStream = response.headers
     .get("content-type")
     ?.includes(EVENT_STREAM_CONTENT_TYPE);
   if (!isEventStream) {
-    if (response.redirected || response.status === 401) {
-      handlers.onSessionExpired();
-      return;
-    }
     handlers.onError(await readErrorMessage(response));
     return;
   }
@@ -51,6 +52,7 @@ export async function streamAdvisorMessage(
 
   const decoder = new TextDecoder();
   let buffer = "";
+  let isComplete = false;
 
   for (;;) {
     const { done, value } = await reader.read();
@@ -59,51 +61,44 @@ export async function streamAdvisorMessage(
     }
 
     buffer += decoder.decode(value, { stream: true });
-    const frames = buffer.split(FRAME_SEPARATOR);
-    buffer = frames.pop() ?? "";
+    const rawFrames = buffer.split(FRAME_SEPARATOR);
+    buffer = rawFrames.pop() ?? "";
 
-    for (const frame of frames) {
-      applyFrame(frame, handlers);
+    for (const rawFrame of rawFrames) {
+      isComplete = applyFrame(rawFrame, handlers) || isComplete;
     }
+  }
+
+  // The stream closing is not proof the answer finished: a dropped connection
+  // or a killed function looks identical without the sentinel frame.
+  if (!isComplete) {
+    handlers.onError("\n\nThe answer was cut off before it finished.");
   }
 }
 
-function applyFrame(frame: string, handlers: AdvisorStreamHandlers): void {
-  if (!frame.startsWith(FRAME_PREFIX)) {
-    return;
+function applyFrame(
+  rawFrame: string,
+  handlers: AdvisorStreamHandlers
+): boolean {
+  const frame = decodeFrame(rawFrame);
+  if (!frame) {
+    return false;
   }
 
-  let payload: unknown;
-  try {
-    payload = JSON.parse(frame.slice(FRAME_PREFIX.length));
-  } catch {
-    return;
-  }
-
-  if (typeof payload !== "object" || payload === null || !("type" in payload)) {
-    return;
-  }
-
-  switch (payload.type) {
+  switch (frame.type) {
     case "delta":
-      if ("value" in payload && typeof payload.value === "string") {
-        handlers.onDelta(payload.value);
-      }
-      return;
+      handlers.onDelta(frame.value);
+      return false;
     case "plan":
-      if ("value" in payload) {
-        handlers.onPlan(payload.value as ContributionPlanAccepted);
-      }
-      return;
+      handlers.onPlan(frame.value);
+      return false;
     case "error":
-      handlers.onError(
-        "message" in payload && typeof payload.message === "string"
-          ? payload.message
-          : "Something went wrong while answering"
-      );
-      return;
+      handlers.onError(frame.message);
+      return true;
+    case "done":
+      return true;
     default:
-      return;
+      return false;
   }
 }
 

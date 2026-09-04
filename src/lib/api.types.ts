@@ -96,20 +96,8 @@ export interface HistoryResponse {
   period: string;
 }
 
-export interface ClassTarget {
-  assetClass: AssetClass;
-  targetPercent: number;
-}
-
-export interface WithinClassWeight {
-  holdingId: string;
-  withinClassWeight: number | null;
-}
-
-export interface TargetsResponse {
-  classTargets: ClassTarget[];
-  withinClassWeights: WithinClassWeight[];
-}
+/** The browser reads back exactly what the write path stores. */
+export type { StoredTargets as TargetsResponse } from "@/lib/targets/target.types";
 
 export interface ReplaceTargetsRequest {
   classTargets: Partial<Record<AssetClass, number>>;

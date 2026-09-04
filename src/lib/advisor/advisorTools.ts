@@ -5,20 +5,29 @@ import { loadInvestablePortfolio } from "@/lib/pricing/investablePortfolio";
 import { planContribution } from "@/lib/pricing/contributionPlanner";
 import { targetRepository } from "@/lib/targets/targetRepository";
 import { holdingTrendRepository } from "@/lib/holdings/holdingTrendRepository";
-import { isTargetSumBalanced } from "@/lib/targets/targetPercentRules";
+import {
+  isTargetSumBalanced,
+  sumTargetPercent,
+} from "@/lib/targets/targetPercentRules";
 import { formatMoney } from "@/utils/format";
 import {
   PLAN_SINK_CONTEXT_KEY,
+  PORTFOLIO_LOADER_CONTEXT_KEY,
   USER_ID_CONTEXT_KEY,
   type PlanSink,
+  type PortfolioLoader,
 } from "@/lib/advisor/advisorTools.types";
-import type { ClassTarget } from "@/lib/pricing/contributionPlanner.types";
+import type { InvestablePortfolio } from "@/lib/pricing/investablePortfolio.types";
 
 export {
   PLAN_SINK_CONTEXT_KEY,
+  PORTFOLIO_LOADER_CONTEXT_KEY,
   USER_ID_CONTEXT_KEY,
 } from "@/lib/advisor/advisorTools.types";
-export type { PlanSink } from "@/lib/advisor/advisorTools.types";
+export type {
+  PlanSink,
+  PortfolioLoader,
+} from "@/lib/advisor/advisorTools.types";
 
 const DEFAULT_TREND_MONTHS = 6;
 const DAYS_PER_MONTH = 30;
@@ -31,45 +40,14 @@ export function buildAdvisorTools() {
   const getInvestablePortfolio = createTool({
     id: "getInvestablePortfolio",
     description:
-      "The money that can actually receive a contribution: every liquid holding, its value, its asset class, and its within-class weight. Illiquid holdings (pension, keren hishtalmut) are reported only as a fixed background total, because new money cannot be directed into them. Call this before discussing any figure about the portfolio.",
+      "The money that can actually receive a contribution: every liquid holding, its value, its asset class, and its within-class weight. Illiquid holdings (pension, keren hishtalmut) are listed separately as fixed background, because new money cannot be directed into them. Call this before discussing any figure about the portfolio.",
     inputSchema: z.object({}),
-    outputSchema: z.object({
-      investableValueNis: z.number(),
-      investableValueFormatted: z.string(),
-      illiquidValueNis: z.number(),
-      illiquidValueFormatted: z.string(),
-      isPricingComplete: z.boolean(),
-      pricingFailures: z.array(
-        z.object({ assetName: z.string(), reason: z.string() })
-      ),
-      byAssetClass: z.array(
-        z.object({
-          assetClass: z.string(),
-          valueNis: z.number(),
-          valueFormatted: z.string(),
-          percentOfInvestable: z.number(),
-        })
-      ),
-      holdings: z.array(
-        z.object({
-          assetName: z.string(),
-          assetClass: z.string(),
-          platformName: z.string(),
-          valueNis: z.number(),
-          valueFormatted: z.string(),
-          withinClassWeight: z.number().nullable(),
-        })
-      ),
-    }),
     execute: async (_input, context: ToolContext) => {
-      const portfolio = await loadInvestablePortfolio(requireUserId(context));
-      const money = (value: number) =>
-        formatMoney(value, "NIS", portfolio.usdToNisRate);
+      const portfolio = await loadPortfolio(context);
+      const money = nisFormatter(portfolio);
 
       return {
-        investableValueNis: portfolio.investableValueNis,
         investableValueFormatted: money(portfolio.investableValueNis),
-        illiquidValueNis: portfolio.illiquidValueNis,
         illiquidValueFormatted: money(portfolio.illiquidValueNis),
         isPricingComplete: portfolio.totalValueNis !== null,
         pricingFailures: portfolio.failures.map((failure) => ({
@@ -78,7 +56,6 @@ export function buildAdvisorTools() {
         })),
         byAssetClass: portfolio.byAssetClass.map((position) => ({
           assetClass: position.assetClass,
-          valueNis: position.valueInNis,
           valueFormatted: money(position.valueInNis),
           percentOfInvestable: position.percentOfInvestable,
         })),
@@ -86,9 +63,13 @@ export function buildAdvisorTools() {
           assetName: holding.assetName,
           assetClass: holding.assetClass,
           platformName: holding.platformName,
-          valueNis: holding.valueInNis,
           valueFormatted: money(holding.valueInNis),
           withinClassWeight: holding.withinClassWeight,
+        })),
+        illiquidHoldings: portfolio.illiquidPositions.map((position) => ({
+          assetName: position.assetName,
+          platformName: position.platformName,
+          valueFormatted: money(position.valueInNis),
         })),
       };
     },
@@ -97,26 +78,17 @@ export function buildAdvisorTools() {
   const getTargets = createTool({
     id: "getTargets",
     description:
-      "The user's stored asset class targets and per-holding within-class weights. A class target of 0 means that class should receive nothing; a null within-class weight means that holding receives no new money.",
+      "The user's stored asset class targets. A target of 0 means that class should receive nothing. Within-class weights are reported per holding by getInvestablePortfolio.",
     inputSchema: z.object({}),
-    outputSchema: z.object({
-      classTargets: z.array(
-        z.object({ assetClass: z.string(), targetPercent: z.number() })
-      ),
-      sumsTo100: z.boolean(),
-      hasTargets: z.boolean(),
-    }),
     execute: async (_input, context: ToolContext) => {
-      const stored = await targetRepository.findTargets(requireUserId(context));
-      const targetSum = stored.classTargets.reduce(
-        (total, target) => total + target.targetPercent,
-        0
+      const classTargets = await targetRepository.findClassTargets(
+        requireUserId(context)
       );
 
       return {
-        classTargets: stored.classTargets,
-        sumsTo100: isTargetSumBalanced(targetSum),
-        hasTargets: stored.classTargets.length > 0,
+        classTargets,
+        hasTargets: classTargets.length > 0,
+        sumsTo100: isTargetSumBalanced(sumTargetPercent(classTargets)),
       };
     },
   });
@@ -133,23 +105,15 @@ export function buildAdvisorTools() {
         })
       ),
     }),
-    outputSchema: z.object({
-      sumsTo100: z.boolean(),
-      targetSum: z.number(),
-      missingAssetClasses: z.array(z.string()),
-    }),
     execute: async (input) => {
-      const targetSum = input.classTargets.reduce(
-        (total, target) => total + target.targetPercent,
-        0
-      );
+      const targetSum = sumTargetPercent(input.classTargets);
       const provided = new Set(
         input.classTargets.map((target) => target.assetClass)
       );
 
       return {
-        sumsTo100: isTargetSumBalanced(targetSum),
         targetSum,
+        sumsTo100: isTargetSumBalanced(targetSum),
         missingAssetClasses: Object.values(AssetClass).filter(
           (assetClass) => !provided.has(assetClass)
         ),
@@ -180,24 +144,15 @@ export function buildAdvisorTools() {
     }),
     execute: async (input, context: ToolContext) => {
       const userId = requireUserId(context);
-      const [portfolio, storedTargets] = await Promise.all([
-        loadInvestablePortfolio(userId),
-        targetRepository.findTargets(userId),
+      const [portfolio, classTargets] = await Promise.all([
+        loadPortfolio(context),
+        targetRepository.findClassTargets(userId),
       ]);
-
-      if (storedTargets.classTargets.length === 0) {
-        return {
-          status: "refused",
-          reason: "NO_TARGETS_SET",
-          explanation:
-            "No asset class targets are stored yet, so there is nothing to aim at. Set them on the Advisor page first.",
-        };
-      }
 
       const plan = planContribution({
         contributionNis: input.contributionNis,
         investableHoldings: portfolio.investableHoldings,
-        classTargets: toClassTargets(storedTargets.classTargets),
+        classTargets,
         minimumTicketNis: input.minimumTicketNis ?? 0,
         excludedAssetClasses: input.excludedAssetClasses ?? [],
         excludedHoldingIds: resolveExcludedHoldingIds(
@@ -209,36 +164,33 @@ export function buildAdvisorTools() {
 
       if (plan.status === "refused") {
         return {
-          status: "refused",
+          status: plan.status,
           reason: plan.reason,
           explanation: describeRefusal(
             plan.reason,
             plan.explanation,
-            portfolio.failures
+            portfolio
           ),
         };
       }
 
       getPlanSink(context)?.push(plan);
-      const money = (value: number) =>
-        formatMoney(value, "NIS", portfolio.usdToNisRate);
+      const money = nisFormatter(portfolio);
 
       return {
-        status: "planned",
+        status: plan.status,
         contributionFormatted: money(plan.contributionNis),
         byAssetClass: plan.byAssetClass.map((allocation) => ({
           assetClass: allocation.assetClass,
           currentPercent: allocation.currentPercent,
           targetPercent: allocation.targetPercent,
           addFormatted: money(allocation.contributionNis),
-          addNis: allocation.contributionNis,
           percentAfter: allocation.percentAfter,
         })),
         byHolding: plan.byHolding.map((allocation) => ({
           assetName: allocation.assetName,
           platformName: allocation.platformName,
           addFormatted: money(allocation.contributionNis),
-          addNis: allocation.contributionNis,
         })),
         dropped: plan.dropped.map((entry) => ({
           label: entry.label,
@@ -265,7 +217,7 @@ export function buildAdvisorTools() {
 
       if (matches.length === 0) {
         throw new Error(
-          `No holding matches that name (assetName: ${input.assetName}). Call getInvestablePortfolio to see the exact names.`
+          `No liquid holding matches that name (assetName: ${input.assetName}). Call getInvestablePortfolio to see the exact names.`
         );
       }
       if (matches.length > 1) {
@@ -280,13 +232,15 @@ export function buildAdvisorTools() {
       const since = new Date();
       since.setDate(since.getDate() - months * DAYS_PER_MONTH);
 
-      const points = await holdingTrendRepository.findHoldingTrend(
-        userId,
-        matches[0].id,
-        since
-      );
-
-      return { assetName: matches[0].assetName, months, points };
+      return {
+        assetName: matches[0].assetName,
+        months,
+        points: await holdingTrendRepository.findHoldingTrend(
+          userId,
+          matches[0].id,
+          since
+        ),
+      };
     },
   });
 
@@ -311,18 +265,30 @@ function requireUserId(context: ToolContext): string {
   return userId;
 }
 
+async function loadPortfolio(
+  context: ToolContext
+): Promise<InvestablePortfolio> {
+  const userId = requireUserId(context);
+  const loader = context.requestContext?.get(PORTFOLIO_LOADER_CONTEXT_KEY);
+  if (isPortfolioLoader(loader)) {
+    return loader();
+  }
+  return loadInvestablePortfolio(userId);
+}
+
+function isPortfolioLoader(value: unknown): value is PortfolioLoader {
+  return typeof value === "function";
+}
+
 function getPlanSink(context: ToolContext): PlanSink | undefined {
   const sink = context.requestContext?.get(PLAN_SINK_CONTEXT_KEY);
   return Array.isArray(sink) ? sink : undefined;
 }
 
-function toClassTargets(
-  stored: { assetClass: AssetClass; targetPercent: number }[]
-): ClassTarget[] {
-  return stored.map((target) => ({
-    assetClass: target.assetClass,
-    targetPercent: target.targetPercent,
-  }));
+function nisFormatter(
+  portfolio: InvestablePortfolio
+): (valueInNis: number) => string {
+  return (valueInNis) => formatMoney(valueInNis, "NIS", portfolio.usdToNisRate);
 }
 
 function resolveExcludedHoldingIds(
@@ -341,12 +307,12 @@ function resolveExcludedHoldingIds(
 function describeRefusal(
   reason: string,
   explanation: string,
-  failures: { assetName: string; reason: string }[]
+  portfolio: InvestablePortfolio
 ): string {
-  if (reason !== "PRICING_INCOMPLETE" || failures.length === 0) {
+  if (reason !== "PRICING_INCOMPLETE" || portfolio.failures.length === 0) {
     return explanation;
   }
-  return `${explanation} Failing holdings: ${failures
+  return `${explanation} Failing holdings: ${portfolio.failures
     .map((failure) => `${failure.assetName} (${failure.reason})`)
     .join("; ")}.`;
 }

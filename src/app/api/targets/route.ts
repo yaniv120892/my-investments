@@ -4,7 +4,7 @@ import { targetRepository } from "@/lib/targets/targetRepository";
 import { targetWriteService } from "@/lib/targets/targetWriteService";
 import { parseReplaceTargetsBody } from "@/lib/targets/targetRequestSchemas";
 import { toTargetWriteErrorResponse } from "@/lib/targets/targetWriteErrorResponse";
-import { readJsonBody } from "@/lib/holdings/requestBody";
+import { readJsonBody } from "@/lib/validation/requestBody";
 import { USER_ID_HEADER } from "@/lib/authTokens";
 
 export async function GET(request: NextRequest) {

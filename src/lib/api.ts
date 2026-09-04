@@ -46,8 +46,6 @@ export type {
   TargetsResponse,
   UserSettings,
   VerificationRequest,
-  ClassTarget,
-  WithinClassWeight,
 } from "@/lib/api.types";
 export type { PricingFailure } from "@/lib/pricing/portfolioPricingService.types";
 export type { AllocationSlice } from "@/lib/pricing/allocation.types";

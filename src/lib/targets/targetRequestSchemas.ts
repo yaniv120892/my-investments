@@ -25,27 +25,16 @@ export function parseReplaceTargetsBody(body: unknown): ReplaceTargetsInput {
     throw new TargetValidationError(toFieldErrors(result.error, body));
   }
 
+  // Driven off the enum rather than the body's keys, so `assetClass` is typed
+  // without widening back from `string`. A class the body omits is left out,
+  // and the validator is what names it as missing.
   return {
-    classTargets: Object.entries(result.data.classTargets).map(
-      ([assetClass, targetPercent]) => ({
-        assetClass: toAssetClass(assetClass),
-        targetPercent,
-      })
-    ),
+    classTargets: Object.values(AssetClass).flatMap((assetClass) => {
+      const targetPercent = result.data.classTargets[assetClass];
+      return targetPercent === undefined ? [] : [{ assetClass, targetPercent }];
+    }),
     withinClassWeights: Object.entries(result.data.withinClassWeights).map(
       ([holdingId, withinClassWeight]) => ({ holdingId, withinClassWeight })
     ),
   };
-}
-
-function toAssetClass(value: string): AssetClass {
-  const assetClass = Object.values(AssetClass).find(
-    (member) => member === value
-  );
-  if (!assetClass) {
-    throw new TargetValidationError({
-      [value]: `Not a known asset class (assetClass: ${value})`,
-    });
-  }
-  return assetClass;
 }

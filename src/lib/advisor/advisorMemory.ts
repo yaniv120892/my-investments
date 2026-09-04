@@ -7,10 +7,20 @@ import { PostgresStore } from "@mastra/pg";
  */
 const MASTRA_SCHEMA = "mastra";
 
-let memory: Memory | undefined;
+// Memoised the way `db.ts` memoises PrismaClient: this store opens its own
+// unpooled Postgres connections, and a dev hot-reload would otherwise strand a
+// pool per edit against the endpoint least able to spare the connections.
+const globalForAdvisorMemory = globalThis as unknown as {
+  advisorMemory: Memory | undefined;
+};
+
 let hasWarned = false;
 
 export function getAdvisorMemory(): Memory | undefined {
+  if (globalForAdvisorMemory.advisorMemory) {
+    return globalForAdvisorMemory.advisorMemory;
+  }
+
   const connectionString = advisorMemoryConnectionString();
   if (!connectionString) {
     warnOnce(
@@ -20,15 +30,16 @@ export function getAdvisorMemory(): Memory | undefined {
   }
 
   try {
-    memory ??= new Memory({
+    globalForAdvisorMemory.advisorMemory = new Memory({
       storage: new PostgresStore({
         id: "advisor-memory",
         connectionString,
         schemaName: MASTRA_SCHEMA,
       }),
     });
-    return memory;
+    return globalForAdvisorMemory.advisorMemory;
   } catch (error) {
+    // Losing the conversation history beats losing the answer.
     warnOnce(
       `Advisor memory disabled: storage failed to initialise (${error})`
     );

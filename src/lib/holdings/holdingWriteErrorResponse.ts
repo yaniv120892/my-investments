@@ -5,12 +5,16 @@ import {
   PlatformNameConflictError,
   PlatformNotFoundError,
 } from "@/lib/holdings/holdingWriteErrors";
+import { InvalidJsonBodyError } from "@/lib/validation/requestBody";
 import { describeError } from "@/utils/describeError";
 
 const PRISMA_RECORD_NOT_FOUND = "P2025";
 
 export function toWriteErrorResponse(error: unknown): NextResponse {
-  if (error instanceof HoldingValidationError) {
+  if (
+    error instanceof HoldingValidationError ||
+    error instanceof InvalidJsonBodyError
+  ) {
     return NextResponse.json(
       { error: error.message, fieldErrors: error.fieldErrors },
       { status: 400 }

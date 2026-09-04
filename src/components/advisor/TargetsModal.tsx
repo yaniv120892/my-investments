@@ -18,10 +18,8 @@ import { AssetClass } from "@prisma/client";
 import { useReplaceTargets } from "@/lib/hooks";
 import { ApiError } from "@/lib/apiError";
 import { getAssetClassLabel } from "@/utils/format";
+import { isTargetSumBalanced } from "@/lib/targets/targetPercentRules";
 import type { PricedHolding, TargetsResponse } from "@/lib/api";
-
-const TOTAL_TARGET_PERCENT = 100;
-const TARGET_SUM_TOLERANCE = 0.01;
 
 interface TargetsModalProps {
   open: boolean;
@@ -50,8 +48,7 @@ export default function TargetsModal({
     (total, value) => total + (Number(value) || 0),
     0
   );
-  const isBalanced =
-    Math.abs(targetSum - TOTAL_TARGET_PERCENT) <= TARGET_SUM_TOLERANCE;
+  const isBalanced = isTargetSumBalanced(targetSum);
 
   const save = async () => {
     setFieldErrors({});

@@ -25,7 +25,7 @@ export async function middleware(request: NextRequest) {
   if (!authToken) {
     const requiresSession = !isPublicRoute && pathname !== "/";
     if (requiresSession) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      return unauthenticated(request, pathname);
     }
     return nextWithoutClientIdentityHeaders(request);
   }
@@ -33,7 +33,7 @@ export async function middleware(request: NextRequest) {
   const session = await verifyJWT(authToken);
 
   if (!session || session.expiresAt < new Date()) {
-    return redirectToLoginClearingSession(request);
+    return clearSession(unauthenticated(request, pathname));
   }
 
   if (pathname.startsWith("/api/") && !isPublicApiRoute) {
@@ -55,8 +55,20 @@ export async function middleware(request: NextRequest) {
   return nextWithoutClientIdentityHeaders(request);
 }
 
-function redirectToLoginClearingSession(request: NextRequest): NextResponse {
-  const response = NextResponse.redirect(new URL("/login", request.url));
+/**
+ * An API caller gets a 401 it can read; only a page navigation gets the
+ * redirect. Redirecting an API request sends the login page's HTML back to
+ * `fetch`, which follows it and reports a 200 — so the caller's `response.json()`
+ * fails as a syntax error rather than as the auth failure it is.
+ */
+function unauthenticated(request: NextRequest, pathname: string): NextResponse {
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return NextResponse.redirect(new URL("/login", request.url));
+}
+
+function clearSession(response: NextResponse): NextResponse {
   response.cookies.set(AUTH_COOKIE_NAME, "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

@@ -23,10 +23,9 @@ export function useAdvisorChat(): AdvisorChat {
   const abortControllerRef = useRef<AbortController | null>(null);
   const router = useRouter();
 
+  // Teardown belongs to the `finally` in `sendMessage`, which the abort reaches.
   const cancel = useCallback(() => {
     abortControllerRef.current?.abort();
-    abortControllerRef.current = null;
-    setIsLoading(false);
   }, []);
 
   const sendMessage = useCallback(

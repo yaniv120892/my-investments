@@ -3,8 +3,11 @@ import { NextResponse } from "next/server";
 import { advisorChatService } from "@/lib/advisor/advisorChatService";
 import { advisorChatRequestSchema } from "@/lib/advisor/advisorMessages";
 import { isAdvisorModelConfigured } from "@/lib/advisor/advisorModel";
+import {
+  EVENT_STREAM_CONTENT_TYPE,
+  encodeFrame,
+} from "@/lib/advisor/advisorStreamProtocol";
 import type { PlanSink } from "@/lib/advisor/advisorTools.types";
-import { readJsonBody } from "@/lib/holdings/requestBody";
 import { USER_ID_HEADER } from "@/lib/authTokens";
 import { describeError } from "@/utils/describeError";
 
@@ -30,9 +33,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const parsed = advisorChatRequestSchema.safeParse(
-    await readJsonBody(request)
-  );
+  const parsed = advisorChatRequestSchema.safeParse(await readBody(request));
   if (!parsed.success) {
     return NextResponse.json(
       { error: "That conversation could not be read" },
@@ -54,20 +55,20 @@ export async function POST(request: NextRequest) {
         );
 
         for await (const delta of textStream) {
-          controller.enqueue(sseFrame({ type: "delta", value: delta }));
+          controller.enqueue(encodeFrame({ type: "delta", value: delta }));
         }
 
         for (const plan of planSink) {
-          controller.enqueue(sseFrame({ type: "plan", value: plan }));
+          controller.enqueue(encodeFrame({ type: "plan", value: plan }));
         }
-        controller.enqueue(sseFrame({ type: "done" }));
+        controller.enqueue(encodeFrame({ type: "done" }));
       } catch (error) {
         if (!abortSignal.aborted) {
           // The 200 and its headers are long gone, so this failure reaches
           // neither an error response nor Next's error reporting.
           console.error("Advisor chat failed mid-stream:", error);
           controller.enqueue(
-            sseFrame({
+            encodeFrame({
               type: "error",
               message: `Something went wrong while answering (${describeError(
                 error
@@ -87,13 +88,17 @@ export async function POST(request: NextRequest) {
 
   return new Response(stream, {
     headers: {
-      "Content-Type": "text/event-stream",
+      "Content-Type": EVENT_STREAM_CONTENT_TYPE,
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
     },
   });
 }
 
-function sseFrame(payload: Record<string, unknown>): Uint8Array {
-  return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`);
+async function readBody(request: NextRequest): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch {
+    return null;
+  }
 }

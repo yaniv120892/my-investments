@@ -91,22 +91,28 @@ describe("planContribution", () => {
     expect(plan.reason).toBe("PRICING_INCOMPLETE");
   });
 
-  it("refuses targets that do not sum to 100", () => {
-    const plan = planContribution(
-      buildRequest({
-        classTargets: [
-          { assetClass: AssetClass.EQUITY, targetPercent: 70 },
-          { assetClass: AssetClass.CRYPTO, targetPercent: 10 },
-          { assetClass: AssetClass.NON_EQUITY, targetPercent: 19.5 },
-        ],
-      })
-    );
+  it("throws on unbalanced stored targets, which the write path cannot produce", () => {
+    expect(() =>
+      planContribution(
+        buildRequest({
+          classTargets: [
+            { assetClass: AssetClass.EQUITY, targetPercent: 70 },
+            { assetClass: AssetClass.CRYPTO, targetPercent: 10 },
+            { assetClass: AssetClass.NON_EQUITY, targetPercent: 19.5 },
+          ],
+        })
+      )
+    ).toThrow("99.5");
+  });
+
+  it("refuses when no targets are stored at all", () => {
+    const plan = planContribution(buildRequest({ classTargets: [] }));
 
     expect(plan.status).toBe("refused");
     if (plan.status !== "refused") {
       throw new Error("unreachable");
     }
-    expect(plan.reason).toBe("TARGETS_DO_NOT_SUM_TO_100");
+    expect(plan.reason).toBe("NO_TARGETS_SET");
   });
 
   it("accepts a target sum within the rounding tolerance", () => {

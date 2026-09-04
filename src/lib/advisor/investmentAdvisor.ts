@@ -6,16 +6,19 @@ import { buildAdvisorTools } from "@/lib/advisor/advisorTools";
 let advisor: Agent | undefined;
 
 export function getInvestmentAdvisor(): Agent {
-  advisor ??= new Agent({
-    id: "investment-advisor",
-    name: "Investment Advisor",
-    // Functions, not values: today's date and the configured model must resolve
-    // per request rather than being frozen at first import.
-    instructions: buildInstructions,
-    model: getAdvisorModel,
-    tools: buildAdvisorTools(),
-    ...(getAdvisorMemory() ? { memory: getAdvisorMemory() } : {}),
-  });
+  if (!advisor) {
+    const memory = getAdvisorMemory();
+    advisor = new Agent({
+      id: "investment-advisor",
+      name: "Investment Advisor",
+      // Functions, not values: today's date and the configured model must
+      // resolve per request rather than being frozen at first import.
+      instructions: buildInstructions,
+      model: getAdvisorModel,
+      tools: buildAdvisorTools(),
+      ...(memory ? { memory } : {}),
+    });
+  }
   return advisor;
 }
 

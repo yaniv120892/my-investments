@@ -14,33 +14,27 @@ export function getAdvisorModel(): MastraModelConfig {
     ? { url: process.env.ASSISTANT_MODEL_URL }
     : {};
 
-  switch (process.env.AI_PROVIDER?.toLowerCase()) {
-    case "gemini":
-      return {
-        id: modelId(DEFAULT_GEMINI_MODEL),
-        apiKey: process.env.GEMINI_API_KEY,
-        ...baseUrl,
-      };
-    case "chatgpt":
-    default:
-      return {
-        id: modelId(DEFAULT_OPENAI_MODEL),
-        apiKey: process.env.OPENAI_API_KEY,
-        ...baseUrl,
-      };
-  }
+  return {
+    id: modelId(),
+    apiKey: providerApiKey(),
+    ...baseUrl,
+  };
 }
 
 export function isAdvisorModelConfigured(): boolean {
-  const provider = process.env.AI_PROVIDER?.toLowerCase();
-  const apiKey =
-    provider === "gemini"
-      ? process.env.GEMINI_API_KEY
-      : process.env.OPENAI_API_KEY;
-  return Boolean(apiKey) || Boolean(process.env.ASSISTANT_MODEL_URL);
+  return Boolean(providerApiKey() || process.env.ASSISTANT_MODEL_URL);
 }
 
-function modelId(fallback: ModelRouterId): ModelRouterId {
+function isGemini(): boolean {
+  return process.env.AI_PROVIDER?.toLowerCase() === "gemini";
+}
+
+function providerApiKey(): string | undefined {
+  return isGemini() ? process.env.GEMINI_API_KEY : process.env.OPENAI_API_KEY;
+}
+
+function modelId(): ModelRouterId {
+  const fallback = isGemini() ? DEFAULT_GEMINI_MODEL : DEFAULT_OPENAI_MODEL;
   const override = process.env.ASSISTANT_MODEL_ID;
   if (!override) {
     return fallback;

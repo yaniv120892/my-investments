@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AssetClass } from "@prisma/client";
 
-const { loadInvestablePortfolio, findTargets } = vi.hoisted(() => ({
+const { loadInvestablePortfolio, findClassTargets } = vi.hoisted(() => ({
   loadInvestablePortfolio: vi.fn(),
-  findTargets: vi.fn(),
+  findClassTargets: vi.fn(),
 }));
 
 vi.mock("@/lib/pricing/investablePortfolio", () => ({
@@ -11,11 +11,15 @@ vi.mock("@/lib/pricing/investablePortfolio", () => ({
 }));
 
 vi.mock("@/lib/targets/targetRepository", () => ({
-  targetRepository: { findTargets },
+  targetRepository: { findClassTargets },
 }));
 
-const { buildAdvisorTools, USER_ID_CONTEXT_KEY, PLAN_SINK_CONTEXT_KEY } =
-  await import("@/lib/advisor/advisorTools");
+const {
+  buildAdvisorTools,
+  USER_ID_CONTEXT_KEY,
+  PLAN_SINK_CONTEXT_KEY,
+  PORTFOLIO_LOADER_CONTEXT_KEY,
+} = await import("@/lib/advisor/advisorTools");
 
 const AUTHENTICATED_CONTEXT = {
   requestContext: {
@@ -74,19 +78,16 @@ function buildPortfolio(totalValueNis: number | null) {
   };
 }
 
-const BALANCED_TARGETS = {
-  classTargets: [
-    { assetClass: AssetClass.EQUITY, targetPercent: 100 },
-    { assetClass: AssetClass.CRYPTO, targetPercent: 0 },
-    { assetClass: AssetClass.NON_EQUITY, targetPercent: 0 },
-  ],
-  withinClassWeights: [],
-};
+const BALANCED_TARGETS = [
+  { assetClass: AssetClass.EQUITY, targetPercent: 100 },
+  { assetClass: AssetClass.CRYPTO, targetPercent: 0 },
+  { assetClass: AssetClass.NON_EQUITY, targetPercent: 0 },
+];
 
 describe("advisor tools", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    findTargets.mockResolvedValue(BALANCED_TARGETS);
+    findClassTargets.mockResolvedValue(BALANCED_TARGETS);
   });
 
   it("refuses to read a portfolio without an authenticated user in the request context", async () => {
@@ -142,7 +143,7 @@ describe("advisor tools", () => {
 
   it("refuses to plan when no targets are stored", async () => {
     loadInvestablePortfolio.mockResolvedValue(buildPortfolio(1_000));
-    findTargets.mockResolvedValue({ classTargets: [], withinClassWeights: [] });
+    findClassTargets.mockResolvedValue([]);
     const tools = buildAdvisorTools();
 
     const result = await invoke(
@@ -181,5 +182,39 @@ describe("advisor tools", () => {
 
     expect(result.status).toBe("planned");
     expect(planSink).toHaveLength(1);
+  });
+
+  it("reads the portfolio through the request loader, never pricing directly", async () => {
+    const portfolio = buildPortfolio(1_000);
+    loadInvestablePortfolio.mockResolvedValue(portfolio);
+    const tools = buildAdvisorTools();
+
+    let loads = 0;
+    const loader = () => {
+      loads += 1;
+      return Promise.resolve(portfolio);
+    };
+    const context = {
+      requestContext: {
+        get: (key: string) => {
+          switch (key) {
+            case USER_ID_CONTEXT_KEY:
+              return "user-1";
+            case PORTFOLIO_LOADER_CONTEXT_KEY:
+              return loader;
+            default:
+              return undefined;
+          }
+        },
+      },
+    };
+
+    await invoke(tools.getInvestablePortfolio, {}, context);
+    await invoke(tools.planContribution, { contributionNis: 500 }, context);
+    await invoke(tools.planContribution, { contributionNis: 900 }, context);
+
+    expect(loads).toBe(3);
+    // The tools go through the request's loader rather than pricing directly.
+    expect(loadInvestablePortfolio).not.toHaveBeenCalled();
   });
 });

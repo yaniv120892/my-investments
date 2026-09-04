@@ -49,7 +49,7 @@ export interface DroppedAllocation {
 
 export type ContributionRefusalReason =
   | "PRICING_INCOMPLETE"
-  | "TARGETS_DO_NOT_SUM_TO_100"
+  | "NO_TARGETS_SET"
   | "NO_INVESTABLE_CLASS"
   | "CLASS_HAS_NO_WEIGHTED_HOLDING"
   | "CONTRIBUTION_BELOW_MINIMUM_TICKET";

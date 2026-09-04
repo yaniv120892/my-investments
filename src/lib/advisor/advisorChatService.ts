@@ -1,8 +1,10 @@
 import { RequestContext } from "@mastra/core/request-context";
 import { getInvestmentAdvisor } from "@/lib/advisor/investmentAdvisor";
 import { getThreadId, isMemoryEnabled } from "@/lib/advisor/advisorMemory";
+import { createInvestablePortfolioLoader } from "@/lib/pricing/investablePortfolio";
 import {
   PLAN_SINK_CONTEXT_KEY,
+  PORTFOLIO_LOADER_CONTEXT_KEY,
   USER_ID_CONTEXT_KEY,
 } from "@/lib/advisor/advisorTools.types";
 import type { PlanSink } from "@/lib/advisor/advisorTools.types";
@@ -21,6 +23,10 @@ export class AdvisorChatService {
     const requestContext = new RequestContext();
     requestContext.set(USER_ID_CONTEXT_KEY, userId);
     requestContext.set(PLAN_SINK_CONTEXT_KEY, planSink);
+    requestContext.set(
+      PORTFOLIO_LOADER_CONTEXT_KEY,
+      createInvestablePortfolioLoader(userId)
+    );
 
     const result = await getInvestmentAdvisor().stream(
       this.toModelMessages(messages),

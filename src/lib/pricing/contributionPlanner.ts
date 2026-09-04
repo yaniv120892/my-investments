@@ -2,6 +2,7 @@ import { AssetClass } from "@prisma/client";
 import {
   TOTAL_TARGET_PERCENT,
   isTargetSumBalanced,
+  sumTargetPercent,
 } from "@/lib/targets/targetPercentRules";
 import type {
   ClassAllocation,
@@ -39,6 +40,9 @@ interface FundableClass {
   targetPercent: number;
   currentValueNis: number;
 }
+
+/** A holding the caller has already established can receive money. */
+type WeightedHolding = InvestableHolding & { withinClassWeight: number };
 
 export function planContribution(
   request: ContributionPlanRequest
@@ -87,7 +91,7 @@ export function planContribution(
     }
 
     const candidates = includedHoldings.filter(
-      (holding) =>
+      (holding): holding is WeightedHolding =>
         holding.assetClass === assetClass &&
         !excludedHoldingIds.has(holding.holdingId) &&
         holding.withinClassWeight !== null &&
@@ -137,24 +141,22 @@ function findRefusal(
     );
   }
 
-  const targetSum = request.classTargets.reduce(
-    (total, target) => total + target.targetPercent,
-    0
-  );
-  if (!isTargetSumBalanced(targetSum)) {
+  if (request.classTargets.length === 0) {
     return refuse(
-      "TARGETS_DO_NOT_SUM_TO_100",
-      `Asset class targets sum to ${targetSum}, not ${TOTAL_TARGET_PERCENT}.`
+      "NO_TARGETS_SET",
+      "No asset class targets are stored, so there is nothing to aim at. Set them on the Advisor page first."
     );
   }
 
-  const hasMoneyBelowTicket =
-    request.contributionNis > 0 &&
-    request.contributionNis < request.minimumTicketNis;
-  if (hasMoneyBelowTicket) {
-    return refuse(
-      "CONTRIBUTION_BELOW_MINIMUM_TICKET",
-      `A contribution of ${request.contributionNis} NIS is below the minimum ticket of ${request.minimumTicketNis} NIS.`
+  // Not a refusal: `targetWriteValidator` is the only path by which targets are
+  // stored and it rejects an unbalanced set, so reaching here means a caller
+  // skipped that boundary — exactly the caller that needs telling.
+  const targetSum = sumTargetPercent(request.classTargets);
+  if (!isTargetSumBalanced(targetSum)) {
+    throw new Error(
+      `Stored asset class targets sum to ${targetSum}, not ${TOTAL_TARGET_PERCENT} (classTargets: ${JSON.stringify(
+        request.classTargets
+      )})`
     );
   }
 
@@ -253,7 +255,7 @@ function waterFill(
 }
 
 function splitWithinClass(
-  candidates: InvestableHolding[],
+  candidates: WeightedHolding[],
   amountNis: number,
   minimumTicketNis: number,
   dropped: DroppedAllocation[]
@@ -338,11 +340,14 @@ function buildFundableClasses(
     }));
 }
 
+/**
+ * Display only. Water-filling is scale-invariant — scaling every target by k
+ * scales every fill ratio by 1/k and the solved level back by k — so this
+ * changes no allocation. It exists so an excluded class does not leave the
+ * remaining targets summing to less than 100 in the rendered table.
+ */
 function renormalizeTargets(targets: ClassTarget[]): Map<AssetClass, number> {
-  const targetSum = targets.reduce(
-    (total, target) => total + target.targetPercent,
-    0
-  );
+  const targetSum = sumTargetPercent(targets);
   const renormalized = new Map<AssetClass, number>();
 
   for (const target of targets) {
@@ -412,8 +417,8 @@ function sortHoldingAllocations(
   });
 }
 
-function weightOf(holding: InvestableHolding): number {
-  return holding.withinClassWeight ?? 0;
+function weightOf(holding: WeightedHolding): number {
+  return holding.withinClassWeight;
 }
 
 function percentOf(value: number, total: number): number {

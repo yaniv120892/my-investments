@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AssetClass,
   Liquidity,
@@ -6,7 +6,18 @@ import {
   type Holding,
   type Platform,
 } from "@prisma/client";
-import { buildInvestablePortfolio } from "@/lib/pricing/investablePortfolio";
+const { priceHoldings, findMany } = vi.hoisted(() => ({
+  priceHoldings: vi.fn(),
+  findMany: vi.fn(),
+}));
+
+vi.mock("@/lib/pricing/portfolioPricingService", () => ({ priceHoldings }));
+vi.mock("@/lib/db", () => ({ prisma: { holding: { findMany } } }));
+
+import {
+  buildInvestablePortfolio,
+  createInvestablePortfolioLoader,
+} from "@/lib/pricing/investablePortfolio";
 import type { PricingResult } from "@/lib/pricing/portfolioPricingService.types";
 
 type HoldingWithPlatform = Holding & { platform: Platform };
@@ -148,5 +159,24 @@ describe("buildInvestablePortfolio", () => {
       (position) => position.assetClass === AssetClass.EQUITY
     );
     expect(equity?.percentOfInvestable).toBeCloseTo(75, 6);
+  });
+});
+
+describe("createInvestablePortfolioLoader", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    findMany.mockResolvedValue([]);
+    priceHoldings.mockResolvedValue(buildPricing([]));
+  });
+
+  it("prices once and shares the promise with every later caller", async () => {
+    const loader = createInvestablePortfolioLoader("user-1");
+
+    const [first, second] = await Promise.all([loader(), loader()]);
+    const third = await loader();
+
+    expect(priceHoldings).toHaveBeenCalledTimes(1);
+    expect(second).toBe(first);
+    expect(third).toBe(first);
   });
 });

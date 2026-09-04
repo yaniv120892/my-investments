@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import {
   Alert,
   Button,
@@ -13,18 +13,19 @@ import {
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import { Liquidity } from "@prisma/client";
 import { useTargets } from "@/lib/hooks";
+import {
+  isTargetSumBalanced,
+  sumTargetPercent,
+} from "@/lib/targets/targetPercentRules";
 import { getAssetClassLabel } from "@/utils/format";
 import TargetsModal from "@/components/advisor/TargetsModal";
 import type { PricedHolding } from "@/lib/api";
-
-const TOTAL_TARGET_PERCENT = 100;
-const TARGET_SUM_TOLERANCE = 0.01;
 
 interface TargetsCardProps {
   holdings: PricedHolding[];
 }
 
-export default function TargetsCard({ holdings }: TargetsCardProps) {
+function TargetsCard({ holdings }: TargetsCardProps) {
   const { data: targets } = useTargets();
   const [isEditing, setIsEditing] = useState(false);
 
@@ -32,12 +33,8 @@ export default function TargetsCard({ holdings }: TargetsCardProps) {
     (holding) => holding.liquidity === Liquidity.LIQUID
   );
   const classTargets = targets?.classTargets ?? [];
-  const targetSum = classTargets.reduce(
-    (total, target) => total + target.targetPercent,
-    0
-  );
-  const isBalanced =
-    Math.abs(targetSum - TOTAL_TARGET_PERCENT) <= TARGET_SUM_TOLERANCE;
+  const targetSum = sumTargetPercent(classTargets);
+  const isBalanced = isTargetSumBalanced(targetSum);
 
   return (
     <>
@@ -103,3 +100,6 @@ export default function TargetsCard({ holdings }: TargetsCardProps) {
     </>
   );
 }
+
+// The chat re-renders on every streamed token; the targets do not change.
+export default memo(TargetsCard);

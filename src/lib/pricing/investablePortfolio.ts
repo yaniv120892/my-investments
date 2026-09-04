@@ -2,6 +2,7 @@ import { Liquidity } from "@prisma/client";
 import type { AssetClass, Holding, Platform } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { priceHoldings } from "@/lib/pricing/portfolioPricingService";
+import { TOTAL_TARGET_PERCENT } from "@/lib/targets/targetPercentRules";
 import type { PricingResult } from "@/lib/pricing/portfolioPricingService.types";
 import type { InvestableHolding } from "@/lib/pricing/contributionPlanner.types";
 import type {
@@ -16,8 +17,6 @@ export type {
   InvestablePortfolio,
 } from "@/lib/pricing/investablePortfolio.types";
 
-const PERCENT_SCALE = 100;
-
 type HoldingWithPlatform = Holding & { platform: Platform };
 
 export async function loadInvestablePortfolio(
@@ -30,6 +29,17 @@ export async function loadInvestablePortfolio(
   });
 
   return buildInvestablePortfolio(holdings, await priceHoldings(holdings));
+}
+
+/**
+ * One load per request, shared by every caller. Pricing is ~20 serial cache
+ * round trips and a single advisor turn reads the portfolio two or three times.
+ */
+export function createInvestablePortfolioLoader(
+  userId: string
+): () => Promise<InvestablePortfolio> {
+  let portfolio: Promise<InvestablePortfolio> | undefined;
+  return () => (portfolio ??= loadInvestablePortfolio(userId));
 }
 
 /**
@@ -106,7 +116,7 @@ function buildClassPositions(
     valueInNis,
     percentOfInvestable:
       investableValueNis > 0
-        ? (valueInNis / investableValueNis) * PERCENT_SCALE
+        ? (valueInNis / investableValueNis) * TOTAL_TARGET_PERCENT
         : 0,
   }));
 }

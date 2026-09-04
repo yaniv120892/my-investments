@@ -47,3 +47,9 @@ function readValueAtPath(body: unknown, path: PropertyKey[]): unknown {
 
   return currentValue;
 }
+
+export function describeFieldErrors(fieldErrors: FieldErrorMap): string {
+  return Object.entries(fieldErrors)
+    .map(([field, message]) => `${field}: ${message}`)
+    .join("; ");
+}

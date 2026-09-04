@@ -1,3 +1,4 @@
+import { describeFieldErrors } from "@/lib/validation/zodFieldErrors";
 import type { FieldErrorMap } from "@/lib/validation/zodFieldErrors.types";
 
 export class TargetValidationError extends Error {
@@ -8,10 +9,4 @@ export class TargetValidationError extends Error {
     this.name = "TargetValidationError";
     this.fieldErrors = fieldErrors;
   }
-}
-
-function describeFieldErrors(fieldErrors: FieldErrorMap): string {
-  return Object.entries(fieldErrors)
-    .map(([field, message]) => `${field}: ${message}`)
-    .join("; ");
 }
