@@ -40,6 +40,10 @@ export function useAdvisorChat(): AdvisorChat {
         { sender: "user", text: trimmed },
       ]);
       setMessages([...history, { sender: "advisor", text: "" }]);
+      // A refused follow-up produces no plan frame, and leaving the previous
+      // table on screen would present the old split as the answer to the new
+      // question — the same trap as rendering a total from incomplete data.
+      setPlan(null);
       setIsLoading(true);
 
       const abortController = new AbortController();

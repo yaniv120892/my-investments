@@ -30,6 +30,7 @@ export type {
 } from "@/lib/advisor/advisorTools.types";
 
 const DEFAULT_TREND_MONTHS = 6;
+const MAX_TREND_MONTHS = 120;
 const DAYS_PER_MONTH = 30;
 
 interface ToolContext {
@@ -128,9 +129,11 @@ export function buildAdvisorTools() {
     inputSchema: z.object({
       contributionNis: z
         .number()
+        .positive()
         .describe("The amount of new money to invest, in NIS"),
       minimumTicketNis: z
         .number()
+        .nonnegative()
         .optional()
         .describe("Smallest amount worth putting into one holding"),
       excludedAssetClasses: z
@@ -205,8 +208,8 @@ export function buildAdvisorTools() {
     description:
       "Daily snapshot history for one holding, so you can say whether a position is up or down over recent months. Context only — it never changes what planContribution returns.",
     inputSchema: z.object({
-      assetName: z.string(),
-      months: z.number().optional(),
+      assetName: z.string().min(1),
+      months: z.number().int().positive().max(MAX_TREND_MONTHS).optional(),
     }),
     execute: async (input, context: ToolContext) => {
       const userId = requireUserId(context);
@@ -295,7 +298,11 @@ function resolveExcludedHoldingIds(
   holdings: { holdingId: string; assetName: string }[],
   excludedAssetNames: string[]
 ): string[] {
-  const wanted = excludedAssetNames.map((name) => name.toLowerCase());
+  // A blank name is a substring of every asset name, so leaving one in would
+  // exclude the whole portfolio and refuse the turn for an unrelated reason.
+  const wanted = excludedAssetNames
+    .map((name) => name.trim().toLowerCase())
+    .filter((name) => name.length > 0);
 
   return holdings
     .filter((holding) =>

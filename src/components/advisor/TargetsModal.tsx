@@ -25,7 +25,7 @@ interface TargetsModalProps {
   open: boolean;
   onClose: () => void;
   liquidHoldings: PricedHolding[];
-  targets: TargetsResponse | undefined;
+  targets: TargetsResponse;
 }
 
 export default function TargetsModal({
@@ -179,10 +179,10 @@ export default function TargetsModal({
 }
 
 function initialClassPercents(
-  targets: TargetsResponse | undefined
+  targets: TargetsResponse
 ): Record<AssetClass, string> {
   const stored = new Map(
-    (targets?.classTargets ?? []).map((target) => [
+    targets.classTargets.map((target) => [
       target.assetClass,
       String(target.targetPercent),
     ])
@@ -197,10 +197,10 @@ function initialClassPercents(
 
 function initialWeights(
   liquidHoldings: PricedHolding[],
-  targets: TargetsResponse | undefined
+  targets: TargetsResponse
 ): Record<string, string> {
   const stored = new Map(
-    (targets?.withinClassWeights ?? []).map((entry) => [
+    targets.withinClassWeights.map((entry) => [
       entry.holdingId,
       entry.withinClassWeight,
     ])

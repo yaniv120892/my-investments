@@ -128,7 +128,14 @@ function ContributionPlanTable({
         {plan.dropped.length > 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
             Skipped as too small to be worth a ticket:{" "}
-            {plan.dropped.map((entry) => entry.label).join(", ")}.
+            {plan.dropped
+              .map((entry) =>
+                entry.scope === "assetClass"
+                  ? getAssetClassLabel(entry.label)
+                  : entry.label
+              )
+              .join(", ")}
+            .
           </Typography>
         )}
       </CardContent>

@@ -47,8 +47,13 @@ export function getAdvisorMemory(): Memory | undefined {
   }
 }
 
+/**
+ * Derived from the store, not from the env var: a configured but unusable
+ * endpoint leaves the agent with no memory, and a caller that trimmed the
+ * history on the env var's word would send a follow-up with no context at all.
+ */
 export function isMemoryEnabled(): boolean {
-  return Boolean(advisorMemoryConnectionString());
+  return getAdvisorMemory() !== undefined;
 }
 
 export function getThreadId(userId: string): string {

@@ -26,7 +26,7 @@ interface TargetsCardProps {
 }
 
 function TargetsCard({ holdings }: TargetsCardProps) {
-  const { data: targets } = useTargets();
+  const { data: targets, isPending } = useTargets();
   const [isEditing, setIsEditing] = useState(false);
 
   const liquidHoldings = holdings.filter(
@@ -50,9 +50,12 @@ function TargetsCard({ holdings }: TargetsCardProps) {
             <Typography variant="h4" component="h2">
               Targets
             </Typography>
+            {/* Opening before the query resolves would snapshot empty targets,
+                and saving that would wipe every stored within-class weight. */}
             <Button
               size="small"
               startIcon={<TuneOutlinedIcon />}
+              disabled={isPending}
               onClick={() => setIsEditing(true)}
             >
               Edit
@@ -89,7 +92,7 @@ function TargetsCard({ holdings }: TargetsCardProps) {
         </CardContent>
       </Card>
 
-      {isEditing && (
+      {isEditing && targets && (
         <TargetsModal
           open
           onClose={() => setIsEditing(false)}

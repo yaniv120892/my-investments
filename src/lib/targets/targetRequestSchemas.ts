@@ -9,7 +9,10 @@ import type { ReplaceTargetsInput } from "@/lib/targets/target.types";
  * is the only stable name a field error can carry back to the row that raised it.
  */
 const replaceTargetsSchema = z.strictObject({
-  classTargets: z.record(
+  // partialRecord, not record: a plain record over an enum is exhaustive, so a
+  // missing class would fail here keyed `classTargets.NON_EQUITY` — a key no
+  // form field carries. The validator reports it keyed by the class itself.
+  classTargets: z.partialRecord(
     z.enum(AssetClass),
     z.number({ error: "A target must be a number of percent" })
   ),
@@ -26,8 +29,7 @@ export function parseReplaceTargetsBody(body: unknown): ReplaceTargetsInput {
   }
 
   // Driven off the enum rather than the body's keys, so `assetClass` is typed
-  // without widening back from `string`. A class the body omits is left out,
-  // and the validator is what names it as missing.
+  // without widening back from `string`.
   return {
     classTargets: Object.values(AssetClass).flatMap((assetClass) => {
       const targetPercent = result.data.classTargets[assetClass];

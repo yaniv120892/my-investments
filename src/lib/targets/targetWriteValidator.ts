@@ -24,10 +24,13 @@ export class TargetWriteValidator {
   ): void {
     const fieldErrors: FieldErrorMap = {};
 
+    // Ownership is reported ahead of shape: a weight on someone else's holding
+    // is the more serious of the two, and both share one field key.
     for (const entry of entries) {
       if (!liquidHoldingIds.has(entry.holdingId)) {
         fieldErrors[entry.holdingId] =
           `No liquid holding of yours exists with that id, so it cannot carry a weight (holdingId: ${entry.holdingId})`;
+        continue;
       }
       const isNegative =
         entry.withinClassWeight !== null && entry.withinClassWeight < 0;

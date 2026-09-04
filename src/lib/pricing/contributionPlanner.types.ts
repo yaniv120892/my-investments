@@ -42,6 +42,7 @@ export interface HoldingAllocation {
 }
 
 export interface DroppedAllocation {
+  scope: "assetClass" | "holding";
   label: string;
   amountNis: number;
   reason: "BELOW_MINIMUM_TICKET";

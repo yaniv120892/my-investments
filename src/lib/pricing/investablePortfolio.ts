@@ -39,7 +39,19 @@ export function createInvestablePortfolioLoader(
   userId: string
 ): () => Promise<InvestablePortfolio> {
   let portfolio: Promise<InvestablePortfolio> | undefined;
-  return () => (portfolio ??= loadInvestablePortfolio(userId));
+
+  // Evicted on failure, as `NisRateBook` does: caching the rejection would let
+  // one blip condemn every remaining tool call in the turn.
+  async function load(): Promise<InvestablePortfolio> {
+    try {
+      return await loadInvestablePortfolio(userId);
+    } catch (error) {
+      portfolio = undefined;
+      throw error;
+    }
+  }
+
+  return () => (portfolio ??= load());
 }
 
 /**

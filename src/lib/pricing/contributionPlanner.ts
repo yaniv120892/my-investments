@@ -205,6 +205,7 @@ function allocateAcrossClasses(
 
     unfundable.add(smallest.assetClass);
     dropped.push({
+      scope: "assetClass",
       label: smallest.assetClass,
       amountNis: smallest.amountNis,
       reason: "BELOW_MINIMUM_TICKET",
@@ -287,6 +288,7 @@ function splitWithinClass(
     }
 
     dropped.push({
+      scope: "holding",
       label: smallest.assetName,
       amountNis: smallest.contributionNis,
       reason: "BELOW_MINIMUM_TICKET",

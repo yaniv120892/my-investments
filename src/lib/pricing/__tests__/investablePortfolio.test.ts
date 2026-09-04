@@ -179,4 +179,13 @@ describe("createInvestablePortfolioLoader", () => {
     expect(second).toBe(first);
     expect(third).toBe(first);
   });
+
+  it("evicts a failure so one blip does not condemn the rest of the turn", async () => {
+    priceHoldings.mockRejectedValueOnce(new Error("provider blip"));
+    const loader = createInvestablePortfolioLoader("user-1");
+
+    await expect(loader()).rejects.toThrow("provider blip");
+    await expect(loader()).resolves.toBeDefined();
+    expect(priceHoldings).toHaveBeenCalledTimes(2);
+  });
 });
