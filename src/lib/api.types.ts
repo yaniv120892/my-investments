@@ -95,3 +95,23 @@ export interface HistoryResponse {
   data: HistoryPoint[];
   period: string;
 }
+
+export interface ClassTarget {
+  assetClass: AssetClass;
+  targetPercent: number;
+}
+
+export interface WithinClassWeight {
+  holdingId: string;
+  withinClassWeight: number | null;
+}
+
+export interface TargetsResponse {
+  classTargets: ClassTarget[];
+  withinClassWeights: WithinClassWeight[];
+}
+
+export interface ReplaceTargetsRequest {
+  classTargets: Partial<Record<AssetClass, number>>;
+  withinClassWeights: Record<string, number | null>;
+}

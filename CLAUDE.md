@@ -10,8 +10,12 @@ Next.js 15 (App Router) app holds the UI, the API routes, and the pricing
 logic. It stores holdings, prices them live from free providers, and shows
 allocation, target drift, rebalancing, and currency exposure in NIS.
 
+It also advises where new money should go: a deterministic buy-only allocator
+plus a Mastra chat agent that explains its output.
+
 Stack: Next.js 15 + React 19 + TypeScript, Prisma/Postgres, Upstash Redis
-(quote and FX cache), MUI v7 + Emotion, Chart.js, Vitest.
+(quote and FX cache), MUI v7 + Emotion, Chart.js, Vitest, Mastra (agent, tools,
+Postgres-backed memory) over an OpenAI model.
 
 Out of scope by design: cost basis and transactions, XIRR, dividends,
 benchmark comparison, two-way sheet sync, multi-user.
@@ -75,12 +79,18 @@ provider actually returned.
 
 ## Architecture
 
-- `src/app/` — App Router. `(auth)/` login and signup; `(app)/` the six
-  authenticated pages (dashboard, holdings, allocation, rebalancing, history,
-  settings) inside the `AppShell` sidebar layout.
+- `src/app/` — App Router. `(auth)/` login and signup; `(app)/` the seven
+  authenticated pages (dashboard, holdings, allocation, rebalancing, advisor,
+  history, settings) inside the `AppShell` sidebar layout.
 - `src/app/api/**/route.ts` — all endpoints. `auth/{login,logout,signup,verify}`,
   `holdings` (+ `[id]`, `history`, `manual-values`), `platforms`,
-  `user/settings`, `snapshot`.
+  `user/settings`, `snapshot`, `targets`, `advisor/chat`.
+  `targets` is `GET`/`PUT` only: "the class targets sum to 100" is a
+  whole-document invariant a single-class `PATCH` could never validate.
+  `advisor/chat` is the one streaming endpoint — it returns an SSE
+  `ReadableStream` of `delta`, `plan`, `done` and `error` frames rather than
+  JSON, so its failures surface as an in-band `error` frame: the 200 and its
+  headers are already sent by the time the agent can fail.
   Routes read the caller from the `x-user-id` header and return `{ error }`
   with a status; there is no shared handler wrapper. Validation failures also
   carry `fieldErrors` keyed by input name — `holdingWriteErrorResponse.ts`
@@ -96,7 +106,19 @@ provider actually returned.
   `providerRegistry.ts`. `FxRateProvider` supplies rates to NIS.
 - `src/lib/pricing/` — `portfolioPricingService.ts` (`priceHoldings`),
   `nisRateBook.ts` (per-run FX memoisation), `allocation.ts`,
-  `supportedCurrencies.ts`.
+  `supportedCurrencies.ts`, `investablePortfolio.ts` (splits liquid from
+  illiquid — the only place `Liquidity` is consulted), and
+  `contributionPlanner.ts` (`planContribution`, the buy-only allocator).
+- `src/lib/targets/` — the advisor's target model, mirroring
+  `src/lib/holdings/`: schemas → validator → service → repository, with
+  `targetPercentRules.ts` naming the sum-to-100 rule that both the validator
+  and the planner enforce.
+- `src/lib/advisor/` — the Mastra layer. `investmentAdvisor.ts` (a lazy `Agent`
+  singleton whose `instructions` and `model` are passed as _functions_, so the
+  date and the configured model resolve per request), `advisorTools.ts`,
+  `advisorModel.ts`, `advisorMemory.ts`, `advisorChatService.ts`.
+- `src/lib/advisorStream.ts` + `useAdvisorChat.ts` — the browser's SSE reader,
+  deliberately outside `api.ts`, which is JSON-only and buffers whole bodies.
 - `src/lib/holdings/` — write path split into schemas (zod) → validator →
   service → repository, with typed errors mapped to responses by
   `holdingWriteErrorResponse.ts`.
@@ -126,6 +148,42 @@ provider actually returned.
   `totalValueNis: null` whenever `failures` is non-empty, alongside
   `pricedValueNis` and the failure list. The UI shows the failures and
   suppresses the total. Do not add a fallback that sums what priced.
+- **The advisor refuses to plan on partial data.** `planContribution` takes
+  `PricingResult.totalValueNis` verbatim and returns a `PRICING_INCOMPLETE`
+  refusal when it is null — the same reason the UI suppresses a total. A plan
+  built on 22 of 29 holdings buys the wrong thing and looks right. The refusal
+  names the failing holdings, because one forgotten manual value disables the
+  whole feature and the cause must be obvious. A refusal is a _value_ on the
+  `ContributionPlan` union, not a throw, so it is directly testable and the
+  agent relays it as data.
+- **The model never does arithmetic.** Every figure the advisor states comes
+  from a tool result; the tools return pre-formatted strings alongside raw
+  numbers so it never sums or formats. `planContribution` is the only source of
+  contribution amounts — a changed constraint means calling it again, never
+  adjusting its output.
+- **The two target systems are separate and neither reads the other.**
+  `Holding.targetPercent` and `buildDriftByPlatform` keep meaning _per-platform_
+  drift on the Rebalancing page. `AssetClassTarget` and
+  `Holding.withinClassWeight` feed the advisor only. They were kept apart
+  because the stored `targetPercent` values are per-platform sleeve weights:
+  Excellence Pro's "54% S&P 500" is 54% of that account, not of all equity, so
+  reinterpreting them as within-class weights would misstate the target
+  silently.
+- **Allocation is buy-only and liquid-only.** The planner never emits a sell —
+  directing new money is the alternative to selling. Illiquid holdings (pension,
+  קרן השתלמות) are reported as fixed context and never receive an allocation,
+  because no contribution can be directed into them; a plan that named them
+  would be unactionable.
+- **`withinClassWeight` is a relative weight, not a percent**, and is
+  deliberately not constrained to sum to 100: holdings are written one at a time,
+  so a cross-row sum has no single write path to hang a guard off, and adding a
+  holding would silently invalidate every sibling. The planner normalizes within
+  each class at plan time. Null means "no new money here"; a class with a
+  positive target and no weighted liquid holding refuses the plan rather than
+  inferring a split from current value.
+- **The advisor's user id reaches a tool only through Mastra's
+  `RequestContext`**, never through an `inputSchema`, so a prompt-injected
+  message cannot choose whose portfolio it reads.
 - **Pricing is explicitly routed, never inferred.** Each holding carries its
   own `priceSource`, `sourceSymbol`, and `currency`; the registry maps source
   to provider. `fetchQuote` throws on failure and never returns null, and no
@@ -195,7 +253,13 @@ provider actually returned.
 
 ## Testing
 
-The providers are the entire risk surface; the rest is arithmetic.
+The providers are the entire risk surface; the rest is arithmetic — with one
+exception. `contributionPlanner` is arithmetic that moves real money, so its
+water-filling breakpoints, its tie behaviour, and its pricing-failure refusal
+are pinned by tests against the real portfolio's numbers. Two of those cases
+must never be deleted: that a null `totalValueNis` refuses even when every
+supplied holding has a value, and that tied fill ratios split by target weight
+identically however the input is ordered.
 
 - `*.contract.test.ts` run against the live APIs and assert shape plus a sane
   price range. They exist to catch Maya's WAF rules shifting and Finnhub
@@ -213,7 +277,20 @@ Postgres via `@prisma/client`. Every query goes through the single client
 exported by `src/lib/db.ts`; nothing else constructs a `PrismaClient` on a
 request path. Models: `User`, `Settings` (baseCurrency, darkMode, one row per
 user), `Platform` (unique per `[userId, name]`), `Holding`, `HoldingSnapshot`
-(unique per `[holdingId, date]`).
+(unique per `[holdingId, date]`), `AssetClassTarget` (unique per
+`[userId, assetClass]`).
+
+`AssetClassTarget` is a model rather than three columns on `Settings` because
+the invariant is "all three present and summing to 100": rows make that state
+whole — three rows or none, written in one `$transaction` — where nullable
+columns would let a half-set target persist for every reader to defend against.
+It also survives a fourth `AssetClass` member without a migration, and keeps
+portfolio policy out of a model that holds preferences and is loaded on every
+page.
+
+Mastra keeps its own tables in the `mastra` Postgres schema, not Prisma-managed
+and created lazily on the first advisor request, so `prisma migrate status`
+never reports them as drift.
 
 Enums: `AssetClass` (EQUITY | CRYPTO | NON_EQUITY), `Liquidity` (LIQUID |
 ILLIQUID), `PriceSource` (FINNHUB | BINANCE | MAYA_ETF | MAYA_FUND | MANUAL).
@@ -246,6 +323,18 @@ region breaks every crypto holding rather than merely slowing it down. Set
 every variable from `.env.example`; `CRON_SECRET`
 must be set or the scheduled snapshot 401s, and `FINNHUB_API_KEY` must be set
 or every US equity fails to price.
+
+The advisor adds two that matter. `OPENAI_API_KEY` unset makes `/api/advisor/chat`
+answer 503 and leaves every other page working. `DIRECT_URL` (or `MASTRA_DB_URL`)
+must be the **unpooled** endpoint — the host without `-pooler` — because Mastra's
+memory store opens plain Postgres connections and runs DDL, which silently fails
+to initialise through a pooler; unset, the advisor degrades to stateless rather
+than failing. Both must be set on Vercel **production and preview**, and Vercel
+does not rebuild on an env change, so a redeploy is part of provisioning them.
+
+`next.config.ts` lists the Mastra packages and `pg` in `serverExternalPackages`;
+they resolve modules at runtime and bundling them breaks the route. The chat
+route sets `maxDuration = 60`, which is what the Hobby plan allows.
 
 ## Documentation
 

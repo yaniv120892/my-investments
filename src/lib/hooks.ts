@@ -3,6 +3,7 @@ import type {
   CreateHoldingInput,
   CreatePlatformInput,
   LoginRequest,
+  ReplaceTargetsRequest,
   SignupRequest,
   UpdateHoldingInput,
   VerificationRequest,
@@ -151,6 +152,27 @@ export const useTriggerSnapshot = () => {
     mutationFn: () => api.snapshot.trigger(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["holdingHistory"] });
+    },
+  });
+};
+
+export const useTargets = () => {
+  return useQuery({
+    queryKey: ["targets"],
+    queryFn: () => api.targets.get(),
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const useReplaceTargets = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: ReplaceTargetsRequest) => api.targets.replace(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["targets"] });
+      // Within-class weights live on Holding, so the holdings query is stale too.
+      queryClient.invalidateQueries({ queryKey: ["holdings"] });
     },
   });
 };

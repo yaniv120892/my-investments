@@ -8,8 +8,10 @@ import type {
   ManualValuesResponse,
   PlatformMutationResponse,
   PlatformsResponse,
+  ReplaceTargetsRequest,
   SignupRequest,
   StoredUserSettings,
+  TargetsResponse,
   UserSettings,
   VerificationRequest,
 } from "@/lib/api.types";
@@ -38,10 +40,14 @@ export type {
   PlatformMutationResponse,
   PlatformsResponse,
   PricedHolding,
+  ReplaceTargetsRequest,
   SignupRequest,
   StoredUserSettings,
+  TargetsResponse,
   UserSettings,
   VerificationRequest,
+  ClassTarget,
+  WithinClassWeight,
 } from "@/lib/api.types";
 export type { PricingFailure } from "@/lib/pricing/portfolioPricingService.types";
 export type { AllocationSlice } from "@/lib/pricing/allocation.types";
@@ -185,11 +191,24 @@ export const api = {
       return response.json();
     },
   },
+
+  targets: {
+    get: async (): Promise<TargetsResponse> => {
+      const response = await fetch(`${API_BASE}/targets`);
+      if (!response.ok) {
+        throw await toApiError(response);
+      }
+      return response.json();
+    },
+
+    replace: async (data: ReplaceTargetsRequest): Promise<TargetsResponse> =>
+      sendJson<TargetsResponse>("/targets", "PUT", data),
+  },
 };
 
 async function sendJson<T>(
   path: string,
-  method: "POST" | "PATCH" | "DELETE",
+  method: "POST" | "PUT" | "PATCH" | "DELETE",
   data?: unknown
 ): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
