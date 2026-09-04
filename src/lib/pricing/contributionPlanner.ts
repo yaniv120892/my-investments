@@ -41,7 +41,6 @@ interface FundableClass {
   currentValueNis: number;
 }
 
-/** A holding the caller has already established can receive money. */
 type WeightedHolding = InvestableHolding & { withinClassWeight: number };
 
 export function planContribution(

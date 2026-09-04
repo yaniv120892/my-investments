@@ -1,10 +1,6 @@
 import { Memory } from "@mastra/memory";
 import { PostgresStore } from "@mastra/pg";
 
-/**
- * Mastra creates and migrates its own tables, so it wants the direct endpoint
- * rather than a pooled one: through PgBouncer the memory store fails to init.
- */
 const MASTRA_SCHEMA = "mastra";
 
 // Memoised the way `db.ts` memoises PrismaClient: this store opens its own
@@ -60,6 +56,10 @@ export function getThreadId(userId: string): string {
   return `investment-advisor:${userId}`;
 }
 
+/**
+ * The direct endpoint, never the pooled one: Mastra creates and migrates its
+ * own tables, and through PgBouncer that init silently fails.
+ */
 function advisorMemoryConnectionString(): string {
   return process.env.MASTRA_DB_URL || process.env.DIRECT_URL || "";
 }

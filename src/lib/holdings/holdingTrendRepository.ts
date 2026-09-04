@@ -5,11 +5,7 @@ import type { HoldingTrendPoint } from "@/lib/holdings/holdingTrendRepository.ty
 export type { HoldingTrendPoint } from "@/lib/holdings/holdingTrendRepository.types";
 
 export class HoldingTrendRepository {
-  /**
-   * The holdings history route aggregates every holding into one daily total,
-   * so per-holding movement has no reader. The advisor needs one to say whether
-   * an underweight position is also down.
-   */
+  /** `/api/holdings/history` aggregates the holding dimension away. */
   public async findHoldingTrend(
     userId: string,
     holdingId: string,

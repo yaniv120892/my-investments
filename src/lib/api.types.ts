@@ -96,7 +96,6 @@ export interface HistoryResponse {
   period: string;
 }
 
-/** The browser reads back exactly what the write path stores. */
 export type { StoredTargets as TargetsResponse } from "@/lib/targets/target.types";
 
 export interface ReplaceTargetsRequest {
