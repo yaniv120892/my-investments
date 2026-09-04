@@ -333,10 +333,13 @@ or every US equity fails to price.
 
 The advisor adds two that matter. `OPENAI_API_KEY` unset makes `/api/advisor/chat`
 answer 503 and leaves every other page working. `DIRECT_URL` (or `MASTRA_DB_URL`)
-must be the **unpooled** endpoint — the host without `-pooler` — because Mastra's
-memory store opens plain Postgres connections and runs DDL, which silently fails
-to initialise through a pooler; unset, the advisor degrades to stateless rather
-than failing. Both must be set on Vercel **production and preview**, and Vercel
+must be the **unpooled** endpoint — the host without `-pooler`. `DATABASE_URL`
+is Neon's pooled endpoint, and two things cannot use it: `prisma migrate`,
+because a transaction pooler does not hold the advisory lock it takes, and
+Mastra's memory store, which opens plain Postgres connections and creates its
+own tables. Hence `directUrl` on the datasource. `prisma generate` and
+`next build` do not read it, so a deploy never breaks on a missing one; what
+breaks is `db:migrate`, and the advisor answers statelessly. Both must be set on Vercel **production and preview**, and Vercel
 does not rebuild on an env change, so a redeploy is part of provisioning them.
 
 `next.config.ts` lists the Mastra packages and `pg` in `serverExternalPackages`;
