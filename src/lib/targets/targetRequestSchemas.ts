@@ -3,6 +3,7 @@ import { AssetClass } from "@prisma/client";
 import { TargetValidationError } from "@/lib/targets/targetWriteErrors";
 import { toFieldErrors } from "@/lib/validation/zodFieldErrors";
 import type { ReplaceTargetsInput } from "@/lib/targets/target.types";
+import type { FieldErrorMap } from "@/lib/validation/fieldErrors.types";
 
 /**
  * Weights are keyed by holding for the same reason manual values are: the key
@@ -25,7 +26,12 @@ const replaceTargetsSchema = z.strictObject({
 export function parseReplaceTargetsBody(body: unknown): ReplaceTargetsInput {
   const result = replaceTargetsSchema.safeParse(body);
   if (!result.success) {
-    throw new TargetValidationError(toFieldErrors(result.error, body));
+    // zod keys a nested issue `classTargets.EQUITY`, but the form's inputs are
+    // named for the class and the holding alone, so the prefix is dropped —
+    // otherwise a malformed value reports under a key no field carries.
+    throw new TargetValidationError(
+      stripSectionPrefix(toFieldErrors(result.error, body))
+    );
   }
 
   // Driven off the enum rather than the body's keys, so `assetClass` is typed
@@ -39,4 +45,17 @@ export function parseReplaceTargetsBody(body: unknown): ReplaceTargetsInput {
       ([holdingId, withinClassWeight]) => ({ holdingId, withinClassWeight })
     ),
   };
+}
+
+function stripSectionPrefix(fieldErrors: FieldErrorMap): FieldErrorMap {
+  const stripped: FieldErrorMap = {};
+
+  for (const [field, message] of Object.entries(fieldErrors)) {
+    const [section, ...rest] = field.split(".");
+    const isSectioned =
+      rest.length > 0 &&
+      (section === "classTargets" || section === "withinClassWeights");
+    stripped[isSectioned ? rest.join(".") : field] = message;
+  }
+  return stripped;
 }

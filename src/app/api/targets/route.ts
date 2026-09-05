@@ -13,13 +13,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  return NextResponse.json(await targetRepository.findTargets(userId));
+  try {
+    return NextResponse.json(await targetRepository.findTargets(userId));
+  } catch (error) {
+    return toTargetWriteErrorResponse(error);
+  }
 }
 
-/**
- * PUT, not PATCH: "the class targets sum to 100" is a whole-document invariant
- * that a single-class update can never validate on its own.
- */
 export async function PUT(request: NextRequest) {
   const userId = request.headers.get(USER_ID_HEADER);
   if (!userId) {

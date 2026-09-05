@@ -207,7 +207,11 @@ provider actually returned.
   one unescaped `&` makes Telegram reject the alert about the failure.
 - **Every holding is created and updated through `holdingWriteService`**, the
   scripts included, so a row a script writes is a row the holdings page would
-  accept. `importFromSheet.ts` is the one exception, and it is spent.
+  accept. Two exceptions: `importFromSheet.ts`, which is spent; and
+  `Holding.withinClassWeight`, which belongs to the target model and is written
+  only by `targetRepository`. The holdings write path never reads or sets it —
+  `createHoldingSchema` is a `strictObject` that omits it, so `POST`/`PATCH
+/api/holdings` structurally cannot touch it.
 - Redis is a cache, not a store: `getCachedData` swallows errors and returns
   null, so every read path must work with the cache down. Unconfigured Upstash
   is therefore survivable, and says so once at boot rather than as an error
