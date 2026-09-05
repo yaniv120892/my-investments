@@ -79,9 +79,9 @@ provider actually returned.
 
 ## Architecture
 
-- `src/app/` — App Router. `(auth)/` login and signup; `(app)/` the six
-  authenticated pages (dashboard, holdings, allocation, rebalancing, history,
-  settings) inside the `AppShell` sidebar layout.
+- `src/app/` — App Router. `(auth)/` login and signup; `(app)/` the seven
+  authenticated pages (dashboard, holdings, allocation, rebalancing, advisor,
+  history, settings) inside the `AppShell` sidebar layout.
 - `src/app/api/**/route.ts` — all endpoints. `auth/{login,logout,signup,verify}`,
   `holdings` (+ `[id]`, `history`, `manual-values`), `platforms`,
   `user/settings`, `snapshot`, `targets`, `advisor/chat`. `advisor/chat` is the
@@ -126,6 +126,8 @@ provider actually returned.
 - `src/lib/holdings/` — write path split into schemas (zod) → validator →
   service → repository, with typed errors mapped to responses by
   `holdingWriteErrorResponse.ts`.
+- `src/lib/advisorStream.ts` + `useAdvisorChat.ts` — the browser's SSE reader,
+  deliberately outside `api.ts`, which is JSON-only and buffers whole bodies.
 - `src/lib/advisor/` — the Mastra layer. `investmentAdvisor.ts` (a lazy `Agent`
   singleton whose `instructions` and `model` are passed as _functions_, so the
   date and the configured model resolve per request), `advisorTools.ts`,
@@ -146,7 +148,11 @@ provider actually returned.
   and the shared pieces. `DisplayCurrencyProvider` + `CurrencyToggle` hold the
   display currency; `PricingFailuresAlert` renders what could not be priced and
   `StaleManualValuesAlert` what has not been re-read lately, with
-  `ManualValuesModal` as the monthly review form. `PortfolioChart` defers to
+  `ManualValuesModal` as the monthly review form. `advisor/` holds the chat, the
+  rendered contribution table, and the targets editor — the targets UI lives
+  there rather than in settings because it needs the holdings list settings
+  never loads, and because the advisor's empty state is only actionable if the
+  fix is on the same screen. `PortfolioChart` defers to
   `PortfolioChartCanvas` so Chart.js only loads when a chart is actually on
   screen.
 - `src/theme.ts`, `src/utils/` (pure helpers), `src/types/`.
