@@ -11,7 +11,8 @@ logic. It stores holdings, prices them live from free providers, and shows
 allocation, target drift, rebalancing, and currency exposure in NIS.
 
 Stack: Next.js 15 + React 19 + TypeScript, Prisma/Postgres, Upstash Redis
-(quote and FX cache), MUI v7 + Emotion, Chart.js, Vitest.
+(quote and FX cache), MUI v7 + Emotion, Chart.js, Vitest, Mastra (agent, tools,
+Postgres-backed memory) over an OpenAI model.
 
 Out of scope by design: cost basis and transactions, XIRR, dividends,
 benchmark comparison, two-way sheet sync, multi-user.
@@ -83,7 +84,15 @@ provider actually returned.
   settings) inside the `AppShell` sidebar layout.
 - `src/app/api/**/route.ts` — all endpoints. `auth/{login,logout,signup,verify}`,
   `holdings` (+ `[id]`, `history`, `manual-values`), `platforms`,
-  `user/settings`, `snapshot`, `targets`. `targets` is `GET`/`PUT` only:
+  `user/settings`, `snapshot`, `targets`, `advisor/chat`. `advisor/chat` is the
+  one streaming endpoint — it returns an SSE `ReadableStream` of `delta`, `plan`,
+  `done` and `error` frames rather than JSON, so its failures surface as an
+  in-band `error` frame: the 200 and its headers are already sent by the time
+  the agent can fail. A failed model run does **not** reject the stream — Mastra
+  closes it normally and reports on `result.error` — so the route reads that
+  after draining the deltas, or a bad key reads as an empty answer. The frame
+  the browser receives is deliberately neutral; the provider's own message,
+  which carries the host and model id, stays in the log. `targets` is `GET`/`PUT` only:
   "the class targets sum to 100" is a whole-document invariant a single-class
   `PATCH` could never validate.
   Every authenticated handler is wrapped in `withUser` (`src/lib/requestUser.ts`),
@@ -117,6 +126,12 @@ provider actually returned.
 - `src/lib/holdings/` — write path split into schemas (zod) → validator →
   service → repository, with typed errors mapped to responses by
   `holdingWriteErrorResponse.ts`.
+- `src/lib/advisor/` — the Mastra layer. `investmentAdvisor.ts` (a lazy `Agent`
+  singleton whose `instructions` and `model` are passed as _functions_, so the
+  date and the configured model resolve per request), `advisorTools.ts`,
+  `advisorModel.ts`, `advisorMemory.ts`, `advisorChatService.ts`, and
+  `advisorStreamProtocol.ts` — the SSE frame format, named once and shared by
+  the route and the browser.
 - `src/lib/targets/` — the portfolio-level target model, mirroring that same
   path, with `targetPercentRules.ts` naming the sum-to-100 rule once.
 - `src/lib/` — `db.ts` (the one `PrismaClient`, memoised on `globalThis`
@@ -145,6 +160,14 @@ provider actually returned.
   `totalValueNis: null` whenever `failures` is non-empty, alongside
   `pricedValueNis` and the failure list. The UI shows the failures and
   suppresses the total. Do not add a fallback that sums what priced.
+- **The model never does arithmetic.** Every figure the advisor states comes
+  from a tool result; the tools return pre-formatted strings alongside raw
+  numbers so it never sums or formats. `planContribution` is the only source of
+  contribution amounts — a changed constraint means calling it again, never
+  adjusting its output.
+- **The advisor's user id reaches a tool only through Mastra's
+  `RequestContext`**, never through an `inputSchema`, so a prompt-injected
+  message cannot choose whose portfolio it reads.
 - **A contribution plan is refused, never built on partial data.**
   `planContribution` takes `PricingResult.totalValueNis` verbatim and returns a
   `PRICING_INCOMPLETE` refusal when it is null — the same reason the UI
@@ -306,7 +329,14 @@ Vercel, region `fra1` — Binance answers 451 to US-hosted requests, so a US
 region breaks every crypto holding rather than merely slowing it down. Set
 every variable from `.env.example`; `CRON_SECRET`
 must be set or the scheduled snapshot 401s, and `FINNHUB_API_KEY` must be set
-or every US equity fails to price.
+or every US equity fails to price. `OPENAI_API_KEY` unset makes
+`/api/advisor/chat` answer 503 and leaves every other page working;
+`MASTRA_DB_URL`/`DIRECT_URL` must be the **unpooled** endpoint or the advisor
+degrades to stateless. `next.config.ts` lists the Mastra packages and `pg` in
+`serverExternalPackages` — they resolve modules at runtime and bundling them
+breaks the route. The chat route sets `maxDuration = 60`, which is what the
+Hobby plan allows. Mastra owns the `mastra` Postgres schema and creates it
+lazily on the first advisor request, so Prisma never reports it as drift.
 
 ## Documentation
 

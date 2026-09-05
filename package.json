@@ -30,6 +30,9 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@mastra/core": "^1.64.0",
+    "@mastra/memory": "^1.28.2",
+    "@mastra/pg": "^1.22.3",
     "@mui/icons-material": "^7.3.11",
     "@mui/material": "^7.3.11",
     "@mui/material-nextjs": "^7.3.10",
@@ -46,6 +49,7 @@
     "jsonwebtoken": "^9.0.2",
     "next": "15.4.10",
     "nodemailer": "^7.0.5",
+    "pg": "^8.23.0",
     "prisma": "^6.13.0",
     "react": "19.1.0",
     "react-chartjs-2": "^5.3.0",
@@ -70,5 +74,8 @@
   },
   "prisma": {
     "schema": "src/prisma/schema.prisma"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }

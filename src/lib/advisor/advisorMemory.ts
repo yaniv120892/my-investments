@@ -1,0 +1,75 @@
+import { Memory } from "@mastra/memory";
+import { PostgresStore } from "@mastra/pg";
+
+const MASTRA_SCHEMA = "mastra";
+
+// Memoised the way `db.ts` memoises PrismaClient: this store opens its own
+// unpooled Postgres connections, and a dev hot-reload would otherwise strand a
+// pool per edit against the endpoint least able to spare the connections.
+const globalForAdvisorMemory = globalThis as unknown as {
+  advisorMemory: Memory | undefined;
+};
+
+let hasWarned = false;
+
+export function getAdvisorMemory(): Memory | undefined {
+  if (globalForAdvisorMemory.advisorMemory) {
+    return globalForAdvisorMemory.advisorMemory;
+  }
+
+  const connectionString = advisorMemoryConnectionString();
+  if (!connectionString) {
+    warnOnce(
+      "Advisor memory disabled: set MASTRA_DB_URL or DIRECT_URL to keep conversation threads"
+    );
+    return undefined;
+  }
+
+  try {
+    globalForAdvisorMemory.advisorMemory = new Memory({
+      storage: new PostgresStore({
+        id: "advisor-memory",
+        connectionString,
+        schemaName: MASTRA_SCHEMA,
+      }),
+    });
+    return globalForAdvisorMemory.advisorMemory;
+  } catch (error) {
+    // Losing the conversation history beats losing the answer.
+    warnOnce(
+      `Advisor memory disabled: storage failed to initialise (${error})`
+    );
+    return undefined;
+  }
+}
+
+/**
+ * Whether the agent was given a memory, not whether that memory works: the
+ * store's constructor does not connect, so a wrong host or a revoked password
+ * fails later, inside the run. Callers use this to decide whether the thread
+ * already holds the earlier turns — never as a health check.
+ */
+export function hasAdvisorMemory(): boolean {
+  return getAdvisorMemory() !== undefined;
+}
+
+export function getThreadId(userId: string): string {
+  return `investment-advisor:${userId}`;
+}
+
+/**
+ * The direct endpoint, never the pooled one: Mastra creates and migrates its
+ * own tables, and a transaction pooler does not hold the session state that
+ * needs, so the init silently fails.
+ */
+function advisorMemoryConnectionString(): string {
+  return process.env.MASTRA_DB_URL || process.env.DIRECT_URL || "";
+}
+
+function warnOnce(message: string): void {
+  if (hasWarned) {
+    return;
+  }
+  hasWarned = true;
+  console.warn(message);
+}
