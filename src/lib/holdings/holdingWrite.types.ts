@@ -6,7 +6,7 @@ import type {
   PriceSource,
 } from "@prisma/client";
 
-export type FieldErrorMap = Record<string, string>;
+export type { FieldErrorMap } from "@/lib/validation/fieldErrors.types";
 
 export type HoldingWithPlatform = Holding & { platform: Platform };
 
