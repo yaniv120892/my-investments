@@ -164,7 +164,9 @@ provider actually returned.
   directing new money is the alternative to selling. Illiquid holdings (pension,
   קרן השתלמות) are reported as fixed context and never receive an allocation,
   because no contribution can be directed into them; naming them would be
-  unactionable. `investablePortfolio.ts` is the single place that split is made.
+  unactionable. `investablePortfolio.ts` is the single place that split is made,
+  and it withholds `investableValueNis` (and every class share) whenever pricing
+  is incomplete, for the same reason `priceHoldings` withholds its total.
 - **Pricing is explicitly routed, never inferred.** Each holding carries its
   own `priceSource`, `sourceSymbol`, and `currency`; the registry maps source
   to provider. `fetchQuote` throws on failure and never returns null, and no
@@ -226,7 +228,11 @@ provider actually returned.
   one unescaped `&` makes Telegram reject the alert about the failure.
 - **Every holding is created and updated through `holdingWriteService`**, the
   scripts included, so a row a script writes is a row the holdings page would
-  accept. `importFromSheet.ts` is the one exception, and it is spent.
+  accept. Two exceptions: `importFromSheet.ts`, which is spent; and
+  `Holding.withinClassWeight`, which belongs to the target model and is written
+  only by `targetRepository`. The holdings write path never reads or sets it —
+  `createHoldingSchema` is a `strictObject` that omits it, so `POST`/`PATCH
+/api/holdings` structurally cannot touch it.
 - Redis is a cache, not a store: `getCachedData` swallows errors and returns
   null, so every read path must work with the cache down. Unconfigured Upstash
   is therefore survivable, and says so once at boot rather than as an error

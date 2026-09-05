@@ -97,14 +97,22 @@ export function buildInvestablePortfolio(
     });
   }
 
-  const investableValueNis = sumValues(investableHoldings);
+  // Same discipline as `priceHoldings`: a figure summed over the holdings that
+  // happened to price looks right and is wrong, so it is withheld rather than
+  // shown, and the partial figure is named as partial.
+  const pricedInvestableValueNis = sumValues(investableHoldings);
+  const isComplete = pricing.totalValueNis !== null;
 
   return {
     investableHoldings,
-    investableValueNis,
+    investableValueNis: isComplete ? pricedInvestableValueNis : null,
+    pricedInvestableValueNis,
     illiquidValueNis: sumValues(illiquidPositions),
     illiquidPositions,
-    byAssetClass: buildClassPositions(investableHoldings, investableValueNis),
+    byAssetClass: buildClassPositions(
+      investableHoldings,
+      isComplete ? pricedInvestableValueNis : null
+    ),
     totalValueNis: pricing.totalValueNis,
     failures: pricing.failures,
     usdToNisRate: pricing.usdToNisRate,
@@ -113,7 +121,7 @@ export function buildInvestablePortfolio(
 
 function buildClassPositions(
   investableHoldings: InvestableHolding[],
-  investableValueNis: number
+  investableValueNis: number | null
 ): ClassPosition[] {
   const valueByClass = new Map<AssetClass, number>();
   for (const holding of investableHoldings) {
@@ -127,9 +135,9 @@ function buildClassPositions(
     assetClass,
     valueInNis,
     percentOfInvestable:
-      investableValueNis > 0
+      investableValueNis !== null && investableValueNis > 0
         ? (valueInNis / investableValueNis) * TOTAL_TARGET_PERCENT
-        : 0,
+        : null,
   }));
 }
 

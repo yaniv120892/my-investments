@@ -3,12 +3,13 @@ import { TargetValidationError } from "@/lib/targets/targetWriteErrors";
 import {
   TOTAL_TARGET_PERCENT,
   isTargetSumBalanced,
+  sumTargetPercent,
 } from "@/lib/targets/targetPercentRules";
 import type {
   ClassTargetInput,
   WithinClassWeightEntry,
 } from "@/lib/targets/target.types";
-import type { FieldErrorMap } from "@/lib/validation/zodFieldErrors.types";
+import type { FieldErrorMap } from "@/lib/validation/fieldErrors.types";
 
 export class TargetWriteValidator {
   public assertClassTargetsAreComplete(classTargets: ClassTargetInput[]): void {
@@ -49,32 +50,24 @@ export class TargetWriteValidator {
     classTargets: ClassTargetInput[]
   ): FieldErrorMap {
     const fieldErrors: FieldErrorMap = {};
-    const percentByClass = new Map<AssetClass, number>();
+    const provided = new Set<AssetClass>();
 
     for (const target of classTargets) {
-      if (percentByClass.has(target.assetClass)) {
-        fieldErrors[target.assetClass] =
-          `This asset class is listed more than once (assetClass: ${target.assetClass})`;
-        continue;
-      }
       if (target.targetPercent < 0) {
         fieldErrors[target.assetClass] =
           `A target cannot be negative (target: ${target.targetPercent})`;
       }
-      percentByClass.set(target.assetClass, target.targetPercent);
+      provided.add(target.assetClass);
     }
 
     for (const assetClass of Object.values(AssetClass)) {
-      if (!percentByClass.has(assetClass)) {
+      if (!provided.has(assetClass)) {
         fieldErrors[assetClass] =
           `Every asset class needs a target, even a zero one (assetClass: ${assetClass})`;
       }
     }
 
-    const targetSum = classTargets.reduce(
-      (total, target) => total + target.targetPercent,
-      0
-    );
+    const targetSum = sumTargetPercent(classTargets);
     if (!isTargetSumBalanced(targetSum)) {
       fieldErrors.classTargets = `Targets must sum to ${TOTAL_TARGET_PERCENT}, not ${targetSum}`;
     }

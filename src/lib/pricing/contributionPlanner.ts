@@ -51,8 +51,49 @@ export function planContribution(
     return refusal;
   }
 
-  const includedClasses = includedAssetClasses(request);
-  const includedHoldings = request.investableHoldings.filter((holding) =>
+  const excludedHoldingIds = new Set(request.excludedHoldingIds);
+  const requestedClasses = includedAssetClasses(request);
+  const requestedHoldings = request.investableHoldings.filter((holding) =>
+    requestedClasses.has(holding.assetClass)
+  );
+
+  // Excluding a class's only holding is a narrower instruction than "this class
+  // has nowhere to put money". Deciding that here keeps the two apart: a class
+  // whose candidates were all excluded drops out like an excluded class, and
+  // only a class with no weighted holding at all refuses the plan.
+  const fundableClasses = new Set<AssetClass>();
+  for (const target of request.classTargets) {
+    if (!requestedClasses.has(target.assetClass) || target.targetPercent <= 0) {
+      continue;
+    }
+    const weighted = requestedHoldings.filter(
+      (holding): holding is WeightedHolding =>
+        holding.assetClass === target.assetClass &&
+        holding.withinClassWeight !== null &&
+        holding.withinClassWeight > 0
+    );
+    if (weighted.length === 0) {
+      return refuse(
+        "CLASS_HAS_NO_WEIGHTED_HOLDING",
+        `${target.assetClass} has a target but no liquid holding with a within-class weight, so there is nowhere to put its share. Set a weight on at least one ${target.assetClass} holding.`
+      );
+    }
+    const hasCandidate = weighted.some(
+      (holding) => !excludedHoldingIds.has(holding.holdingId)
+    );
+    if (hasCandidate) {
+      fundableClasses.add(target.assetClass);
+    }
+  }
+
+  const includedClasses = new Set(
+    [...requestedClasses].filter(
+      (assetClass) =>
+        fundableClasses.has(assetClass) ||
+        !hasPositiveTarget(request, assetClass)
+    )
+  );
+  const includedHoldings = requestedHoldings.filter((holding) =>
     includedClasses.has(holding.assetClass)
   );
   const currentValueByClass = sumValueByClass(includedHoldings);
@@ -82,13 +123,11 @@ export function planContribution(
   }
 
   const byHolding: HoldingAllocation[] = [];
-  const excludedHoldingIds = new Set(request.excludedHoldingIds);
 
   for (const [assetClass, amountNis] of classContributions) {
     if (amountNis <= 0) {
       continue;
     }
-
     const candidates = includedHoldings.filter(
       (holding): holding is WeightedHolding =>
         holding.assetClass === assetClass &&
@@ -96,14 +135,6 @@ export function planContribution(
         holding.withinClassWeight !== null &&
         holding.withinClassWeight > 0
     );
-
-    if (candidates.length === 0) {
-      return refuse(
-        "CLASS_HAS_NO_WEIGHTED_HOLDING",
-        `${assetClass} has a target but no liquid holding with a within-class weight, so there is nowhere to put its ${amountNis} NIS. Set a weight on at least one ${assetClass} holding.`
-      );
-    }
-
     byHolding.push(
       ...splitWithinClass(
         candidates,
@@ -133,6 +164,9 @@ export function planContribution(
 function findRefusal(
   request: ContributionPlanRequest
 ): ContributionPlanRefusal | null {
+  assertPlannableAmount("contributionNis", request.contributionNis);
+  assertPlannableAmount("minimumTicketNis", request.minimumTicketNis);
+
   if (request.totalValueNis === null) {
     return refuse(
       "PRICING_INCOMPLETE",
@@ -150,6 +184,15 @@ function findRefusal(
   // Not a refusal: `targetWriteValidator` is the only path by which targets are
   // stored and it rejects an unbalanced set, so reaching here means a caller
   // skipped that boundary — exactly the caller that needs telling.
+  const negative = request.classTargets.find(
+    (target) => target.targetPercent < 0
+  );
+  if (negative) {
+    throw new Error(
+      `Stored asset class target is negative (assetClass: ${negative.assetClass}, target: ${negative.targetPercent})`
+    );
+  }
+
   const targetSum = sumTargetPercent(request.classTargets);
   if (!isTargetSumBalanced(targetSum)) {
     throw new Error(
@@ -244,6 +287,12 @@ function waterFill(
     level = nextLevel;
   }
 
+  if (!Number.isFinite(level)) {
+    throw new Error(
+      `Water level never settled for a contribution of ${contributionNis}`
+    );
+  }
+
   const amounts = new Map<AssetClass, number>();
   for (const candidate of candidates) {
     amounts.set(
@@ -260,11 +309,16 @@ function splitWithinClass(
   minimumTicketNis: number,
   dropped: DroppedAllocation[]
 ): HoldingAllocation[] {
+  if (amountNis < minimumTicketNis) {
+    throw new Error(
+      `Class amount ${amountNis} is below the minimum ticket ${minimumTicketNis}; allocateAcrossClasses should have dropped it`
+    );
+  }
   let survivors = [...candidates];
 
   for (;;) {
     const weightSum = survivors.reduce(
-      (total, holding) => total + weightOf(holding),
+      (total, holding) => total + holding.withinClassWeight,
       0
     );
     const allocations = survivors.map((holding) => ({
@@ -272,16 +326,21 @@ function splitWithinClass(
       assetName: holding.assetName,
       assetClass: holding.assetClass,
       platformName: holding.platformName,
-      contributionNis: (amountNis * weightOf(holding)) / weightSum,
+      contributionNis: (amountNis * holding.withinClassWeight) / weightSum,
     }));
 
     if (survivors.length === 1) {
       return allocations;
     }
 
-    const smallest = allocations.reduce((lowest, allocation) =>
-      allocation.contributionNis < lowest.contributionNis ? allocation : lowest
-    );
+    const smallest = allocations.reduce((lowest, allocation) => {
+      if (allocation.contributionNis !== lowest.contributionNis) {
+        return allocation.contributionNis < lowest.contributionNis
+          ? allocation
+          : lowest;
+      }
+      return allocation.holdingId < lowest.holdingId ? allocation : lowest;
+    });
     if (smallest.contributionNis >= minimumTicketNis) {
       return allocations;
     }
@@ -414,12 +473,11 @@ function sortHoldingAllocations(
     if (byClass !== 0) {
       return byClass;
     }
-    return b.contributionNis - a.contributionNis;
+    if (b.contributionNis !== a.contributionNis) {
+      return b.contributionNis - a.contributionNis;
+    }
+    return a.holdingId.localeCompare(b.holdingId);
   });
-}
-
-function weightOf(holding: WeightedHolding): number {
-  return holding.withinClassWeight;
 }
 
 function percentOf(value: number, total: number): number {
@@ -434,4 +492,21 @@ function refuse(
   explanation: string
 ): ContributionPlanRefusal {
   return { status: "refused", reason, explanation };
+}
+
+function assertPlannableAmount(name: string, value: number): void {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(
+      `${name} must be a finite, non-negative number (${name}: ${value})`
+    );
+  }
+}
+
+function hasPositiveTarget(
+  request: ContributionPlanRequest,
+  assetClass: AssetClass
+): boolean {
+  return request.classTargets.some(
+    (target) => target.assetClass === assetClass && target.targetPercent > 0
+  );
 }

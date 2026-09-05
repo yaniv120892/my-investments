@@ -1,20 +1,15 @@
 import { NextResponse } from "next/server";
 import {
   HoldingNotFoundError,
-  HoldingValidationError,
   PlatformNameConflictError,
   PlatformNotFoundError,
 } from "@/lib/holdings/holdingWriteErrors";
-import { InvalidJsonBodyError } from "@/lib/validation/requestBody";
+import { FieldValidationError } from "@/lib/validation/fieldErrors";
+import { isRecordNotFoundError } from "@/lib/validation/prismaErrors";
 import { describeError } from "@/utils/describeError";
 
-const PRISMA_RECORD_NOT_FOUND = "P2025";
-
 export function toWriteErrorResponse(error: unknown): NextResponse {
-  if (
-    error instanceof HoldingValidationError ||
-    error instanceof InvalidJsonBodyError
-  ) {
+  if (error instanceof FieldValidationError) {
     return NextResponse.json(
       { error: error.message, fieldErrors: error.fieldErrors },
       { status: 400 }
@@ -50,14 +45,5 @@ export function toWriteErrorResponse(error: unknown): NextResponse {
   return NextResponse.json(
     { error: `Internal server error (${describeError(error)})` },
     { status: 500 }
-  );
-}
-
-function isRecordNotFoundError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === PRISMA_RECORD_NOT_FOUND
   );
 }
