@@ -23,6 +23,23 @@ model User {
   platforms    Platform[]
 
   assetClassTargets AssetClassTarget[]
+  advisorTurns      AdvisorTurn[]
+}
+
+model AdvisorTurn {
+  id             String   @id @default(uuid())
+  userId         String
+  createdAt      DateTime @default(now())
+  toolIds        String[]
+  plannedCount   Int
+  refusalReasons String[]
+  isGrounded     Boolean
+  ungrounded     String[]
+  replyChars     Int
+  durationMs     Int
+  user           User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
 }
 
 model AssetClassTarget {

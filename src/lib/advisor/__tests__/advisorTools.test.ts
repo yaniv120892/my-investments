@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AssetClass } from "@prisma/client";
+import { AdvisorTurnRecorder } from "@/lib/advisor/advisorTurnRecorder";
 
 const { loadInvestablePortfolio, findClassTargets } = vi.hoisted(() => ({
   loadInvestablePortfolio: vi.fn(),
@@ -17,7 +18,7 @@ vi.mock("@/lib/targets/targetRepository", () => ({
 const {
   buildAdvisorTools,
   USER_ID_CONTEXT_KEY,
-  PLAN_SINK_CONTEXT_KEY,
+  TURN_RECORDER_CONTEXT_KEY,
   PORTFOLIO_LOADER_CONTEXT_KEY,
 } = await import("@/lib/advisor/advisorTools");
 
@@ -114,7 +115,7 @@ describe("advisor tools", () => {
   it("refuses to plan on partial data and names the failing holding", async () => {
     loadInvestablePortfolio.mockResolvedValue(buildPortfolio(null));
     const tools = buildAdvisorTools();
-    const planSink: unknown[] = [];
+    const recorder = new AdvisorTurnRecorder();
 
     const result = await invoke(
       tools.planContribution,
@@ -125,8 +126,8 @@ describe("advisor tools", () => {
             switch (key) {
               case USER_ID_CONTEXT_KEY:
                 return "user-1";
-              case PLAN_SINK_CONTEXT_KEY:
-                return planSink;
+              case TURN_RECORDER_CONTEXT_KEY:
+                return recorder;
               default:
                 return undefined;
             }
@@ -138,7 +139,7 @@ describe("advisor tools", () => {
     expect(result.status).toBe("refused");
     expect(result.reason).toBe("PRICING_INCOMPLETE");
     expect(String(result.explanation)).toContain("פנסיה יניב");
-    expect(planSink).toHaveLength(0);
+    expect(recorder.plans).toHaveLength(0);
   });
 
   it("refuses to plan when no targets are stored", async () => {
@@ -156,10 +157,10 @@ describe("advisor tools", () => {
     expect(result.reason).toBe("NO_TARGETS_SET");
   });
 
-  it("pushes an accepted plan into the sink so the route can render it", async () => {
+  it("records an accepted plan so the route can render it", async () => {
     loadInvestablePortfolio.mockResolvedValue(buildPortfolio(1_000));
     const tools = buildAdvisorTools();
-    const planSink: unknown[] = [];
+    const recorder = new AdvisorTurnRecorder();
 
     const result = await invoke(
       tools.planContribution,
@@ -170,8 +171,8 @@ describe("advisor tools", () => {
             switch (key) {
               case USER_ID_CONTEXT_KEY:
                 return "user-1";
-              case PLAN_SINK_CONTEXT_KEY:
-                return planSink;
+              case TURN_RECORDER_CONTEXT_KEY:
+                return recorder;
               default:
                 return undefined;
             }
@@ -181,7 +182,7 @@ describe("advisor tools", () => {
     );
 
     expect(result.status).toBe("planned");
-    expect(planSink).toHaveLength(1);
+    expect(recorder.plans).toHaveLength(1);
   });
 
   it("reads the portfolio through the request loader, never pricing directly", async () => {

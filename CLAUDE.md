@@ -32,6 +32,7 @@ npm test                 # test:unit — terminates, so the pre-push gate can ru
 npm run test:watch       # vitest watch
 npm run test:unit        # vitest run, excluding *.contract.test.ts
 npm run test:contract    # the live-network contract tests only
+npm run eval             # the graded advisor eval, against the real model
 npm run test:run         # everything, contract tests included
 npm run db:migrate       # prisma migrate dev
 npm run db:deploy        # prisma migrate deploy
@@ -128,6 +129,9 @@ provider actually returned.
   `holdingWriteErrorResponse.ts`.
 - `src/lib/advisorStream.ts` + `useAdvisorChat.ts` — the browser's SSE reader,
   deliberately outside `api.ts`, which is JSON-only and buffers whole bodies.
+- `src/lib/advisor/eval/` — `numericGrounding.ts` (the checkable form of "the
+  model never does arithmetic"), `mockModelServer.ts` (an OpenAI-compatible
+  endpoint that replays a script), and the two eval suites.
 - `src/lib/advisor/` — the Mastra layer. `investmentAdvisor.ts` (a lazy `Agent`
   singleton whose `instructions` and `model` are passed as _functions_, so the
   date and the configured model resolve per request), `advisorTools.ts`,
@@ -166,8 +170,20 @@ provider actually returned.
   `totalValueNis: null` whenever `failures` is non-empty, alongside
   `pricedValueNis` and the failure list. The UI shows the failures and
   suppresses the total. Do not add a fallback that sums what priced.
-- **The model never does arithmetic.** Every figure the advisor states comes
-  from a tool result; the tools return pre-formatted strings alongside raw
+- **The model never does arithmetic**, and this is checked rather than trusted:
+  every turn is graded by `checkNumericGrounding` against everything the tools
+  returned, and a figure with no tool behind it is logged at error level and sent
+  to Telegram. The check is deliberately lenient — it absorbs the rounding the
+  model does when writing an amount out, and ignores dates and small counts —
+  because a false alarm on a real answer costs more than missing a rounding
+  drift. It grades against what the tools returned **and** what the user typed —
+  an amount the user named is not fabricated when the model repeats it — and a
+  turn that called no grounding tool is not graded at all, since with memory on
+  a follow-up is answered from the thread. A tool whose result is derived from
+  the model's own input (`validateClassTargets`) is excluded from the pool, or
+  the model could ground any figure by passing it through a tool first. The
+  write and the alert run under `after()`, because work started once the
+  response has completed is otherwise frozen with the function. Every figure the advisor states comes from a tool result; the tools return pre-formatted strings alongside raw
   numbers so it never sums or formats. `planContribution` is the only source of
   contribution amounts — a changed constraint means calling it again, never
   adjusting its output.
@@ -280,6 +296,13 @@ identically however the input is ordered.
   fails the holding and never falls through to summing mixed currencies.
 - `vitest.config.mts` includes `scripts/**/*.test.ts` as well as `src/`, so the
   one-off scripts are covered by the same run.
+- The advisor is graded at two levels. `advisorRouting.test.ts` runs the real
+  agent, tools and planner against `mockModelServer` — a scripted
+  OpenAI-compatible endpoint — so tool routing, constraint pass-through and
+  refusal relaying are deterministic and free, and run in CI like any unit test.
+  `*.eval.test.ts` asks the same questions of the real model and grades the
+  answers; it costs money and is non-deterministic, so it is excluded from
+  `test:unit`, gates nothing, and skips itself when `OPENAI_API_KEY` is unset.
 
 ## Database (Prisma)
 
@@ -288,7 +311,8 @@ exported by `src/lib/db.ts`; nothing else constructs a `PrismaClient` on a
 request path. Models: `User`, `Settings` (baseCurrency, darkMode, one row per
 user), `Platform` (unique per `[userId, name]`), `Holding`, `HoldingSnapshot`
 (unique per `[holdingId, date]`), `AssetClassTarget` (unique per
-`[userId, assetClass]`).
+`[userId, assetClass]`), `AdvisorTurn` (one row per advisor answer: the tools
+called, whether a plan came out, and whether every figure was grounded).
 
 `AssetClassTarget` is a model rather than three columns on `Settings` because
 the invariant is "all three present and summing to 100": rows make that state

@@ -4,11 +4,11 @@ import { getInvestmentAdvisor } from "@/lib/advisor/investmentAdvisor";
 import { getThreadId, hasAdvisorMemory } from "@/lib/advisor/advisorMemory";
 import { createInvestablePortfolioLoader } from "@/lib/pricing/investablePortfolio";
 import {
-  PLAN_SINK_CONTEXT_KEY,
   PORTFOLIO_LOADER_CONTEXT_KEY,
+  TURN_RECORDER_CONTEXT_KEY,
   USER_ID_CONTEXT_KEY,
 } from "@/lib/advisor/advisorTools.types";
-import type { PlanSink } from "@/lib/advisor/advisorTools.types";
+import type { AdvisorTurnRecorder } from "@/lib/advisor/advisorTurnRecorder";
 import type { AdvisorChatMessage } from "@/lib/advisor/advisorMessages.types";
 
 type OutgoingMessage =
@@ -27,12 +27,12 @@ export class AdvisorChatService {
   public async streamAdvisorResponse(
     messages: AdvisorChatMessage[],
     userId: string,
-    planSink: PlanSink,
+    recorder: AdvisorTurnRecorder,
     abortSignal?: AbortSignal
   ): Promise<AdvisorRun> {
     const requestContext = new RequestContext();
     requestContext.set(USER_ID_CONTEXT_KEY, userId);
-    requestContext.set(PLAN_SINK_CONTEXT_KEY, planSink);
+    requestContext.set(TURN_RECORDER_CONTEXT_KEY, recorder);
     requestContext.set(
       PORTFOLIO_LOADER_CONTEXT_KEY,
       createInvestablePortfolioLoader(userId)
