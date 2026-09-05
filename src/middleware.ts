@@ -22,10 +22,11 @@ export async function middleware(request: NextRequest) {
 
   const authToken = request.cookies.get(AUTH_COOKIE_NAME)?.value;
 
+  const requiresSession = !isPublicRoute && pathname !== "/";
+
   if (!authToken) {
-    const requiresSession = !isPublicRoute && pathname !== "/";
     if (requiresSession) {
-      return unauthenticated(request, pathname);
+      return unauthenticatedResponse(request);
     }
     return nextWithoutClientIdentityHeaders(request);
   }
@@ -33,7 +34,12 @@ export async function middleware(request: NextRequest) {
   const session = await verifyJWT(authToken);
 
   if (!session || session.expiresAt < new Date()) {
-    return clearSession(unauthenticated(request, pathname));
+    // A stale cookie must not lock the holder out of the endpoint that fixes
+    // it: /api/auth/login is public, and rejecting it here is unrecoverable.
+    if (!requiresSession) {
+      return clearSession(nextWithoutClientIdentityHeaders(request));
+    }
+    return clearSession(unauthenticatedResponse(request));
   }
 
   if (pathname.startsWith("/api/") && !isPublicApiRoute) {
@@ -56,13 +62,12 @@ export async function middleware(request: NextRequest) {
 }
 
 /**
- * An API caller gets a 401 it can read; only a page navigation gets the
- * redirect. Redirecting an API request sends the login page's HTML back to
- * `fetch`, which follows it and reports a 200 — so the caller's `response.json()`
- * fails as a syntax error rather than as the auth failure it is.
+ * Redirecting an API request sends the login page's HTML back to `fetch`, which
+ * follows it and reports a 200 — so the caller's `response.json()` fails as a
+ * syntax error rather than as the auth failure it is.
  */
-function unauthenticated(request: NextRequest, pathname: string): NextResponse {
-  if (pathname.startsWith("/api/")) {
+function unauthenticatedResponse(request: NextRequest): NextResponse {
+  if (request.nextUrl.pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return NextResponse.redirect(new URL("/login", request.url));

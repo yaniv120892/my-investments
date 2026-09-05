@@ -90,10 +90,12 @@ provider actually returned.
   `auth-token` cookie, verifies the JWT with `src/lib/auth-edge.ts`, and sets
   `x-user-id` / `x-user-email` on authenticated `/api/*` requests. An
   unauthenticated **page** request is redirected to `/login`; an unauthenticated
-  **`/api/*`** request gets a 401 it can read. Redirecting an API request sends
-  the login page's HTML to `fetch`, which follows it and reports a 200, so the
-  caller's `response.json()` fails as a syntax error rather than as the auth
-  failure it is.
+  **`/api/*`** request gets a 401 it can read, because `fetch` follows a redirect
+  and reports a 200, so the caller's `response.json()` fails as a syntax error
+  rather than as the auth failure it is. A public route survives an expired
+  cookie — rejecting `/api/auth/login` would lock its holder out of the endpoint
+  that fixes the problem. The browser turns that 401 into a redirect once, in
+  `queryClient`'s cache-level `onError`.
 - `src/lib/providers/` — one `PriceProvider` per remote `PriceSource`
   (`FinnhubProvider`, `BinanceProvider`, `MayaEtfProvider`, `MayaFundProvider`
   over the shared `mayaApi.ts`), each wrapped in `CachedPriceProvider` by
