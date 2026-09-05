@@ -35,14 +35,13 @@ export function useAdvisorChat(): AdvisorChat {
         return;
       }
 
-      const history = fitChatHistory([
+      const transcript: AdvisorChatMessage[] = [
         ...messages,
         { sender: "user", text: trimmed },
-      ]);
-      setMessages([...history, { sender: "advisor", text: "" }]);
+      ];
+      setMessages([...transcript, { sender: "advisor", text: "" }]);
       // A refused follow-up produces no plan frame, and leaving the previous
-      // table on screen would present the old split as the answer to the new
-      // question — the same trap as rendering a total from incomplete data.
+      // table up would present the old split as the answer to a new question.
       setPlan(null);
       setIsLoading(true);
 
@@ -51,7 +50,9 @@ export function useAdvisorChat(): AdvisorChat {
 
       try {
         await streamAdvisorMessage(
-          history,
+          // Fitted for the wire only. Writing the fitted copy back into state
+          // would truncate a long reply the user has already read.
+          fitChatHistory(transcript),
           {
             onDelta: (delta) => {
               setMessages((current) => appendToLastMessage(current, delta));
@@ -78,6 +79,10 @@ export function useAdvisorChat(): AdvisorChat {
       } finally {
         abortControllerRef.current = null;
         setIsLoading(false);
+        // An answer stopped before its first token leaves an empty bubble. It
+        // would go back out as history and fail the request schema's min(1),
+        // failing every later send until the page is reloaded.
+        setMessages(dropTrailingEmptyReply);
       }
     },
     [isLoading, messages, router]
@@ -85,7 +90,9 @@ export function useAdvisorChat(): AdvisorChat {
 
   const lastMessage = messages[messages.length - 1];
   const isAwaitingFirstToken =
-    isLoading && lastMessage?.sender === "advisor" && lastMessage.text === "";
+    isLoading &&
+    lastMessage?.sender === "advisor" &&
+    lastMessage.text.trim() === "";
 
   return {
     messages,
@@ -110,4 +117,12 @@ function appendToLastMessage(
     ...messages.slice(0, -1),
     { sender: last.sender, text: last.text + delta },
   ];
+}
+
+function dropTrailingEmptyReply(
+  messages: AdvisorChatMessage[]
+): AdvisorChatMessage[] {
+  const last = messages[messages.length - 1];
+  const isEmptyReply = last?.sender === "advisor" && last.text.trim() === "";
+  return isEmptyReply ? messages.slice(0, -1) : messages;
 }

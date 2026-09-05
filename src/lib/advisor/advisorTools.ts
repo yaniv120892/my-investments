@@ -3,6 +3,7 @@ import { createTool } from "@mastra/core/tools";
 import { AssetClass } from "@prisma/client";
 import { loadInvestablePortfolio } from "@/lib/pricing/investablePortfolio";
 import { planContribution } from "@/lib/pricing/contributionPlanner";
+import type { ContributionRefusalReason } from "@/lib/pricing/contributionPlanner.types";
 import { targetRepository } from "@/lib/targets/targetRepository";
 import { holdingTrendRepository } from "@/lib/holdings/holdingTrendRepository";
 import {
@@ -19,6 +20,7 @@ import {
   type PortfolioLoader,
 } from "@/lib/advisor/advisorTools.types";
 import type { InvestablePortfolio } from "@/lib/pricing/investablePortfolio.types";
+import type { HoldingTrendPoint } from "@/lib/holdings/holdingTrendRepository.types";
 
 export {
   PORTFOLIO_LOADER_CONTEXT_KEY,
@@ -30,6 +32,9 @@ export type { PortfolioLoader } from "@/lib/advisor/advisorTools.types";
 const DEFAULT_TREND_MONTHS = 6;
 const MAX_TREND_MONTHS = 120;
 const DAYS_PER_MONTH = 30;
+const PERCENT_SCALE = 100;
+/** formatMoney ignores the rate when the display currency is already NIS. */
+const NIS_RATE_IS_UNUSED = 1;
 
 interface ToolContext {
   requestContext?: { get: (key: string) => unknown };
@@ -45,10 +50,17 @@ export function buildAdvisorTools() {
       const portfolio = await loadPortfolio(context);
       const money = nisFormatter(portfolio);
 
+      const isPricingComplete = portfolio.investableValueNis !== null;
+
       return record(context, "getInvestablePortfolio", {
-        investableValueFormatted: money(portfolio.investableValueNis),
+        // Withheld rather than summed from what priced, so the model cannot
+        // quote a total the app itself refuses to show.
+        investableValueFormatted: isPricingComplete
+          ? money(portfolio.pricedInvestableValueNis)
+          : null,
+        pricedSoFarFormatted: money(portfolio.pricedInvestableValueNis),
         illiquidValueFormatted: money(portfolio.illiquidValueNis),
-        isPricingComplete: portfolio.totalValueNis !== null,
+        isPricingComplete,
         pricingFailures: portfolio.failures.map((failure) => ({
           assetName: failure.assetName,
           reason: failure.reason,
@@ -110,13 +122,20 @@ export function buildAdvisorTools() {
         input.classTargets.map((target) => target.assetClass)
       );
 
-      return record(context, "validateClassTargets", {
-        targetSum,
-        sumsTo100: isTargetSumBalanced(targetSum),
-        missingAssetClasses: Object.values(AssetClass).filter(
-          (assetClass) => !provided.has(assetClass)
-        ),
-      });
+      // Derived entirely from what the model passed in, so it must not become
+      // evidence that a figure came from the portfolio.
+      return record(
+        context,
+        "validateClassTargets",
+        {
+          targetSum,
+          sumsTo100: isTargetSumBalanced(targetSum),
+          missingAssetClasses: Object.values(AssetClass).filter(
+            (assetClass) => !provided.has(assetClass)
+          ),
+        },
+        false
+      );
     },
   });
 
@@ -234,15 +253,19 @@ export function buildAdvisorTools() {
       const since = new Date();
       since.setDate(since.getDate() - months * DAYS_PER_MONTH);
 
-      return record(context, "getHoldingPriceTrend", {
-        assetName: matches[0].assetName,
-        months,
-        points: await holdingTrendRepository.findHoldingTrend(
-          userId,
-          matches[0].id,
-          since
-        ),
-      });
+      return record(
+        context,
+        "getHoldingPriceTrend",
+        summariseTrend(
+          matches[0].assetName,
+          months,
+          await holdingTrendRepository.findHoldingTrend(
+            userId,
+            matches[0].id,
+            since
+          )
+        )
+      );
     },
   });
 
@@ -271,8 +294,13 @@ function requireUserId(context: ToolContext): string {
  * Every result is recorded, because the grounding check can only tell a quoted
  * figure from an invented one if it has seen every figure a tool produced.
  */
-function record<T>(context: ToolContext, toolId: string, result: T): T {
-  getRecorder(context)?.recordToolCall(toolId, result);
+function record<T>(
+  context: ToolContext,
+  toolId: string,
+  result: T,
+  isGrounding = true
+): T {
+  getRecorder(context)?.recordToolCall(toolId, result, isGrounding);
   return result;
 }
 
@@ -302,25 +330,48 @@ function nisFormatter(
   return (valueInNis) => formatMoney(valueInNis, "NIS", portfolio.usdToNisRate);
 }
 
+/**
+ * Exact match first, substring only as a fallback, and a name that matches
+ * nothing throws. Silently ignoring a miss is the dangerous case: the model
+ * would report a plan as though the exclusion applied when it did not.
+ */
 function resolveExcludedHoldingIds(
   holdings: { holdingId: string; assetName: string }[],
   excludedAssetNames: string[]
 ): string[] {
-  // A blank name is a substring of every asset name, so leaving one in would
-  // exclude the whole portfolio and refuse the turn for an unrelated reason.
-  const wanted = excludedAssetNames
-    .map((name) => name.trim().toLowerCase())
-    .filter((name) => name.length > 0);
+  const excluded = new Set<string>();
 
-  return holdings
-    .filter((holding) =>
-      wanted.some((name) => holding.assetName.toLowerCase().includes(name))
-    )
-    .map((holding) => holding.holdingId);
+  for (const rawName of excludedAssetNames) {
+    const name = rawName.trim().toLowerCase();
+    if (!name) {
+      continue;
+    }
+
+    const exact = holdings.filter(
+      (holding) => holding.assetName.toLowerCase() === name
+    );
+    const matches =
+      exact.length > 0
+        ? exact
+        : holdings.filter((holding) =>
+            holding.assetName.toLowerCase().includes(name)
+          );
+
+    if (matches.length === 0) {
+      throw new Error(
+        `No liquid holding matches that name, so it cannot be excluded (assetName: ${rawName}). Call getInvestablePortfolio for the exact names.`
+      );
+    }
+    for (const holding of matches) {
+      excluded.add(holding.holdingId);
+    }
+  }
+
+  return [...excluded];
 }
 
 function describeRefusal(
-  reason: string,
+  reason: ContributionRefusalReason,
   explanation: string,
   portfolio: InvestablePortfolio
 ): string {
@@ -330,4 +381,56 @@ function describeRefusal(
   return `${explanation} Failing holdings: ${portfolio.failures
     .map((failure) => `${failure.assetName} (${failure.reason})`)
     .join("; ")}.`;
+}
+
+/**
+ * Summarised here rather than handed over as a table: "is this up or down" is
+ * arithmetic, and every figure the advisor states has to come from a tool. The
+ * raw series is also long enough to crowd the context on its own.
+ */
+function summariseTrend(
+  assetName: string,
+  months: number,
+  points: HoldingTrendPoint[]
+) {
+  const first = points.at(0);
+  const last = points.at(-1);
+
+  if (!first || !last) {
+    return {
+      assetName,
+      months,
+      hasHistory: false,
+      note: "No snapshots cover that period yet.",
+    };
+  }
+
+  const changeNis = last.valueNis - first.valueNis;
+  const changePercent =
+    first.valueNis > 0 ? (changeNis / first.valueNis) * PERCENT_SCALE : null;
+
+  return {
+    assetName,
+    months,
+    hasHistory: true,
+    snapshotCount: points.length,
+    startDate: first.date,
+    endDate: last.date,
+    startValueFormatted: nisMoney(first.valueNis),
+    endValueFormatted: nisMoney(last.valueNis),
+    changeFormatted: nisMoney(changeNis),
+    changePercent,
+    direction: describeDirection(changeNis),
+  };
+}
+
+function describeDirection(changeNis: number): "up" | "down" | "flat" {
+  if (changeNis > 0) {
+    return "up";
+  }
+  return changeNis < 0 ? "down" : "flat";
+}
+
+function nisMoney(valueInNis: number): string {
+  return formatMoney(valueInNis, "NIS", NIS_RATE_IS_UNUSED);
 }

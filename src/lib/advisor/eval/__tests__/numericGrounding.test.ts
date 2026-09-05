@@ -89,6 +89,49 @@ describe("checkNumericGrounding", () => {
     expect(report.ungrounded.map((entry) => entry.value)).toEqual([880_000]);
   });
 
+  it("does not read an ISO date as two negative figures", () => {
+    const report = checkNumericGrounding(
+      "As of 2026-09-05 the split is unchanged.",
+      [PLAN_TOOL_RESULT]
+    );
+
+    expect(report.isGrounded).toBe(true);
+  });
+
+  it("does not read a range or a model name as a negative figure", () => {
+    const report = checkNumericGrounding(
+      "Over the next 2-3 months, running on gpt-4o.",
+      [PLAN_TOOL_RESULT]
+    );
+
+    expect(report.isGrounded).toBe(true);
+  });
+
+  it("checks a small integer when it is a percentage", () => {
+    const report = checkNumericGrounding("Crypto is 12% of the base.", [
+      PLAN_TOOL_RESULT,
+    ]);
+
+    expect(report.isGrounded).toBe(false);
+    expect(report.ungrounded.map((entry) => entry.value)).toEqual([12]);
+  });
+
+  it("accepts a percentage a tool actually returned", () => {
+    const report = checkNumericGrounding("Non-equity sits at 20%.", [
+      PLAN_TOOL_RESULT,
+    ]);
+
+    expect(report.isGrounded).toBe(true);
+  });
+
+  it("does not capture the separator after a figure", () => {
+    const report = checkNumericGrounding("Add ₪50,000, then review.", [
+      PLAN_TOOL_RESULT,
+    ]);
+
+    expect(report.isGrounded).toBe(true);
+  });
+
   it("treats a reply with no figures as grounded", () => {
     const report = checkNumericGrounding(
       "I cannot plan that until every holding prices.",

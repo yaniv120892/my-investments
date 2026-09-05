@@ -169,8 +169,8 @@ export const useReplaceTargets = () => {
 
   return useMutation({
     mutationFn: (data: ReplaceTargetsRequest) => api.targets.replace(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["targets"] });
+    onSuccess: (targets) => {
+      queryClient.setQueryData(["targets"], targets);
       // Within-class weights live on Holding, so the holdings query is stale too.
       queryClient.invalidateQueries({ queryKey: ["holdings"] });
     },

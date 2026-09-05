@@ -65,13 +65,15 @@ const TARGETS = [
 ];
 
 let mockServer: MockModelServer;
+const startedServers: MockModelServer[] = [];
 
 async function runTurn(
   script: Parameters<typeof startMockModelServer>[0],
   message: string
 ): Promise<{ replyText: string; recorder: AdvisorTurnRecorder }> {
   mockServer = await startMockModelServer(script);
-  process.env.ASSISTANT_MODEL_URL = mockServer.url;
+  startedServers.push(mockServer);
+  vi.stubEnv("ASSISTANT_MODEL_URL", mockServer.url);
 
   const { advisorChatService } =
     await import("@/lib/advisor/advisorChatService");
@@ -83,7 +85,7 @@ async function runTurn(
   );
 
   let replyText = "";
-  for await (const delta of stream) {
+  for await (const delta of stream.textStream) {
     replyText += delta;
   }
   return { replyText, recorder };
@@ -91,17 +93,18 @@ async function runTurn(
 
 describe("advisor routing against a scripted model", () => {
   beforeAll(() => {
-    process.env.AI_PROVIDER = "chatgpt";
-    process.env.OPENAI_API_KEY = "test-key";
-    delete process.env.MASTRA_DB_URL;
-    delete process.env.DIRECT_URL;
+    vi.stubEnv("AI_PROVIDER", "chatgpt");
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("MASTRA_DB_URL", "");
+    vi.stubEnv("DIRECT_URL", "");
     loadInvestablePortfolio.mockResolvedValue(PORTFOLIO);
     findClassTargets.mockResolvedValue(TARGETS);
   });
 
   afterAll(async () => {
-    await mockServer?.close();
-    delete process.env.ASSISTANT_MODEL_URL;
+    // One server per turn, so closing only the last would leave the rest bound.
+    await Promise.all(startedServers.map((server) => server.close()));
+    vi.unstubAllEnvs();
   });
 
   it("offers every advisor tool to the model", async () => {
@@ -205,12 +208,15 @@ describe("advisor routing against a scripted model", () => {
       "I have 50000 to invest"
     );
 
-    const grounding = checkNumericGrounding(replyText, recorder.toolResults);
+    const grounding = checkNumericGrounding(
+      replyText,
+      recorder.groundingResults
+    );
     expect(grounding.isGrounded).toBe(true);
 
     const fabricated = checkNumericGrounding(
       "Put ₪37,500 into equity.",
-      recorder.toolResults
+      recorder.groundingResults
     );
     expect(fabricated.isGrounded).toBe(false);
   });

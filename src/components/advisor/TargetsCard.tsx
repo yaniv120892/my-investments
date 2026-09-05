@@ -26,7 +26,7 @@ interface TargetsCardProps {
 }
 
 function TargetsCard({ holdings }: TargetsCardProps) {
-  const { data: targets, isPending } = useTargets();
+  const { data: targets, isError } = useTargets();
   const [isEditing, setIsEditing] = useState(false);
 
   const liquidHoldings = holdings.filter(
@@ -50,19 +50,22 @@ function TargetsCard({ holdings }: TargetsCardProps) {
             <Typography variant="h4" component="h2">
               Targets
             </Typography>
-            {/* Opening before the query resolves would snapshot empty targets,
-                and saving that would wipe every stored within-class weight. */}
             <Button
               size="small"
               startIcon={<TuneOutlinedIcon />}
-              disabled={isPending}
+              disabled={!targets}
               onClick={() => setIsEditing(true)}
             >
               Edit
             </Button>
           </Stack>
 
-          {classTargets.length === 0 ? (
+          {isError ? (
+            <Alert severity="error">
+              Your targets could not be loaded, so the advisor cannot plan a
+              contribution yet.
+            </Alert>
+          ) : classTargets.length === 0 ? (
             <Alert severity="info">
               Set your asset class targets before asking for a plan — without
               them the advisor has nothing to aim at.

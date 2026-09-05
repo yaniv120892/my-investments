@@ -86,7 +86,7 @@ async function ask(
   );
 
   let replyText = "";
-  for await (const delta of stream) {
+  for await (const delta of stream.textStream) {
     replyText += delta;
   }
   return { replyText, recorder };
@@ -94,7 +94,9 @@ async function ask(
 
 function grade(name: string, passed: boolean): void {
   scores.push({ name, passed });
-  expect(passed, name).toBe(true);
+  // Soft, so one failed grade does not hide the rest of the case and leave the
+  // summary reporting fewer checks instead of a failure.
+  expect.soft(passed, name).toBe(true);
 }
 
 describe.skipIf(!process.env.OPENAI_API_KEY)(
@@ -132,7 +134,10 @@ describe.skipIf(!process.env.OPENAI_API_KEY)(
       const { replyText, recorder } = await ask(
         "I have ₪50,000 to invest. Where should it go?"
       );
-      const grounding = checkNumericGrounding(replyText, recorder.toolResults);
+      const grounding = checkNumericGrounding(
+        replyText,
+        recorder.groundingResults
+      );
 
       grade(
         `every figure grounded (${grounding.ungrounded.map((entry) => entry.text).join(", ")})`,

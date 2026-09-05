@@ -1,20 +1,12 @@
 import type { NextRequest } from "next/server";
+import { FieldValidationError } from "@/lib/validation/fieldErrors";
 import { describeError } from "@/utils/describeError";
-import { describeFieldErrors } from "@/lib/validation/zodFieldErrors";
-import type { FieldErrorMap } from "@/lib/validation/zodFieldErrors.types";
+import type { FieldErrorMap } from "@/lib/validation/fieldErrors.types";
 
-/**
- * Shared by every write route, so an unreadable body is a 400 naming the body
- * wherever it happens — not a 500 in whichever module did not recognise some
- * other module's validation error.
- */
-export class InvalidJsonBodyError extends Error {
-  public readonly fieldErrors: FieldErrorMap;
-
+export class InvalidJsonBodyError extends FieldValidationError {
   public constructor(fieldErrors: FieldErrorMap) {
-    super(`Request is invalid (${describeFieldErrors(fieldErrors)})`);
+    super("Request is invalid", fieldErrors);
     this.name = "InvalidJsonBodyError";
-    this.fieldErrors = fieldErrors;
   }
 }
 

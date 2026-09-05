@@ -8,7 +8,13 @@ export type {
   UngroundedNumber,
 } from "@/lib/advisor/eval/numericGrounding.types";
 
-const NUMERAL_PATTERN = /-?\d[\d,]*(?:\.\d+)?/g;
+/**
+ * A minus sign only counts as a sign at the start of a token — otherwise
+ * "2026-09-05" reads as 2026, -9, -5 and "gpt-4o" as -4, so an ISO date or a
+ * model name in a reply looks like fabricated figures. Trailing separators are
+ * excluded too, so "₪1,574,185, and" does not capture the comma.
+ */
+const NUMERAL_PATTERN = /(?<![\w.,-])-?\d(?:[\d,]*\d)?(?:\.\d+)?/g;
 
 /**
  * A reply figure counts as grounded if some tool figure is within this much of
@@ -23,6 +29,7 @@ const ABSOLUTE_TOLERANCE = 1;
  * so ordinary sentences do not read as fabrication.
  */
 const PROSE_INTEGER_CEILING = 31;
+const PERCENT_SUFFIX = /^\s*%/;
 const EARLIEST_YEAR = 1900;
 const LATEST_YEAR = 2100;
 
@@ -43,7 +50,15 @@ export function checkNumericGrounding(
   for (const match of replyText.matchAll(NUMERAL_PATTERN)) {
     const text = match[0];
     const value = toNumber(text);
-    if (value === null || isProseNumber(value)) {
+    if (value === null) {
+      continue;
+    }
+    // A small integer is usually prose ("the first 3 of your 12 holdings") —
+    // unless a % follows it, which is the arithmetic most worth checking.
+    const isPercent = PERCENT_SUFFIX.test(
+      replyText.slice(match.index + text.length)
+    );
+    if (!isPercent && isProseNumber(value)) {
       continue;
     }
     if (!toolNumbers.some((toolNumber) => isNear(value, toolNumber))) {

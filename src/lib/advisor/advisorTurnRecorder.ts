@@ -22,8 +22,17 @@ export class AdvisorTurnRecorder {
   private readonly acceptedPlans: ContributionPlanAccepted[] = [];
   private readonly refusals: string[] = [];
 
-  public recordToolCall(toolId: string, result: unknown): void {
-    this.toolCalls.push({ toolId, result });
+  /**
+   * `isGrounding` is false for a tool whose result is derived from what the
+   * model passed in. Recording those would let it ground any figure it liked by
+   * feeding the number through a tool first.
+   */
+  public recordToolCall(
+    toolId: string,
+    result: unknown,
+    isGrounding = true
+  ): void {
+    this.toolCalls.push({ toolId, result, isGrounding });
   }
 
   public recordPlan(plan: ContributionPlanAccepted): void {
@@ -38,8 +47,15 @@ export class AdvisorTurnRecorder {
     return [...this.acceptedPlans];
   }
 
-  public get toolResults(): unknown[] {
-    return this.toolCalls.map((call) => call.result);
+  /** Only results the model could not have dictated. */
+  public get groundingResults(): unknown[] {
+    return this.toolCalls
+      .filter((call) => call.isGrounding)
+      .map((call) => call.result);
+  }
+
+  public get hasGroundingResults(): boolean {
+    return this.toolCalls.some((call) => call.isGrounding);
   }
 
   public get summary(): AdvisorTurnSummary {

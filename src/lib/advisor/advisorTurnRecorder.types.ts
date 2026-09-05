@@ -1,8 +1,7 @@
-import type { ContributionPlanAccepted } from "@/lib/pricing/contributionPlanner.types";
-
 export interface RecordedToolCall {
   toolId: string;
   result: unknown;
+  isGrounding: boolean;
 }
 
 export interface AdvisorTurnSummary {
@@ -10,5 +9,3 @@ export interface AdvisorTurnSummary {
   plannedCount: number;
   refusalReasons: string[];
 }
-
-export type { ContributionPlanAccepted };
