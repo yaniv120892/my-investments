@@ -1,3 +1,4 @@
+import { describeFieldErrors } from "@/lib/validation/zodFieldErrors";
 import type { FieldErrorMap } from "@/lib/holdings/holdingWrite.types";
 
 export class HoldingValidationError extends Error {
@@ -41,10 +42,4 @@ export class PlatformNameConflictError extends Error {
       name: `You already have a platform with that name (name: ${name})`,
     };
   }
-}
-
-function describeFieldErrors(fieldErrors: FieldErrorMap): string {
-  return Object.entries(fieldErrors)
-    .map(([field, message]) => `${field}: ${message}`)
-    .join("; ");
 }

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { parseRecordManualValuesBody } from "@/lib/holdings/holdingRequestSchemas";
 import { holdingWriteService } from "@/lib/holdings/holdingWriteService";
 import { toWriteErrorResponse } from "@/lib/holdings/holdingWriteErrorResponse";
-import { readJsonBody } from "@/lib/holdings/requestBody";
+import { readJsonBody } from "@/lib/validation/requestBody";
 import { USER_ID_HEADER } from "@/lib/authTokens";
 
 export async function PATCH(request: NextRequest) {
