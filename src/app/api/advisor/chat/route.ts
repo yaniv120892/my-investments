@@ -15,20 +15,16 @@ import {
 } from "@/lib/advisor/advisorStreamProtocol";
 import type { AdvisorTurnRecord } from "@/lib/advisor/advisorTurnLog.types";
 import type { AdvisorChatMessage } from "@/lib/advisor/advisorMessages.types";
-import { USER_ID_HEADER } from "@/lib/authTokens";
+import { withUser } from "@/lib/requestUser";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function POST(request: NextRequest) {
-  // Read before the stream starts: `start` runs after the Response is built,
-  // by which point reaching back into the request headers is not safe.
-  const userId = request.headers.get(USER_ID_HEADER);
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+// The caller's id is captured before the stream is built: `start` runs after
+// the Response is returned, by which point reaching back into the request
+// headers is not safe.
+export const POST = withUser(async (userId, request) => {
   if (!isAdvisorModelConfigured()) {
     return NextResponse.json(
       {
@@ -137,7 +133,7 @@ export async function POST(request: NextRequest) {
       Connection: "keep-alive",
     },
   });
-}
+});
 
 function buildTurnRecord(
   userId: string,
