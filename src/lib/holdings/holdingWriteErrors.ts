@@ -1,13 +1,10 @@
-import { describeFieldErrors } from "@/lib/validation/zodFieldErrors";
+import { FieldValidationError } from "@/lib/validation/fieldErrors";
 import type { FieldErrorMap } from "@/lib/holdings/holdingWrite.types";
 
-export class HoldingValidationError extends Error {
-  public readonly fieldErrors: FieldErrorMap;
-
+export class HoldingValidationError extends FieldValidationError {
   public constructor(fieldErrors: FieldErrorMap) {
-    super(`Request is invalid (${describeFieldErrors(fieldErrors)})`);
+    super("Request is invalid", fieldErrors);
     this.name = "HoldingValidationError";
-    this.fieldErrors = fieldErrors;
   }
 }
 

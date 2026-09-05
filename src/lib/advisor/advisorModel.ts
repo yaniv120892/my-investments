@@ -25,6 +25,11 @@ export function isAdvisorModelConfigured(): boolean {
   return Boolean(providerApiKey() || process.env.ASSISTANT_MODEL_URL);
 }
 
+/** Named by the model layer, so the 503 cannot name a key for the wrong provider. */
+export function requiredApiKeyName(): string {
+  return isGemini() ? "GEMINI_API_KEY" : "OPENAI_API_KEY";
+}
+
 function isGemini(): boolean {
   return process.env.AI_PROVIDER?.toLowerCase() === "gemini";
 }
@@ -39,9 +44,16 @@ function modelId(): ModelRouterId {
   if (!override) {
     return fallback;
   }
-  return isModelRouterId(override) ? override : fallback;
+  if (isModelRouterId(override)) {
+    return override;
+  }
+  // Falling back silently would serve a different model than was configured.
+  console.warn(
+    `Ignoring ASSISTANT_MODEL_ID: expected "provider/model" (received: ${override})`
+  );
+  return fallback;
 }
 
 function isModelRouterId(value: string): value is ModelRouterId {
-  return value.includes("/");
+  return /^[a-z0-9-]+\/.+$/.test(value);
 }

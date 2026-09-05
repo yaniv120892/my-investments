@@ -44,11 +44,12 @@ export function getAdvisorMemory(): Memory | undefined {
 }
 
 /**
- * Derived from the store, not from the env var: a configured but unusable
- * endpoint leaves the agent with no memory, and a caller that trimmed the
- * history on the env var's word would send a follow-up with no context at all.
+ * Whether the agent was given a memory, not whether that memory works: the
+ * store's constructor does not connect, so a wrong host or a revoked password
+ * fails later, inside the run. Callers use this to decide whether the thread
+ * already holds the earlier turns — never as a health check.
  */
-export function isMemoryEnabled(): boolean {
+export function hasAdvisorMemory(): boolean {
   return getAdvisorMemory() !== undefined;
 }
 
