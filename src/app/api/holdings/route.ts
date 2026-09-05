@@ -1,4 +1,3 @@
-import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import type { Holding, Platform } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -8,7 +7,7 @@ import { parseCreateHoldingBody } from "@/lib/holdings/holdingRequestSchemas";
 import { holdingWriteService } from "@/lib/holdings/holdingWriteService";
 import { toWriteErrorResponse } from "@/lib/holdings/holdingWriteErrorResponse";
 import { readJsonBody } from "@/lib/validation/requestBody";
-import { USER_ID_HEADER } from "@/lib/authTokens";
+import { withUser } from "@/lib/requestUser";
 import { describeError } from "@/utils/describeError";
 
 type PricedRow = {
@@ -16,12 +15,7 @@ type PricedRow = {
   valueInNis: number;
 };
 
-export async function GET(request: NextRequest) {
-  const userId = request.headers.get(USER_ID_HEADER);
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const GET = withUser(async (userId) => {
   const holdings = await prisma.holding.findMany({
     where: { userId },
     include: { platform: true },
@@ -101,14 +95,9 @@ export async function GET(request: NextRequest) {
       { status: 503 }
     );
   }
-}
+});
 
-export async function POST(request: NextRequest) {
-  const userId = request.headers.get(USER_ID_HEADER);
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const POST = withUser(async (userId, request) => {
   try {
     const input = parseCreateHoldingBody(await readJsonBody(request));
     const holding = await holdingWriteService.createHolding(userId, input);
@@ -116,7 +105,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return toWriteErrorResponse(error);
   }
-}
+});
 
 function buildDriftByPlatform(pricedRows: PricedRow[]) {
   const platformNames = [
