@@ -1,7 +1,6 @@
-import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { USER_ID_HEADER } from "@/lib/authTokens";
+import { withUser } from "@/lib/requestUser";
 import { describeError } from "@/utils/describeError";
 
 interface DailyTotal {
@@ -9,13 +8,8 @@ interface DailyTotal {
   totalValue: number;
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withUser(async (userId, request) => {
   try {
-    const userId = request.headers.get(USER_ID_HEADER);
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { searchParams } = new URL(request.url);
     const period = searchParams.get("period") || "6m";
 
@@ -52,7 +46,7 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 function calculateStartDateFromPeriod(period: string): Date {
   const now = new Date();
