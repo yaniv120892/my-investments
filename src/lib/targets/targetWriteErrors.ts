@@ -1,12 +1,9 @@
-import { describeFieldErrors } from "@/lib/validation/zodFieldErrors";
-import type { FieldErrorMap } from "@/lib/validation/zodFieldErrors.types";
+import { FieldValidationError } from "@/lib/validation/fieldErrors";
+import type { FieldErrorMap } from "@/lib/validation/fieldErrors.types";
 
-export class TargetValidationError extends Error {
-  public readonly fieldErrors: FieldErrorMap;
-
+export class TargetValidationError extends FieldValidationError {
   public constructor(fieldErrors: FieldErrorMap) {
-    super(`Targets are invalid (${describeFieldErrors(fieldErrors)})`);
+    super("Targets are invalid", fieldErrors);
     this.name = "TargetValidationError";
-    this.fieldErrors = fieldErrors;
   }
 }

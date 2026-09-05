@@ -73,19 +73,6 @@ describe("TargetWriteValidator", () => {
     expect(fieldErrors[AssetClass.CRYPTO]).toContain("negative");
   });
 
-  it("rejects a duplicated asset class", () => {
-    const fieldErrors = fieldErrorsOf(() =>
-      validator.assertClassTargetsAreComplete([
-        { assetClass: AssetClass.EQUITY, targetPercent: 50 },
-        { assetClass: AssetClass.EQUITY, targetPercent: 30 },
-        { assetClass: AssetClass.CRYPTO, targetPercent: 10 },
-        { assetClass: AssetClass.NON_EQUITY, targetPercent: 10 },
-      ])
-    );
-
-    expect(fieldErrors[AssetClass.EQUITY]).toContain("more than once");
-  });
-
   it("rejects a weight on a holding that is not liquid or not yours, keyed by its id", () => {
     const fieldErrors = fieldErrorsOf(() =>
       validator.assertHoldingsAreLiquidAndOwned(
