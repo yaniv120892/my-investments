@@ -138,7 +138,25 @@ describe("buildInvestablePortfolio", () => {
     );
 
     expect(portfolio.investableHoldings).toHaveLength(1);
-    expect(portfolio.investableValueNis).toBe(500);
+    // The figure exists, but only as an explicitly partial one.
+    expect(portfolio.pricedInvestableValueNis).toBe(500);
+    expect(portfolio.investableValueNis).toBeNull();
+  });
+
+  it("quotes no class share when the base it would divide by is incomplete", () => {
+    const portfolio = buildInvestablePortfolio(
+      [
+        buildHolding("priced", AssetClass.EQUITY, Liquidity.LIQUID),
+        buildHolding("unpriced", AssetClass.CRYPTO, Liquidity.LIQUID),
+      ],
+      buildPricing([{ holdingId: "priced", valueInNis: 500 }], {
+        totalValueNis: null,
+      })
+    );
+
+    for (const position of portfolio.byAssetClass) {
+      expect(position.percentOfInvestable).toBeNull();
+    }
   });
 
   it("reports each class as a share of the investable base, not the whole portfolio", () => {

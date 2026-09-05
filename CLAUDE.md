@@ -145,7 +145,9 @@ provider actually returned.
   directing new money is the alternative to selling. Illiquid holdings (pension,
   קרן השתלמות) are reported as fixed context and never receive an allocation,
   because no contribution can be directed into them; naming them would be
-  unactionable. `investablePortfolio.ts` is the single place that split is made.
+  unactionable. `investablePortfolio.ts` is the single place that split is made,
+  and it withholds `investableValueNis` (and every class share) whenever pricing
+  is incomplete, for the same reason `priceHoldings` withholds its total.
 - **Pricing is explicitly routed, never inferred.** Each holding carries its
   own `priceSource`, `sourceSymbol`, and `currency`; the registry maps source
   to provider. `fetchQuote` throws on failure and never returns null, and no

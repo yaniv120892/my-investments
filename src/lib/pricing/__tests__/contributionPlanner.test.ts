@@ -436,6 +436,83 @@ describe("planContribution", () => {
     expect(plan.reason).toBe("NO_INVESTABLE_CLASS");
   });
 
+  it("still spends the whole contribution after a class is dropped for the ticket", () => {
+    // NON_EQUITY is furthest behind and takes nearly everything; CRYPTO's sliver
+    // falls under the ticket and must be redistributed, not quietly lost.
+    const plan = planOrFail({
+      contributionNis: 121_000,
+      minimumTicketNis: 2_000,
+    });
+
+    const total = plan.byAssetClass.reduce(
+      (sum, allocation) => sum + allocation.contributionNis,
+      0
+    );
+    expect(total).toBeCloseTo(121_000, 6);
+
+    const droppedClasses = plan.dropped.filter(
+      (entry) => entry.scope === "assetClass"
+    );
+    expect(droppedClasses.length).toBeGreaterThan(0);
+    for (const entry of droppedClasses) {
+      const allocation = plan.byAssetClass.find(
+        (candidate) => candidate.assetClass === entry.label
+      );
+      expect(allocation?.contributionNis).toBe(0);
+    }
+  });
+
+  it("refuses a negative or non-finite contribution rather than planning one", () => {
+    for (const contributionNis of [
+      -5_000,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+    ]) {
+      expect(() =>
+        planContribution(buildRequest({ contributionNis }))
+      ).toThrow();
+    }
+  });
+
+  it("treats a class whose only holding is excluded as excluded, not unfundable", () => {
+    const plan = planOrFail({
+      contributionNis: 50_000,
+      excludedHoldingIds: ["crypto"],
+    });
+
+    expect(
+      plan.byAssetClass.map((allocation) => allocation.assetClass)
+    ).not.toContain(AssetClass.CRYPTO);
+    const total = plan.byAssetClass.reduce(
+      (sum, allocation) => sum + allocation.contributionNis,
+      0
+    );
+    expect(total).toBeCloseTo(50_000, 6);
+  });
+
+  it("still refuses when a targeted class has no weighted holding at all", () => {
+    const plan = planContribution(
+      buildRequest({
+        contributionNis: 50_000,
+        investableHoldings: [
+          buildHolding("equity", AssetClass.EQUITY, EQUITY_VALUE_NIS),
+          buildHolding("crypto", AssetClass.CRYPTO, CRYPTO_VALUE_NIS, null),
+          buildHolding(
+            "nonEquity",
+            AssetClass.NON_EQUITY,
+            NON_EQUITY_VALUE_NIS
+          ),
+        ],
+      })
+    );
+
+    expect(plan.status).toBe("refused");
+    if (plan.status !== "refused") {
+      throw new Error("unreachable");
+    }
+    expect(plan.reason).toBe("CLASS_HAS_NO_WEIGHTED_HOLDING");
+  });
+
   it("is deterministic", () => {
     expect(
       planContribution(buildRequest({ contributionNis: 200_000 }))
