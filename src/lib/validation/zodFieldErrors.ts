@@ -1,7 +1,5 @@
 import type { z } from "zod";
-import type { FieldErrorMap } from "@/lib/validation/zodFieldErrors.types";
-
-export type { FieldErrorMap } from "@/lib/validation/zodFieldErrors.types";
+import type { FieldErrorMap } from "@/lib/validation/fieldErrors.types";
 
 export function toFieldErrors(error: z.ZodError, body: unknown): FieldErrorMap {
   const fieldErrors: FieldErrorMap = {};
@@ -46,10 +44,4 @@ function readValueAtPath(body: unknown, path: PropertyKey[]): unknown {
   }
 
   return currentValue;
-}
-
-export function describeFieldErrors(fieldErrors: FieldErrorMap): string {
-  return Object.entries(fieldErrors)
-    .map(([field, message]) => `${field}: ${message}`)
-    .join("; ");
 }
