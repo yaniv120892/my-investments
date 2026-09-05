@@ -3,6 +3,10 @@ import { getAdvisorModel } from "@/lib/advisor/advisorModel";
 import { getAdvisorMemory } from "@/lib/advisor/advisorMemory";
 import { buildAdvisorTools } from "@/lib/advisor/advisorTools";
 
+// UTC would make "today" yesterday between local midnight and 02:00-03:00,
+// and the instructions resolve relative dates from it.
+const PORTFOLIO_TIME_ZONE = "Asia/Jerusalem";
+
 let advisor: Agent | undefined;
 
 export function getInvestmentAdvisor(): Agent {
@@ -23,7 +27,9 @@ export function getInvestmentAdvisor(): Agent {
 }
 
 function buildInstructions(): string {
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PORTFOLIO_TIME_ZONE,
+  }).format(new Date());
 
   return `
 You help the owner of a single-user portfolio tracker decide where to put new
