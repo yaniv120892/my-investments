@@ -98,7 +98,9 @@ provider actually returned.
   `providerRegistry.ts`. `FxRateProvider` supplies rates to NIS.
 - `src/lib/pricing/` — `portfolioPricingService.ts` (`priceHoldings`),
   `nisRateBook.ts` (per-run FX memoisation), `allocation.ts`,
-  `supportedCurrencies.ts`.
+  `supportedCurrencies.ts`, `investablePortfolio.ts` (splits liquid from
+  illiquid — the only place `Liquidity` is consulted) and
+  `contributionPlanner.ts` (`planContribution`, the buy-only allocator).
 - `src/lib/holdings/` — write path split into schemas (zod) → validator →
   service → repository, with typed errors mapped to responses by
   `holdingWriteErrorResponse.ts`.
@@ -130,6 +132,20 @@ provider actually returned.
   `totalValueNis: null` whenever `failures` is non-empty, alongside
   `pricedValueNis` and the failure list. The UI shows the failures and
   suppresses the total. Do not add a fallback that sums what priced.
+- **A contribution plan is refused, never built on partial data.**
+  `planContribution` takes `PricingResult.totalValueNis` verbatim and returns a
+  `PRICING_INCOMPLETE` refusal when it is null — the same reason the UI
+  suppresses a total. A plan built on 22 of 29 holdings buys the wrong thing and
+  looks right. A refusal is a _value_ on the `ContributionPlan` union, not a
+  throw, so it is directly testable. Unbalanced _stored_ targets are the
+  exception and do throw: `targetWriteValidator` is the only way targets are
+  written and it rejects them, so reaching the planner with a bad set means a
+  caller skipped that boundary.
+- **Allocation is buy-only and liquid-only.** The planner never emits a sell —
+  directing new money is the alternative to selling. Illiquid holdings (pension,
+  קרן השתלמות) are reported as fixed context and never receive an allocation,
+  because no contribution can be directed into them; naming them would be
+  unactionable. `investablePortfolio.ts` is the single place that split is made.
 - **Pricing is explicitly routed, never inferred.** Each holding carries its
   own `priceSource`, `sourceSymbol`, and `currency`; the registry maps source
   to provider. `fetchQuote` throws on failure and never returns null, and no
@@ -199,7 +215,13 @@ provider actually returned.
 
 ## Testing
 
-The providers are the entire risk surface; the rest is arithmetic.
+The providers are the entire risk surface; the rest is arithmetic — with one
+exception. `contributionPlanner` is arithmetic that moves real money, so its
+water-filling breakpoints, its tie behaviour, and its pricing-failure refusal
+are pinned by tests against the real portfolio's numbers. Two of those cases
+must never be deleted: that a null `totalValueNis` refuses even when every
+supplied holding has a value, and that tied fill ratios split by target weight
+identically however the input is ordered.
 
 - `*.contract.test.ts` run against the live APIs and assert shape plus a sane
   price range. They exist to catch Maya's WAF rules shifting and Finnhub
