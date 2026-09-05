@@ -90,9 +90,15 @@ provider actually returned.
   writes it, `src/lib/apiError.ts` reads it back into the form that raised it,
   so a rejected field names itself in the UI.
 - `src/middleware.ts` — the only place a session is verified. It reads the
-  `auth-token` cookie, verifies the JWT with `src/lib/auth-edge.ts`, redirects
-  unauthenticated page requests to `/login`, and sets `x-user-id` /
-  `x-user-email` on authenticated `/api/*` requests.
+  `auth-token` cookie, verifies the JWT with `src/lib/auth-edge.ts`, and sets
+  `x-user-id` / `x-user-email` on authenticated `/api/*` requests. An
+  unauthenticated **page** request is redirected to `/login`; an unauthenticated
+  **`/api/*`** request gets a 401 it can read, because `fetch` follows a redirect
+  and reports a 200, so the caller's `response.json()` fails as a syntax error
+  rather than as the auth failure it is. A public route survives an expired
+  cookie — rejecting `/api/auth/login` would lock its holder out of the endpoint
+  that fixes the problem. The browser turns that 401 into a redirect once, in
+  `queryClient`'s cache-level `onError`.
 - `src/lib/providers/` — one `PriceProvider` per remote `PriceSource`
   (`FinnhubProvider`, `BinanceProvider`, `MayaEtfProvider`, `MayaFundProvider`
   over the shared `mayaApi.ts`), each wrapped in `CachedPriceProvider` by
