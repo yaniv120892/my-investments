@@ -43,7 +43,11 @@ docker-compose up -d     # local Postgres on 5432
 ```
 
 The Prisma schema lives at `src/prisma/schema.prisma`, not the default
-location, so every Prisma command passes `--schema`. `postinstall` runs
+location, so every Prisma command passes `--schema`. `DATABASE_URL` is Neon's
+pooled endpoint, so the datasource also names `directUrl` (`DIRECT_URL`, the
+host without `-pooler`) — a transaction pooler does not hold the advisory lock
+`prisma migrate` takes. Only migrations read it; `prisma generate` and
+`next build` do not, so a deploy cannot break on a missing value. `postinstall` runs
 `prisma generate`.
 
 `db:import-sheet` replaces the whole portfolio and is spent — it was the
