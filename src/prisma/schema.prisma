@@ -4,7 +4,11 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // DATABASE_URL points at a transaction pooler, which does not hold the
+  // advisory lock `prisma migrate` takes — DDL through it can interleave
+  // rather than queue.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
