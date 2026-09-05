@@ -86,8 +86,12 @@ provider actually returned.
   `user/settings`, `snapshot`, `targets`. `targets` is `GET`/`PUT` only:
   "the class targets sum to 100" is a whole-document invariant a single-class
   `PATCH` could never validate.
-  Routes read the caller from the `x-user-id` header and return `{ error }`
-  with a status; there is no shared handler wrapper. Validation failures also
+  Every authenticated handler is wrapped in `withUser` (`src/lib/requestUser.ts`),
+  which reads `x-user-id` and hands the handler a `string` — the middleware has
+  already 401'd an unauthenticated `/api` request, so the wrapper's own 401 is
+  what makes widening the public-route list fail closed rather than pass `null`
+  to a repository as a user id. Handlers otherwise return `{ error }` with a
+  status; there is no wrapper for anything else. Validation failures also
   carry `fieldErrors` keyed by input name — `holdingWriteErrorResponse.ts`
   writes it, `src/lib/apiError.ts` reads it back into the form that raised it,
   so a rejected field names itself in the UI.
