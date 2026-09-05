@@ -59,7 +59,8 @@ export function getThreadId(userId: string): string {
 
 /**
  * The direct endpoint, never the pooled one: Mastra creates and migrates its
- * own tables, and through PgBouncer that init silently fails.
+ * own tables, and a transaction pooler does not hold the session state that
+ * needs, so the init silently fails.
  */
 function advisorMemoryConnectionString(): string {
   return process.env.MASTRA_DB_URL || process.env.DIRECT_URL || "";
