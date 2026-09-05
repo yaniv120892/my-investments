@@ -10,24 +10,22 @@ import {
   sumTargetPercent,
 } from "@/lib/targets/targetPercentRules";
 import { formatMoney } from "@/utils/format";
+import { isAdvisorTurnRecorder } from "@/lib/advisor/advisorTurnRecorder";
+import type { AdvisorTurnRecorder } from "@/lib/advisor/advisorTurnRecorder";
 import {
-  PLAN_SINK_CONTEXT_KEY,
   PORTFOLIO_LOADER_CONTEXT_KEY,
+  TURN_RECORDER_CONTEXT_KEY,
   USER_ID_CONTEXT_KEY,
-  type PlanSink,
   type PortfolioLoader,
 } from "@/lib/advisor/advisorTools.types";
 import type { InvestablePortfolio } from "@/lib/pricing/investablePortfolio.types";
 
 export {
-  PLAN_SINK_CONTEXT_KEY,
   PORTFOLIO_LOADER_CONTEXT_KEY,
+  TURN_RECORDER_CONTEXT_KEY,
   USER_ID_CONTEXT_KEY,
 } from "@/lib/advisor/advisorTools.types";
-export type {
-  PlanSink,
-  PortfolioLoader,
-} from "@/lib/advisor/advisorTools.types";
+export type { PortfolioLoader } from "@/lib/advisor/advisorTools.types";
 
 const DEFAULT_TREND_MONTHS = 6;
 const MAX_TREND_MONTHS = 120;
@@ -47,7 +45,7 @@ export function buildAdvisorTools() {
       const portfolio = await loadPortfolio(context);
       const money = nisFormatter(portfolio);
 
-      return {
+      return record(context, "getInvestablePortfolio", {
         investableValueFormatted: money(portfolio.investableValueNis),
         illiquidValueFormatted: money(portfolio.illiquidValueNis),
         isPricingComplete: portfolio.totalValueNis !== null,
@@ -72,7 +70,7 @@ export function buildAdvisorTools() {
           platformName: position.platformName,
           valueFormatted: money(position.valueInNis),
         })),
-      };
+      });
     },
   });
 
@@ -86,11 +84,11 @@ export function buildAdvisorTools() {
         requireUserId(context)
       );
 
-      return {
+      return record(context, "getTargets", {
         classTargets,
         hasTargets: classTargets.length > 0,
         sumsTo100: isTargetSumBalanced(sumTargetPercent(classTargets)),
-      };
+      });
     },
   });
 
@@ -106,19 +104,19 @@ export function buildAdvisorTools() {
         })
       ),
     }),
-    execute: async (input) => {
+    execute: async (input, context: ToolContext) => {
       const targetSum = sumTargetPercent(input.classTargets);
       const provided = new Set(
         input.classTargets.map((target) => target.assetClass)
       );
 
-      return {
+      return record(context, "validateClassTargets", {
         targetSum,
         sumsTo100: isTargetSumBalanced(targetSum),
         missingAssetClasses: Object.values(AssetClass).filter(
           (assetClass) => !provided.has(assetClass)
         ),
-      };
+      });
     },
   });
 
@@ -166,7 +164,8 @@ export function buildAdvisorTools() {
       });
 
       if (plan.status === "refused") {
-        return {
+        getRecorder(context)?.recordRefusal(plan.reason);
+        return record(context, "planContribution", {
           status: plan.status,
           reason: plan.reason,
           explanation: describeRefusal(
@@ -174,13 +173,13 @@ export function buildAdvisorTools() {
             plan.explanation,
             portfolio
           ),
-        };
+        });
       }
 
-      getPlanSink(context)?.push(plan);
+      getRecorder(context)?.recordPlan(plan);
       const money = nisFormatter(portfolio);
 
-      return {
+      return record(context, "planContribution", {
         status: plan.status,
         contributionFormatted: money(plan.contributionNis),
         byAssetClass: plan.byAssetClass.map((allocation) => ({
@@ -199,7 +198,7 @@ export function buildAdvisorTools() {
           label: entry.label,
           reason: entry.reason,
         })),
-      };
+      });
     },
   });
 
@@ -235,7 +234,7 @@ export function buildAdvisorTools() {
       const since = new Date();
       since.setDate(since.getDate() - months * DAYS_PER_MONTH);
 
-      return {
+      return record(context, "getHoldingPriceTrend", {
         assetName: matches[0].assetName,
         months,
         points: await holdingTrendRepository.findHoldingTrend(
@@ -243,7 +242,7 @@ export function buildAdvisorTools() {
           matches[0].id,
           since
         ),
-      };
+      });
     },
   });
 
@@ -268,6 +267,20 @@ function requireUserId(context: ToolContext): string {
   return userId;
 }
 
+/**
+ * Every result is recorded, because the grounding check can only tell a quoted
+ * figure from an invented one if it has seen every figure a tool produced.
+ */
+function record<T>(context: ToolContext, toolId: string, result: T): T {
+  getRecorder(context)?.recordToolCall(toolId, result);
+  return result;
+}
+
+function getRecorder(context: ToolContext): AdvisorTurnRecorder | undefined {
+  const recorder = context.requestContext?.get(TURN_RECORDER_CONTEXT_KEY);
+  return isAdvisorTurnRecorder(recorder) ? recorder : undefined;
+}
+
 async function loadPortfolio(
   context: ToolContext
 ): Promise<InvestablePortfolio> {
@@ -281,11 +294,6 @@ async function loadPortfolio(
 
 function isPortfolioLoader(value: unknown): value is PortfolioLoader {
   return typeof value === "function";
-}
-
-function getPlanSink(context: ToolContext): PlanSink | undefined {
-  const sink = context.requestContext?.get(PLAN_SINK_CONTEXT_KEY);
-  return Array.isArray(sink) ? sink : undefined;
 }
 
 function nisFormatter(

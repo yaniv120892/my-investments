@@ -3,11 +3,13 @@ import { NextResponse } from "next/server";
 import { advisorChatService } from "@/lib/advisor/advisorChatService";
 import { advisorChatRequestSchema } from "@/lib/advisor/advisorMessages";
 import { isAdvisorModelConfigured } from "@/lib/advisor/advisorModel";
+import { AdvisorTurnRecorder } from "@/lib/advisor/advisorTurnRecorder";
+import { recordAdvisorTurn } from "@/lib/advisor/advisorTurnLog";
+import { checkNumericGrounding } from "@/lib/advisor/eval/numericGrounding";
 import {
   EVENT_STREAM_CONTENT_TYPE,
   encodeFrame,
 } from "@/lib/advisor/advisorStreamProtocol";
-import type { PlanSink } from "@/lib/advisor/advisorTools.types";
 import { USER_ID_HEADER } from "@/lib/authTokens";
 import { describeError } from "@/utils/describeError";
 
@@ -42,23 +44,27 @@ export async function POST(request: NextRequest) {
   }
 
   const abortSignal = request.signal;
-  const planSink: PlanSink = [];
+  const recorder = new AdvisorTurnRecorder();
+  const startedAt = Date.now();
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let replyText = "";
+
       try {
         const textStream = await advisorChatService.streamAdvisorResponse(
           parsed.data.messages,
           userId,
-          planSink,
+          recorder,
           abortSignal
         );
 
         for await (const delta of textStream) {
+          replyText += delta;
           controller.enqueue(encodeFrame({ type: "delta", value: delta }));
         }
 
-        for (const plan of planSink) {
+        for (const plan of recorder.plans) {
           controller.enqueue(encodeFrame({ type: "plan", value: plan }));
         }
         controller.enqueue(encodeFrame({ type: "done" }));
@@ -82,6 +88,10 @@ export async function POST(request: NextRequest) {
         } catch {
           // Already closed by a client disconnect.
         }
+        // After close, so the reader never waits on the write or the alert.
+        if (!abortSignal.aborted) {
+          await logTurn(userId, replyText, recorder, startedAt);
+        }
       }
     },
   });
@@ -92,6 +102,27 @@ export async function POST(request: NextRequest) {
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
     },
+  });
+}
+
+async function logTurn(
+  userId: string,
+  replyText: string,
+  recorder: AdvisorTurnRecorder,
+  startedAt: number
+): Promise<void> {
+  const grounding = checkNumericGrounding(replyText, recorder.toolResults);
+  const summary = recorder.summary;
+
+  await recordAdvisorTurn({
+    userId,
+    toolIds: summary.toolIds,
+    plannedCount: summary.plannedCount,
+    refusalReasons: summary.refusalReasons,
+    isGrounded: grounding.isGrounded,
+    ungrounded: grounding.ungrounded.map((entry) => entry.text),
+    replyChars: replyText.length,
+    durationMs: Date.now() - startedAt,
   });
 }
 
