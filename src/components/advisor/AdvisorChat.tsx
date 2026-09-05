@@ -32,10 +32,13 @@ export default function AdvisorChat({ chat }: AdvisorChatProps) {
   // Keyed on the count, not the array: streaming replaces the array on every
   // token, and a smooth scroll restarted per token cancels itself.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [chat.messages.length]);
 
   const submit = async () => {
+    if (!input.trim()) {
+      return;
+    }
     const text = input;
     setInput("");
     await chat.sendMessage(text);
@@ -67,7 +70,7 @@ export default function AdvisorChat({ chat }: AdvisorChatProps) {
                       key={suggestion}
                       size="small"
                       variant="outlined"
-                      onClick={() => chat.sendMessage(suggestion)}
+                      onClick={() => void chat.sendMessage(suggestion)}
                     >
                       {suggestion}
                     </Button>

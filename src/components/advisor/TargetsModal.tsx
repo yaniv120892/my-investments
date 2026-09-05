@@ -81,7 +81,12 @@ export default function TargetsModal({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog
+      open={open}
+      onClose={replaceTargets.isPending ? undefined : onClose}
+      fullWidth
+      maxWidth="sm"
+    >
       <DialogTitle>Allocation targets</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={3}>
@@ -150,6 +155,10 @@ export default function TargetsModal({
                 label={`${holding.assetName} · ${getAssetClassLabel(
                   holding.assetClass
                 )}`}
+                slotProps={{
+                  htmlInput: { dir: "auto" },
+                  inputLabel: { dir: "auto" },
+                }}
                 value={weights[holding.id] ?? ""}
                 error={Boolean(fieldErrors[holding.id])}
                 helperText={fieldErrors[holding.id]}
@@ -165,13 +174,15 @@ export default function TargetsModal({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose} disabled={replaceTargets.isPending}>
+          Cancel
+        </Button>
         <Button
           variant="contained"
           disabled={!isBalanced || replaceTargets.isPending}
           onClick={() => void save()}
         >
-          Save
+          {replaceTargets.isPending ? "Saving…" : "Save"}
         </Button>
       </DialogActions>
     </Dialog>

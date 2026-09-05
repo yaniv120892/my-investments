@@ -1,8 +1,7 @@
 "use client";
 
-import { memo } from "react";
-
 import {
+  Box,
   Card,
   CardContent,
   Chip,
@@ -28,7 +27,7 @@ interface ContributionPlanTableProps {
   usdToNisRate: number;
 }
 
-function ContributionPlanTable({
+export default function ContributionPlanTable({
   plan,
   displayCurrency,
   usdToNisRate,
@@ -128,13 +127,14 @@ function ContributionPlanTable({
         {plan.dropped.length > 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
             Skipped as too small to be worth a ticket:{" "}
-            {plan.dropped
-              .map((entry) =>
-                entry.scope === "assetClass"
+            {plan.dropped.map((entry, index) => (
+              <Box component="span" key={entry.label} dir="auto">
+                {index > 0 ? ", " : ""}
+                {entry.scope === "assetClass"
                   ? getAssetClassLabel(entry.label)
-                  : entry.label
-              )
-              .join(", ")}
+                  : entry.label}
+              </Box>
+            ))}
             .
           </Typography>
         )}
@@ -142,6 +142,3 @@ function ContributionPlanTable({
     </Card>
   );
 }
-
-// Rendered beside a streaming chat, but the plan only arrives once it ends.
-export default memo(ContributionPlanTable);
