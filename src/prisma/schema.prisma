@@ -17,6 +17,19 @@ model User {
   settings     Settings?
   holdings     Holding[]
   platforms    Platform[]
+
+  assetClassTargets AssetClassTarget[]
+}
+
+model AssetClassTarget {
+  id            String     @id @default(uuid())
+  userId        String
+  assetClass    AssetClass
+  targetPercent Float
+  updatedAt     DateTime   @updatedAt
+  user          User       @relation(fields: [userId], references: [id])
+
+  @@unique([userId, assetClass])
 }
 
 model Settings {
@@ -52,6 +65,8 @@ model Holding {
   sourceSymbol  String?
   currency      String
   targetPercent Float?
+
+  withinClassWeight Float?
 
   manualValueNis       Float?
   manualValueUpdatedAt DateTime?

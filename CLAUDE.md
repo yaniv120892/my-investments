@@ -80,7 +80,9 @@ provider actually returned.
   settings) inside the `AppShell` sidebar layout.
 - `src/app/api/**/route.ts` — all endpoints. `auth/{login,logout,signup,verify}`,
   `holdings` (+ `[id]`, `history`, `manual-values`), `platforms`,
-  `user/settings`, `snapshot`.
+  `user/settings`, `snapshot`, `targets`. `targets` is `GET`/`PUT` only:
+  "the class targets sum to 100" is a whole-document invariant a single-class
+  `PATCH` could never validate.
   Routes read the caller from the `x-user-id` header and return `{ error }`
   with a status; there is no shared handler wrapper. Validation failures also
   carry `fieldErrors` keyed by input name — `holdingWriteErrorResponse.ts`
@@ -100,6 +102,8 @@ provider actually returned.
 - `src/lib/holdings/` — write path split into schemas (zod) → validator →
   service → repository, with typed errors mapped to responses by
   `holdingWriteErrorResponse.ts`.
+- `src/lib/targets/` — the portfolio-level target model, mirroring that same
+  path, with `targetPercentRules.ts` naming the sum-to-100 rule once.
 - `src/lib/` — `db.ts` (the one `PrismaClient`, memoised on `globalThis`
   outside production so dev hot-reload does not open a connection per edit),
   `redis.ts`, `auth.ts`, `auth-edge.ts`, `authTokens.ts` (the cookie and
@@ -213,7 +217,23 @@ Postgres via `@prisma/client`. Every query goes through the single client
 exported by `src/lib/db.ts`; nothing else constructs a `PrismaClient` on a
 request path. Models: `User`, `Settings` (baseCurrency, darkMode, one row per
 user), `Platform` (unique per `[userId, name]`), `Holding`, `HoldingSnapshot`
-(unique per `[holdingId, date]`).
+(unique per `[holdingId, date]`), `AssetClassTarget` (unique per
+`[userId, assetClass]`).
+
+`AssetClassTarget` is a model rather than three columns on `Settings` because
+the invariant is "all three present and summing to 100": rows make that state
+whole — three rows or none, written in one `$transaction` — where nullable
+columns would let a half-set target persist for every reader to defend against.
+It also survives a fourth `AssetClass` member without a migration, and keeps
+portfolio policy out of a model that holds preferences and loads on every page.
+
+`Holding.withinClassWeight` is a **relative weight, not a percent**, and is
+deliberately not constrained to sum to anything: holdings are written one at a
+time, so a cross-row sum has no single write path to hang a guard off, and
+adding a holding would silently invalidate every sibling. Null means "no new
+money here". It is read only by the target model; `Holding.targetPercent` and
+the per-platform drift on the Rebalancing page are untouched by it, and neither
+reads the other.
 
 Enums: `AssetClass` (EQUITY | CRYPTO | NON_EQUITY), `Liquidity` (LIQUID |
 ILLIQUID), `PriceSource` (FINNHUB | BINANCE | MAYA_ETF | MAYA_FUND | MANUAL).
