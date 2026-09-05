@@ -38,6 +38,7 @@ function holding(overrides: Partial<Holding> = {}): Holding {
     sourceSymbol: "IVV",
     currency: "USD",
     targetPercent: null,
+    withinClassWeight: null,
     manualValueNis: null,
     manualValueUpdatedAt: null,
     createdAt: new Date(),

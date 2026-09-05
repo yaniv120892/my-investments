@@ -1,31 +1,20 @@
-import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { parseCreatePlatformBody } from "@/lib/holdings/holdingRequestSchemas";
 import { platformWriteService } from "@/lib/holdings/platformWriteService";
 import { toWriteErrorResponse } from "@/lib/holdings/holdingWriteErrorResponse";
 import { readJsonBody } from "@/lib/validation/requestBody";
-import { USER_ID_HEADER } from "@/lib/authTokens";
+import { withUser } from "@/lib/requestUser";
 
-export async function GET(request: NextRequest) {
-  const userId = request.headers.get(USER_ID_HEADER);
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const GET = withUser(async (userId) => {
   try {
     const platforms = await platformWriteService.listPlatforms(userId);
     return NextResponse.json({ platforms });
   } catch (error) {
     return toWriteErrorResponse(error);
   }
-}
+});
 
-export async function POST(request: NextRequest) {
-  const userId = request.headers.get(USER_ID_HEADER);
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const POST = withUser(async (userId, request) => {
   try {
     const input = parseCreatePlatformBody(await readJsonBody(request));
     const platform = await platformWriteService.createPlatform(userId, input);
@@ -33,4 +22,4 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return toWriteErrorResponse(error);
   }
-}
+});

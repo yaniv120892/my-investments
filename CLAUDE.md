@@ -83,9 +83,15 @@ provider actually returned.
   settings) inside the `AppShell` sidebar layout.
 - `src/app/api/**/route.ts` — all endpoints. `auth/{login,logout,signup,verify}`,
   `holdings` (+ `[id]`, `history`, `manual-values`), `platforms`,
-  `user/settings`, `snapshot`.
-  Routes read the caller from the `x-user-id` header and return `{ error }`
-  with a status; there is no shared handler wrapper. Validation failures also
+  `user/settings`, `snapshot`, `targets`. `targets` is `GET`/`PUT` only:
+  "the class targets sum to 100" is a whole-document invariant a single-class
+  `PATCH` could never validate.
+  Every authenticated handler is wrapped in `withUser` (`src/lib/requestUser.ts`),
+  which reads `x-user-id` and hands the handler a `string` — the middleware has
+  already 401'd an unauthenticated `/api` request, so the wrapper's own 401 is
+  what makes widening the public-route list fail closed rather than pass `null`
+  to a repository as a user id. Handlers otherwise return `{ error }` with a
+  status; there is no wrapper for anything else. Validation failures also
   carry `fieldErrors` keyed by input name — `holdingWriteErrorResponse.ts`
   writes it, `src/lib/apiError.ts` reads it back into the form that raised it,
   so a rejected field names itself in the UI.
@@ -109,6 +115,8 @@ provider actually returned.
 - `src/lib/holdings/` — write path split into schemas (zod) → validator →
   service → repository, with typed errors mapped to responses by
   `holdingWriteErrorResponse.ts`.
+- `src/lib/targets/` — the portfolio-level target model, mirroring that same
+  path, with `targetPercentRules.ts` naming the sum-to-100 rule once.
 - `src/lib/` — `db.ts` (the one `PrismaClient`, memoised on `globalThis`
   outside production so dev hot-reload does not open a connection per edit),
   `redis.ts`, `auth.ts`, `auth-edge.ts`, `authTokens.ts` (the cookie and
@@ -196,7 +204,11 @@ provider actually returned.
   one unescaped `&` makes Telegram reject the alert about the failure.
 - **Every holding is created and updated through `holdingWriteService`**, the
   scripts included, so a row a script writes is a row the holdings page would
-  accept. `importFromSheet.ts` is the one exception, and it is spent.
+  accept. Two exceptions: `importFromSheet.ts`, which is spent; and
+  `Holding.withinClassWeight`, which belongs to the target model and is written
+  only by `targetRepository`. The holdings write path never reads or sets it —
+  `createHoldingSchema` is a `strictObject` that omits it, so `POST`/`PATCH
+/api/holdings` structurally cannot touch it.
 - Redis is a cache, not a store: `getCachedData` swallows errors and returns
   null, so every read path must work with the cache down. Unconfigured Upstash
   is therefore survivable, and says so once at boot rather than as an error
@@ -222,7 +234,23 @@ Postgres via `@prisma/client`. Every query goes through the single client
 exported by `src/lib/db.ts`; nothing else constructs a `PrismaClient` on a
 request path. Models: `User`, `Settings` (baseCurrency, darkMode, one row per
 user), `Platform` (unique per `[userId, name]`), `Holding`, `HoldingSnapshot`
-(unique per `[holdingId, date]`).
+(unique per `[holdingId, date]`), `AssetClassTarget` (unique per
+`[userId, assetClass]`).
+
+`AssetClassTarget` is a model rather than three columns on `Settings` because
+the invariant is "all three present and summing to 100": rows make that state
+whole — three rows or none, written in one `$transaction` — where nullable
+columns would let a half-set target persist for every reader to defend against.
+It also survives a fourth `AssetClass` member without a migration, and keeps
+portfolio policy out of a model that holds preferences and loads on every page.
+
+`Holding.withinClassWeight` is a **relative weight, not a percent**, and is
+deliberately not constrained to sum to anything: holdings are written one at a
+time, so a cross-row sum has no single write path to hang a guard off, and
+adding a holding would silently invalidate every sibling. Null means "no new
+money here". It is read only by the target model; `Holding.targetPercent` and
+the per-platform drift on the Rebalancing page are untouched by it, and neither
+reads the other.
 
 Enums: `AssetClass` (EQUITY | CRYPTO | NON_EQUITY), `Liquidity` (LIQUID |
 ILLIQUID), `PriceSource` (FINNHUB | BINANCE | MAYA_ETF | MAYA_FUND | MANUAL).

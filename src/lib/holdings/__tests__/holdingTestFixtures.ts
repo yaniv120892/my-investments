@@ -32,6 +32,7 @@ export function holdingFixture(overrides: Partial<Holding> = {}): Holding {
     sourceSymbol: "IVV",
     currency: "USD",
     targetPercent: null,
+    withinClassWeight: null,
     manualValueNis: null,
     manualValueUpdatedAt: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
