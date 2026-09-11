@@ -1,9 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AssetClass } from "@prisma/client";
 
-const { loadInvestablePortfolio, findClassTargets } = vi.hoisted(() => ({
+const {
+  loadInvestablePortfolio,
+  findClassTargets,
+  findLiquidHoldingsByName,
+  findHoldingTrend,
+} = vi.hoisted(() => ({
   loadInvestablePortfolio: vi.fn(),
   findClassTargets: vi.fn(),
+  findLiquidHoldingsByName: vi.fn(),
+  findHoldingTrend: vi.fn(),
 }));
 
 vi.mock("@/lib/pricing/investablePortfolio", () => ({
@@ -12,6 +19,10 @@ vi.mock("@/lib/pricing/investablePortfolio", () => ({
 
 vi.mock("@/lib/targets/targetRepository", () => ({
   targetRepository: { findClassTargets },
+}));
+
+vi.mock("@/lib/holdings/holdingTrendRepository", () => ({
+  holdingTrendRepository: { findLiquidHoldingsByName, findHoldingTrend },
 }));
 
 const {
@@ -216,5 +227,65 @@ describe("advisor tools", () => {
     expect(loads).toBe(3);
     // The tools go through the request's loader rather than pricing directly.
     expect(loadInvestablePortfolio).not.toHaveBeenCalled();
+  });
+
+  it("refuses to plan when an exclusion name is ambiguous, instead of silently excluding every match", async () => {
+    const portfolio = {
+      ...buildPortfolio(1_000),
+      investableHoldings: [
+        {
+          holdingId: "apple-inc",
+          assetName: "Apple Inc",
+          assetClass: AssetClass.EQUITY,
+          platformName: "Interactive Brokers",
+          valueInNis: 500,
+          withinClassWeight: 1,
+        },
+        {
+          holdingId: "apple-reit",
+          assetName: "Apple Hospitality REIT",
+          assetClass: AssetClass.EQUITY,
+          platformName: "Interactive Brokers",
+          valueInNis: 500,
+          withinClassWeight: 1,
+        },
+      ],
+    };
+    loadInvestablePortfolio.mockResolvedValue(portfolio);
+    const tools = buildAdvisorTools();
+
+    await expect(
+      invoke(
+        tools.planContribution,
+        { contributionNis: 1_000, excludedAssetNames: ["Apple"] },
+        AUTHENTICATED_CONTEXT
+      )
+    ).rejects.toThrow(/matches more than one holding/);
+  });
+
+  it("resolves an exact holding-name match for a trend even when it is also a substring of another holding", async () => {
+    findLiquidHoldingsByName.mockResolvedValue([
+      { id: "voo-id", assetName: "VOO" },
+      { id: "voog-id", assetName: "VOOG" },
+    ]);
+    findHoldingTrend.mockResolvedValue([
+      { date: "2026-01-01", unitPrice: 400, valueNis: 4_000, currency: "USD" },
+      { date: "2026-06-01", unitPrice: 440, valueNis: 4_400, currency: "USD" },
+    ]);
+    const tools = buildAdvisorTools();
+
+    const result = await invoke(
+      tools.getHoldingPriceTrend,
+      { assetName: "VOO" },
+      AUTHENTICATED_CONTEXT
+    );
+
+    expect(result.assetName).toBe("VOO");
+    expect(result.hasHistory).toBe(true);
+    expect(findHoldingTrend).toHaveBeenCalledWith(
+      "user-1",
+      "voo-id",
+      expect.any(Date)
+    );
   });
 });
