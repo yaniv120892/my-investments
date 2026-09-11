@@ -34,6 +34,7 @@ npm run test:contract    # the live-network contract tests only
 npm run test:run         # everything, contract tests included
 npm run db:migrate       # prisma migrate dev
 npm run db:deploy        # prisma migrate deploy
+npm run db:deploy:if-production # what the Vercel build runs; migrates in production only
 npm run db:studio        # prisma studio
 npm run setup            # db:generate && db:migrate
 npm run db:import-sheet  # one-off importer, scripts/importFromSheet.ts
@@ -45,9 +46,11 @@ docker-compose up -d     # local Postgres on 5432
 The Prisma schema lives at `src/prisma/schema.prisma`, not the default
 location, so every Prisma command passes `--schema`. `DATABASE_URL` is Neon's
 pooled endpoint, so the datasource also names `directUrl` (`DIRECT_URL`, the
-host without `-pooler`); `prisma generate` and `next build` do not read it, so a
-deploy cannot break on a missing value, but `db:migrate` and `db:studio` will. `postinstall` runs
-`prisma generate`.
+host without `-pooler`); `prisma generate` and `next build` do not read it, but
+`db:migrate`, `db:studio` and `db:deploy` will — and since a production Vercel
+build now runs `db:deploy`, an unset `DIRECT_URL` fails that build. That is the
+intended trade: a deploy that stops is cheaper than one that ships a client the
+database cannot serve. `postinstall` runs `prisma generate`.
 
 `db:import-sheet` replaces the whole portfolio and is spent — it was the
 one-time move off the Google Sheet. `db:add-savings` is the opposite: it only
@@ -305,8 +308,21 @@ with a pricing failure entirely, so history never contains a partial day.
 Vercel, region `fra1` — Binance answers 451 to US-hosted requests, so a US
 region breaks every crypto holding rather than merely slowing it down. Set
 every variable from `.env.example`; `CRON_SECRET`
-must be set or the scheduled snapshot 401s, and `FINNHUB_API_KEY` must be set
-or every US equity fails to price.
+must be set or the scheduled snapshot 401s, `FINNHUB_API_KEY` must be set
+or every US equity fails to price, and `DIRECT_URL` must be set or the build
+itself fails at the migrate step.
+
+**Migrations are applied by the build, and only by a production build.**
+`vercel.json` sets `buildCommand` to `db:deploy:if-production && build`, because
+`prisma generate` reads the schema file and never the database: without that
+step a migration can sit unapplied while the client generated beside it selects
+the new column, and the first thing to notice is the nightly cron failing on
+`prisma.user.findMany()`. `scripts/migrationGate.ts` is what keeps it to
+production — Vercel builds every pushed branch and the database variables are
+not scoped per environment, so an unguarded migrate would let a preview build of
+any feature branch apply its unmerged migrations to the live database. It keys
+on `VERCEL_ENV`, and a failed migration fails the deploy rather than letting the
+build ship past it.
 
 ## Documentation
 
