@@ -324,9 +324,7 @@ or every US equity fails to price.
 `CRON_SECRET` has to exist on the Vercel project, not merely in the code that
 reads it: Vercel attaches the `Authorization: Bearer` header to a cron
 invocation only when the variable is set, so an unset secret makes every
-scheduled GET 401 before it reaches the handler. That is what stalled history
-between 2026-07-25 and 2026-08-29, silently, because the route was never
-entered and the run left no log.
+scheduled GET 401 before it reaches the handler.
 
 ## Documentation
 
