@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { streamAdvisorMessage } from "@/lib/advisorStream";
 import { fitChatHistory } from "@/lib/advisor/advisorMessages";
@@ -26,6 +26,14 @@ export function useAdvisorChat(): AdvisorChat {
   // Teardown belongs to the `finally` in `sendMessage`, which the abort reaches.
   const cancel = useCallback(() => {
     abortControllerRef.current?.abort();
+  }, []);
+
+  // Leaving /advisor mid-stream must not keep the fetch running against a
+  // discarded closure: unmount aborts the same way the Stop button does.
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, []);
 
   const sendMessage = useCallback(
