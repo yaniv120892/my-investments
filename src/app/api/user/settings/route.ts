@@ -1,9 +1,8 @@
-import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { SUPPORTED_CURRENCIES } from "@/lib/pricing/supportedCurrencies";
-import { USER_ID_HEADER } from "@/lib/authTokens";
+import { withUser } from "@/lib/requestUser";
 import { describeError } from "@/utils/describeError";
 
 const updateSettingsSchema = z.object({
@@ -11,14 +10,8 @@ const updateSettingsSchema = z.object({
   baseCurrency: z.enum(SUPPORTED_CURRENCIES).optional(),
 });
 
-export async function GET(request: NextRequest) {
+export const GET = withUser(async (userId) => {
   try {
-    const userId = request.headers.get(USER_ID_HEADER);
-
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { settings: true },
@@ -40,15 +33,10 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function PATCH(request: NextRequest) {
+export const PATCH = withUser(async (userId, request) => {
   try {
-    const userId = request.headers.get(USER_ID_HEADER);
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const parsed = updateSettingsSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json(
@@ -81,4 +69,4 @@ export async function PATCH(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

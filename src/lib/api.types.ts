@@ -95,3 +95,10 @@ export interface HistoryResponse {
   data: HistoryPoint[];
   period: string;
 }
+
+export type { StoredTargets as TargetsResponse } from "@/lib/targets/target.types";
+
+export interface ReplaceTargetsRequest {
+  classTargets: Partial<Record<AssetClass, number>>;
+  withinClassWeights: Record<string, number | null>;
+}
