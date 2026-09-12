@@ -309,6 +309,14 @@ identically however the input is ordered.
   answers; it costs money and is non-deterministic, so it is excluded from
   `test:unit`, gates nothing, and skips itself when `OPENAI_API_KEY` is unset.
 
+`.github/workflows/ci.yml` runs `lint`, `prettier`, `test` and `build` on every
+pull request and on every push to `main` — the same four commands the pre-push
+gate runs, so the machine enforces what the convention asks for rather than
+trusting it. It needs no secrets: `prisma generate` reads the schema file and
+the unit suite mocks the network, so nothing in the gate reaches a database or a
+paid API. Vercel's build is not a substitute — it runs `next build` alone, and
+would happily deploy a branch whose tests fail.
+
 ## Database (Prisma)
 
 Postgres via `@prisma/client`. Every query goes through the single client
