@@ -1,6 +1,7 @@
 import { Liquidity } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type {
+  ClassTargetInput,
   ReplaceTargetsInput,
   StoredTargets,
 } from "@/lib/targets/target.types";
@@ -25,6 +26,17 @@ export class TargetRepository {
         withinClassWeight: holding.withinClassWeight,
       })),
     };
+  }
+
+  /** The advisor reads weights off the priced holdings, so it needs only these. */
+  public async findClassTargets(userId: string): Promise<ClassTargetInput[]> {
+    const targets = await prisma.assetClassTarget.findMany({
+      where: { userId },
+    });
+    return targets.map((target) => ({
+      assetClass: target.assetClass,
+      targetPercent: target.targetPercent,
+    }));
   }
 
   public async findLiquidHoldingIds(userId: string): Promise<Set<string>> {
