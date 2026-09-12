@@ -25,6 +25,7 @@ import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlin
 import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
 import DonutSmallOutlinedIcon from "@mui/icons-material/DonutSmallOutlined";
 import BalanceOutlinedIcon from "@mui/icons-material/BalanceOutlined";
+import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
 import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
@@ -42,6 +43,7 @@ const NAV_ITEMS = [
   { label: "Holdings", href: "/holdings", icon: AccountBalanceOutlinedIcon },
   { label: "Allocation", href: "/allocation", icon: DonutSmallOutlinedIcon },
   { label: "Rebalancing", href: "/rebalancing", icon: BalanceOutlinedIcon },
+  { label: "Advisor", href: "/advisor", icon: AutoAwesomeOutlinedIcon },
   { label: "History", href: "/history", icon: ShowChartOutlinedIcon },
   { label: "Settings", href: "/settings", icon: SettingsOutlinedIcon },
 ] as const;

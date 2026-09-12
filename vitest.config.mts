@@ -3,6 +3,11 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
+  // Matches the JSX runtime Next/SWC use for the app itself; the tsconfig's
+  // "preserve" is a hint for Next's own transform, which esbuild can't read.
+  esbuild: {
+    jsx: "automatic",
+  },
   css: {
     postcss: { plugins: [] },
   },
