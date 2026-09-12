@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import type * as NextServer from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   FRAME_SEPARATOR,
@@ -14,6 +15,14 @@ const { streamAdvisorResponse } = vi.hoisted(() => ({
 vi.mock("@/lib/advisor/advisorChatService", () => ({
   advisorChatService: { streamAdvisorResponse },
 }));
+
+// `after()` requires a real request scope, which Vitest never provides; the
+// route only uses it to defer turn-recording past the response, which these
+// tests don't assert on, so running the callback immediately is equivalent.
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof NextServer>();
+  return { ...actual, after: (callback: () => void) => callback() };
+});
 
 vi.mock("@/lib/advisor/advisorModel", () => ({
   isAdvisorModelConfigured: () => true,

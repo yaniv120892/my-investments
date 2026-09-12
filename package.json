@@ -59,6 +59,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -66,6 +67,7 @@
     "eslint-config-next": "15.4.5",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-promise": "^7.3.0",
+    "jsdom": "^30.0.1",
     "prettier": "^3.9.6",
     "tsx": "^4.23.1",
     "typescript": "^5",
