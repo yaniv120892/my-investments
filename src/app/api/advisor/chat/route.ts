@@ -151,14 +151,16 @@ function buildTurnRecord(
   // that called no grounding tool cannot be graded at all — with memory on, a
   // follow-up is answered from the thread — so it is not judged rather than
   // judged wrong.
-  const grounding = recorder.hasGroundingResults
-    ? checkNumericGrounding(replyText, [
-        ...recorder.groundingResults,
-        ...messages
-          .filter((message) => message.sender === "user")
-          .map((message) => message.text),
-      ])
-    : null;
+  const groundingResults = recorder.groundingResults;
+  const grounding =
+    groundingResults.length > 0
+      ? checkNumericGrounding(replyText, [
+          ...groundingResults,
+          ...messages
+            .filter((message) => message.sender === "user")
+            .map((message) => message.text),
+        ])
+      : null;
   const summary = recorder.summary;
 
   return {

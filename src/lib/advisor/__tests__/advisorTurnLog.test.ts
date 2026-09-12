@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { create, sendErrorNotification } = vi.hoisted(() => ({
+const { create, sendErrorNotificationOrLog } = vi.hoisted(() => ({
   create: vi.fn(),
-  sendErrorNotification: vi.fn(),
+  sendErrorNotificationOrLog: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: { advisorTurn: { create } } }));
-vi.mock("@/lib/telegramNotifier", () => ({ sendErrorNotification }));
+vi.mock("@/lib/telegramNotifier", () => ({ sendErrorNotificationOrLog }));
 
 const { recordAdvisorTurn } = await import("@/lib/advisor/advisorTurnLog");
 
@@ -25,14 +25,14 @@ describe("recordAdvisorTurn", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     create.mockResolvedValue({});
-    sendErrorNotification.mockResolvedValue(true);
+    sendErrorNotificationOrLog.mockResolvedValue(undefined);
   });
 
   it("writes the turn and stays quiet when every figure was grounded", async () => {
     await recordAdvisorTurn(GROUNDED);
 
     expect(create).toHaveBeenCalledWith({ data: GROUNDED });
-    expect(sendErrorNotification).not.toHaveBeenCalled();
+    expect(sendErrorNotificationOrLog).not.toHaveBeenCalled();
   });
 
   it("alerts, naming the figures, when one was not", async () => {
@@ -42,8 +42,8 @@ describe("recordAdvisorTurn", () => {
       ungrounded: ["37,500", "12,500"],
     });
 
-    expect(sendErrorNotification).toHaveBeenCalledTimes(1);
-    expect(sendErrorNotification.mock.calls[0][0]).toContain("37,500");
+    expect(sendErrorNotificationOrLog).toHaveBeenCalledTimes(1);
+    expect(sendErrorNotificationOrLog.mock.calls[0][0]).toContain("37,500");
   });
 
   it("does not fail the turn when the write fails", async () => {
@@ -52,8 +52,8 @@ describe("recordAdvisorTurn", () => {
     await expect(recordAdvisorTurn(GROUNDED)).resolves.toBeUndefined();
   });
 
-  it("does not fail the turn when the alert fails", async () => {
-    sendErrorNotification.mockRejectedValue(new Error("telegram down"));
+  it("does not fail the turn when the alert rejects", async () => {
+    sendErrorNotificationOrLog.mockRejectedValue(new Error("telegram down"));
 
     await expect(
       recordAdvisorTurn({ ...GROUNDED, isGrounded: false, ungrounded: ["1"] })

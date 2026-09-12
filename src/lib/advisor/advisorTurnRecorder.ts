@@ -54,10 +54,6 @@ export class AdvisorTurnRecorder {
       .map((call) => call.result);
   }
 
-  public get hasGroundingResults(): boolean {
-    return this.toolCalls.some((call) => call.isGrounding);
-  }
-
   public get summary(): AdvisorTurnSummary {
     return {
       toolIds: this.toolCalls.map((call) => call.toolId),

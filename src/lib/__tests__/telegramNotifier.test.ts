@@ -56,3 +56,42 @@ describe("sendErrorNotification", () => {
     await expect(sendErrorNotification("anything")).resolves.toBe(false);
   });
 });
+
+describe("sendErrorNotificationOrLog", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    process.env.TELEGRAM_BOT_TOKEN = "token";
+    process.env.TELEGRAM_CHAT_ID = "chat";
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    process.env = { ...ORIGINAL_ENV };
+  });
+
+  it("stays quiet when the alert is delivered", async () => {
+    mockFetch(true, { ok: true });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { sendErrorNotificationOrLog } =
+      await import("@/lib/telegramNotifier");
+
+    await sendErrorNotificationOrLog("something failed", "fallback message");
+
+    expect(consoleError).not.toHaveBeenCalled();
+  });
+
+  it("logs the fallback message when the alert could not be delivered", async () => {
+    mockFetch(false, { ok: false });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { sendErrorNotificationOrLog } =
+      await import("@/lib/telegramNotifier");
+
+    await sendErrorNotificationOrLog("something failed", "fallback message");
+
+    expect(consoleError).toHaveBeenCalledWith("fallback message");
+  });
+});

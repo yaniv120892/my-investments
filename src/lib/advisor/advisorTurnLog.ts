@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { sendErrorNotification } from "@/lib/telegramNotifier";
+import { sendErrorNotificationOrLog } from "@/lib/telegramNotifier";
 import { describeError } from "@/utils/describeError";
 import type { AdvisorTurnRecord } from "@/lib/advisor/advisorTurnLog.types";
 
@@ -8,24 +8,29 @@ export type { AdvisorTurnRecord } from "@/lib/advisor/advisorTurnLog.types";
 const ALERTED_NUMBER_LIMIT = 5;
 
 /**
- * Writing the turn and alerting on it are both non-critical: the answer has
- * already been streamed, and losing either must never turn a good answer
- * into a failed request. They run concurrently since neither depends on the
- * other's outcome.
+ * Writing the turn and alerting on an ungrounded one are both non-critical:
+ * the answer has already been streamed, and losing either must never turn a
+ * good answer into a failed request. They run concurrently since neither
+ * depends on the other's outcome.
  */
 export async function recordAdvisorTurn(
   record: AdvisorTurnRecord
 ): Promise<void> {
-  if (record.isGrounded) {
-    await writeTurn(record);
-    return;
+  const tasks: Promise<void>[] = [writeTurn(record)];
+
+  if (!record.isGrounded) {
+    console.error(
+      `Advisor stated ${record.ungrounded.length} figure(s) no tool produced (userId: ${record.userId}, figures: ${record.ungrounded.join(", ")})`
+    );
+    tasks.push(
+      sendErrorNotificationOrLog(
+        describeViolation(record),
+        `Failed to alert on an ungrounded advisor answer (userId: ${record.userId})`
+      )
+    );
   }
 
-  console.error(
-    `Advisor stated ${record.ungrounded.length} figure(s) no tool produced (userId: ${record.userId}, figures: ${record.ungrounded.join(", ")})`
-  );
-
-  await Promise.allSettled([writeTurn(record), alertOnViolation(record)]);
+  await Promise.allSettled(tasks);
 }
 
 async function writeTurn(record: AdvisorTurnRecord): Promise<void> {
@@ -33,16 +38,6 @@ async function writeTurn(record: AdvisorTurnRecord): Promise<void> {
     await prisma.advisorTurn.create({ data: record });
   } catch (error) {
     console.error(`Failed to record an advisor turn: ${describeError(error)}`);
-  }
-}
-
-/** `sendErrorNotification` reports failure by returning false rather than throwing. */
-async function alertOnViolation(record: AdvisorTurnRecord): Promise<void> {
-  const wasSent = await sendErrorNotification(describeViolation(record));
-  if (!wasSent) {
-    console.error(
-      `Failed to alert on an ungrounded advisor answer (userId: ${record.userId})`
-    );
   }
 }
 
