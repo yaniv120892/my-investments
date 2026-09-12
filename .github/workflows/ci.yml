@@ -16,7 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
       - uses: actions/setup-node@v7
         with:
           node-version-file: package.json
@@ -25,13 +24,10 @@ jobs:
       # postinstall runs `prisma generate`, which reads the schema file and
       # needs no database, so the whole gate runs without secrets.
       - run: npm ci
-
       - run: npm run lint
-
       - run: npm run prettier
-
-      # `npm test` is test:unit — contract tests need the live network and the
-      # evals cost money, so both stay out of the gate.
+      # `next build` type-checks the app but compiles a broken test file clean,
+      # so tsc runs on its own rather than folding into build.
+      - run: npm run typecheck
       - run: npm test
-
       - run: npm run build
