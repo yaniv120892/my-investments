@@ -12,7 +12,7 @@ import type { AdvisorTurnRecord } from "@/lib/advisor/advisorTurnLog.types";
 
 const { streamAdvisorResponse, recordAdvisorTurn } = vi.hoisted(() => ({
   streamAdvisorResponse: vi.fn(),
-  recordAdvisorTurn: vi.fn(),
+  recordAdvisorTurn: vi.fn<(record: AdvisorTurnRecord) => Promise<void>>(),
 }));
 
 vi.mock("@/lib/advisor/advisorChatService", () => ({
@@ -149,7 +149,7 @@ describe("POST /api/advisor/chat", () => {
     await Promise.resolve();
 
     expect(recordAdvisorTurn).toHaveBeenCalledTimes(1);
-    const record = recordAdvisorTurn.mock.calls[0][0] as AdvisorTurnRecord;
+    const record = recordAdvisorTurn.mock.calls[0][0];
     expect(record.isGrounded).toBe(false);
     expect(record.ungrounded).toContain("999,999");
   });
