@@ -83,6 +83,21 @@ export async function sendErrorNotification(error: string): Promise<boolean> {
 }
 
 /**
+ * `sendErrorNotification` reports failure by returning false rather than
+ * throwing, so discarding it would leave the alert about a silent failure
+ * failing silently itself — log `fallbackLogMessage` when it does.
+ */
+export async function sendErrorNotificationOrLog(
+  error: string,
+  fallbackLogMessage: string
+): Promise<void> {
+  const wasSent = await sendErrorNotification(error);
+  if (!wasSent) {
+    console.error(fallbackLogMessage);
+  }
+}
+
+/**
  * Messages go out with parse_mode HTML, so an unescaped character in an error
  * detail makes Telegram reject the whole message with a 400. Provider failures
  * routinely carry a query string — `...chart/CSPX.L?interval=1d&range=1d` — and

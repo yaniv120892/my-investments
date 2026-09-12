@@ -15,7 +15,7 @@
     "test": "npm run test:unit",
     "test:watch": "vitest",
     "test:run": "vitest run",
-    "test:unit": "vitest run --exclude '**/*.contract.test.ts'",
+    "test:unit": "vitest run --exclude '**/*.contract.test.ts' --exclude '**/*.eval.test.ts'",
     "test:contract": "vitest run contract.test",
     "db:import-sheet": "tsx scripts/importFromSheet.ts",
     "db:add-savings": "tsx scripts/addSavingsHoldings.ts",
@@ -26,11 +26,15 @@
     "db:deploy:if-production": "tsx scripts/deployMigrations.ts",
     "db:studio": "prisma studio --schema src/prisma/schema.prisma",
     "setup": "npm run db:generate && npm run db:migrate",
-    "postinstall": "prisma generate --schema src/prisma/schema.prisma"
+    "postinstall": "prisma generate --schema src/prisma/schema.prisma",
+    "eval": "vitest run eval.test"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@mastra/core": "^1.64.0",
+    "@mastra/memory": "^1.28.2",
+    "@mastra/pg": "^1.22.3",
     "@mui/icons-material": "^7.3.11",
     "@mui/material": "^7.3.11",
     "@mui/material-nextjs": "^7.3.10",
@@ -47,6 +51,7 @@
     "jsonwebtoken": "^9.0.2",
     "next": "15.4.10",
     "nodemailer": "^7.0.5",
+    "pg": "^8.23.0",
     "prisma": "^6.13.0",
     "react": "19.1.0",
     "react-chartjs-2": "^5.3.0",
@@ -55,6 +60,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -62,6 +68,7 @@
     "eslint-config-next": "15.4.5",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-promise": "^7.3.0",
+    "jsdom": "^30.0.1",
     "prettier": "^3.9.6",
     "tsx": "^4.23.1",
     "typescript": "^5",
@@ -71,5 +78,8 @@
   },
   "prisma": {
     "schema": "src/prisma/schema.prisma"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }

@@ -11,7 +11,8 @@ logic. It stores holdings, prices them live from free providers, and shows
 allocation, target drift, rebalancing, and currency exposure in NIS.
 
 Stack: Next.js 15 + React 19 + TypeScript, Prisma/Postgres, Upstash Redis
-(quote and FX cache), MUI v7 + Emotion, Chart.js, Vitest.
+(quote and FX cache), MUI v7 + Emotion, Chart.js, Vitest, Mastra (agent, tools,
+Postgres-backed memory) over an OpenAI model.
 
 Out of scope by design: cost basis and transactions, XIRR, dividends,
 benchmark comparison, two-way sheet sync, multi-user.
@@ -31,6 +32,7 @@ npm test                 # test:unit — terminates, so the pre-push gate can ru
 npm run test:watch       # vitest watch
 npm run test:unit        # vitest run, excluding *.contract.test.ts
 npm run test:contract    # the live-network contract tests only
+npm run eval             # the graded advisor eval, against the real model
 npm run test:run         # everything, contract tests included
 npm run db:migrate       # prisma migrate dev
 npm run db:deploy        # prisma migrate deploy
@@ -81,12 +83,20 @@ provider actually returned.
 
 ## Architecture
 
-- `src/app/` — App Router. `(auth)/` login and signup; `(app)/` the six
-  authenticated pages (dashboard, holdings, allocation, rebalancing, history,
-  settings) inside the `AppShell` sidebar layout.
+- `src/app/` — App Router. `(auth)/` login and signup; `(app)/` the seven
+  authenticated pages (dashboard, holdings, allocation, rebalancing, advisor,
+  history, settings) inside the `AppShell` sidebar layout.
 - `src/app/api/**/route.ts` — all endpoints. `auth/{login,logout,signup,verify}`,
   `holdings` (+ `[id]`, `history`, `manual-values`), `platforms`,
-  `user/settings`, `snapshot`, `targets`. `targets` is `GET`/`PUT` only:
+  `user/settings`, `snapshot`, `targets`, `advisor/chat`. `advisor/chat` is the
+  one streaming endpoint — it returns an SSE `ReadableStream` of `delta`, `plan`,
+  `done` and `error` frames rather than JSON, so its failures surface as an
+  in-band `error` frame: the 200 and its headers are already sent by the time
+  the agent can fail. A failed model run does **not** reject the stream — Mastra
+  closes it normally and reports on `result.error` — so the route reads that
+  after draining the deltas, or a bad key reads as an empty answer. The frame
+  the browser receives is deliberately neutral; the provider's own message,
+  which carries the host and model id, stays in the log. `targets` is `GET`/`PUT` only:
   "the class targets sum to 100" is a whole-document invariant a single-class
   `PATCH` could never validate.
   Every authenticated handler is wrapped in `withUser` (`src/lib/requestUser.ts`),
@@ -120,6 +130,19 @@ provider actually returned.
 - `src/lib/holdings/` — write path split into schemas (zod) → validator →
   service → repository, with typed errors mapped to responses by
   `holdingWriteErrorResponse.ts`.
+- `src/lib/advisorStream.ts` + `useAdvisorChat.ts` — the browser's SSE reader,
+  deliberately outside `api.ts`, which is JSON-only and buffers whole bodies.
+- `src/lib/advisor/eval/` — `numericGrounding.ts` (the checkable form of "the
+  model never does arithmetic"), `mockModelServer.ts` (an OpenAI-compatible
+  endpoint that replays a script), and the two eval suites.
+- `src/lib/advisor/` — the Mastra layer. `investmentAdvisor.ts` (a lazy `Agent`
+  singleton whose `instructions` and `model` are passed as _functions_, so the
+  date and the configured model resolve per request), `advisorTools.ts`,
+  `advisorModel.ts`, `advisorMemory.ts`, `advisorChatService.ts`,
+  `advisorStreamProtocol.ts` — the SSE frame format, named once and shared by
+  the route and the browser — `advisorTurnRecorder.ts` (the per-request tool
+  activity collected on the request context) and `advisorTurnLog.ts` (writes
+  the turn and alerts on an ungrounded one, both under `after()`).
 - `src/lib/targets/` — the portfolio-level target model, mirroring that same
   path, with `targetPercentRules.ts` naming the sum-to-100 rule once.
 - `src/lib/` — `db.ts` (the one `PrismaClient`, memoised on `globalThis`
@@ -134,7 +157,11 @@ provider actually returned.
   and the shared pieces. `DisplayCurrencyProvider` + `CurrencyToggle` hold the
   display currency; `PricingFailuresAlert` renders what could not be priced and
   `StaleManualValuesAlert` what has not been re-read lately, with
-  `ManualValuesModal` as the monthly review form. `PortfolioChart` defers to
+  `ManualValuesModal` as the monthly review form. `advisor/` holds the chat, the
+  rendered contribution table, and the targets editor — the targets UI lives
+  there rather than in settings because it needs the holdings list settings
+  never loads, and because the advisor's empty state is only actionable if the
+  fix is on the same screen. `PortfolioChart` defers to
   `PortfolioChartCanvas` so Chart.js only loads when a chart is actually on
   screen.
 - `src/theme.ts`, `src/utils/` (pure helpers), `src/types/`.
@@ -148,6 +175,26 @@ provider actually returned.
   `totalValueNis: null` whenever `failures` is non-empty, alongside
   `pricedValueNis` and the failure list. The UI shows the failures and
   suppresses the total. Do not add a fallback that sums what priced.
+- **The model never does arithmetic**, and this is checked rather than trusted:
+  every turn is graded by `checkNumericGrounding` against everything the tools
+  returned, and a figure with no tool behind it is logged at error level and sent
+  to Telegram. The check is deliberately lenient — it absorbs the rounding the
+  model does when writing an amount out, and ignores dates and small counts —
+  because a false alarm on a real answer costs more than missing a rounding
+  drift. It grades against what the tools returned **and** what the user typed —
+  an amount the user named is not fabricated when the model repeats it — and a
+  turn that called no grounding tool is not graded at all, since with memory on
+  a follow-up is answered from the thread. A tool whose result is derived from
+  the model's own input (`validateClassTargets`) is excluded from the pool, or
+  the model could ground any figure by passing it through a tool first. The
+  write and the alert run under `after()`, because work started once the
+  response has completed is otherwise frozen with the function. Every figure the advisor states comes from a tool result; the tools return pre-formatted strings alongside raw
+  numbers so it never sums or formats. `planContribution` is the only source of
+  contribution amounts — a changed constraint means calling it again, never
+  adjusting its output.
+- **The advisor's user id reaches a tool only through Mastra's
+  `RequestContext`**, never through an `inputSchema`, so a prompt-injected
+  message cannot choose whose portfolio it reads.
 - **A contribution plan is refused, never built on partial data.**
   `planContribution` takes `PricingResult.totalValueNis` verbatim and returns a
   `PRICING_INCOMPLETE` refusal when it is null — the same reason the UI
@@ -254,6 +301,13 @@ identically however the input is ordered.
   fails the holding and never falls through to summing mixed currencies.
 - `vitest.config.mts` includes `scripts/**/*.test.ts` as well as `src/`, so the
   one-off scripts are covered by the same run.
+- The advisor is graded at two levels. `advisorRouting.test.ts` runs the real
+  agent, tools and planner against `mockModelServer` — a scripted
+  OpenAI-compatible endpoint — so tool routing, constraint pass-through and
+  refusal relaying are deterministic and free, and run in CI like any unit test.
+  `*.eval.test.ts` asks the same questions of the real model and grades the
+  answers; it costs money and is non-deterministic, so it is excluded from
+  `test:unit`, gates nothing, and skips itself when `OPENAI_API_KEY` is unset.
 
 ## Database (Prisma)
 
@@ -262,7 +316,8 @@ exported by `src/lib/db.ts`; nothing else constructs a `PrismaClient` on a
 request path. Models: `User`, `Settings` (baseCurrency, darkMode, one row per
 user), `Platform` (unique per `[userId, name]`), `Holding`, `HoldingSnapshot`
 (unique per `[holdingId, date]`), `AssetClassTarget` (unique per
-`[userId, assetClass]`).
+`[userId, assetClass]`), `AdvisorTurn` (one row per advisor answer: the tools
+called, whether a plan came out, and whether every figure was grounded).
 
 `AssetClassTarget` is a model rather than three columns on `Settings` because
 the invariant is "all three present and summing to 100": rows make that state
@@ -303,6 +358,19 @@ job is to keep saying how old each reading is rather than to guess a newer one.
 The snapshot writes one `HoldingSnapshot` row per holding and skips any user
 with a pricing failure entirely, so history never contains a partial day.
 
+A run that writes no rows while holdings exist answers 500, not 200, so a
+scheduled run that priced nobody is recorded as a failed cron rather than a
+successful one carrying `usersSkipped`. A run that skipped one user while
+snapshotting another still answers 200: nothing was lost.
+
+Every run logs exactly one summary line carrying `usersProcessed`, `usersWithHoldings`,
+`usersSkipped`, `snapshotRowsWritten`, and `durationMs` — at error level when it
+wrote nothing despite holdings or threw part-way, at info otherwise. A run that
+throws still reports how far it got, which is why the counts accumulate into a
+summary the handler owns rather than a value the loop returns. Vercel Hobby
+keeps runtime logs for about an hour, so that line is the only evidence a run
+leaves behind.
+
 ## Deployment
 
 Vercel, region `fra1` — Binance answers 451 to US-hosted requests, so a US
@@ -310,7 +378,19 @@ region breaks every crypto holding rather than merely slowing it down. Set
 every variable from `.env.example`; `CRON_SECRET`
 must be set or the scheduled snapshot 401s, `FINNHUB_API_KEY` must be set
 or every US equity fails to price, and `DIRECT_URL` must be set or the build
-itself fails at the migrate step.
+itself fails at the migrate step. `OPENAI_API_KEY` unset makes
+`/api/advisor/chat` answer 503 and leaves every other page working;
+`MASTRA_DB_URL`/`DIRECT_URL` must be the **unpooled** endpoint or the advisor
+degrades to stateless. `next.config.ts` lists the Mastra packages and `pg` in
+`serverExternalPackages` — they resolve modules at runtime and bundling them
+breaks the route. The chat route sets `maxDuration = 60`, which is what the
+Hobby plan allows. Mastra owns the `mastra` Postgres schema and creates it
+lazily on the first advisor request, so Prisma never reports it as drift.
+
+`CRON_SECRET` has to exist on the Vercel project, not merely in the code that
+reads it: Vercel attaches the `Authorization: Bearer` header to a cron
+invocation only when the variable is set, so an unset secret makes every
+scheduled GET 401 before it reaches the handler.
 
 **Migrations are applied by the build, and only by a production build.**
 `vercel.json` sets `buildCommand` to `db:deploy:if-production && build`, because
