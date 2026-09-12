@@ -135,9 +135,11 @@ provider actually returned.
 - `src/lib/advisor/` — the Mastra layer. `investmentAdvisor.ts` (a lazy `Agent`
   singleton whose `instructions` and `model` are passed as _functions_, so the
   date and the configured model resolve per request), `advisorTools.ts`,
-  `advisorModel.ts`, `advisorMemory.ts`, `advisorChatService.ts`, and
+  `advisorModel.ts`, `advisorMemory.ts`, `advisorChatService.ts`,
   `advisorStreamProtocol.ts` — the SSE frame format, named once and shared by
-  the route and the browser.
+  the route and the browser — `advisorTurnRecorder.ts` (the per-request tool
+  activity collected on the request context) and `advisorTurnLog.ts` (writes
+  the turn and alerts on an ungrounded one, both under `after()`).
 - `src/lib/targets/` — the portfolio-level target model, mirroring that same
   path, with `targetPercentRules.ts` naming the sum-to-100 rule once.
 - `src/lib/` — `db.ts` (the one `PrismaClient`, memoised on `globalThis`

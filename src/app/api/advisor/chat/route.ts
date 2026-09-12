@@ -154,7 +154,9 @@ function buildTurnRecord(
   const grounding = recorder.hasGroundingResults
     ? checkNumericGrounding(replyText, [
         ...recorder.groundingResults,
-        ...messages.map((message) => message.text),
+        ...messages
+          .filter((message) => message.sender === "user")
+          .map((message) => message.text),
       ])
     : null;
   const summary = recorder.summary;
