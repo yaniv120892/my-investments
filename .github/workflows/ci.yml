@@ -5,15 +5,21 @@ on:
   push:
     branches: [main]
 
-# A superseded push has nothing left to prove; let the newer run win.
+# main opts out of cancellation: every commit there needs its own green gate,
+# and a superseded run leaves one without.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
 
 jobs:
   gate:
     name: Quality gate
     runs-on: ubuntu-latest
+    # Without this a hung step inherits GitHub's six-hour default.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
