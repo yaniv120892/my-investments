@@ -1,18 +1,35 @@
 import { NextRequest } from "next/server";
+import type * as NextServer from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   FRAME_SEPARATOR,
   decodeFrame,
 } from "@/lib/advisor/advisorStreamProtocol";
 import type { AdvisorStreamFrame } from "@/lib/advisor/advisorStreamProtocol.types";
+import type { AdvisorTurnRecorder } from "@/lib/advisor/advisorTurnRecorder";
+import type { AdvisorChatMessage } from "@/lib/advisor/advisorMessages.types";
+import type { AdvisorTurnRecord } from "@/lib/advisor/advisorTurnLog.types";
 
-const { streamAdvisorResponse } = vi.hoisted(() => ({
+const { streamAdvisorResponse, recordAdvisorTurn } = vi.hoisted(() => ({
   streamAdvisorResponse: vi.fn(),
+  recordAdvisorTurn: vi.fn<(record: AdvisorTurnRecord) => Promise<void>>(),
 }));
 
 vi.mock("@/lib/advisor/advisorChatService", () => ({
   advisorChatService: { streamAdvisorResponse },
 }));
+
+vi.mock("@/lib/advisor/advisorTurnLog", () => ({
+  recordAdvisorTurn,
+}));
+
+// `after()` requires a real request scope, which Vitest never provides; the
+// route only uses it to defer turn-recording past the response, which these
+// tests don't assert on, so running the callback immediately is equivalent.
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof NextServer>();
+  return { ...actual, after: (callback: () => void) => callback() };
+});
 
 vi.mock("@/lib/advisor/advisorModel", () => ({
   isAdvisorModelConfigured: () => true,
@@ -21,20 +38,28 @@ vi.mock("@/lib/advisor/advisorModel", () => ({
 
 const { POST } = await import("@/app/api/advisor/chat/route");
 
-function buildRequest(): NextRequest {
+function buildRequest(
+  messages: AdvisorChatMessage[] = [
+    { sender: "user", text: "Where should I put 1000 NIS?" },
+  ]
+): NextRequest {
   return new NextRequest("https://example.test/api/advisor/chat", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "x-user-id": "user-1",
     },
-    body: JSON.stringify({
-      messages: [{ sender: "user", text: "Where should I put 1000 NIS?" }],
-    }),
+    body: JSON.stringify({ messages }),
   });
 }
 
 async function* emptyStream(): AsyncGenerator<string> {}
+
+async function* textStream(...chunks: string[]): AsyncGenerator<string> {
+  for (const chunk of chunks) {
+    yield chunk;
+  }
+}
 
 async function readFrames(response: Response): Promise<AdvisorStreamFrame[]> {
   const text = await response.text();
@@ -54,7 +79,7 @@ describe("POST /api/advisor/chat", () => {
    * A plan a tool call already computed is real and worth the client having
    * even when a later agent step (the final text) is what actually failed —
    * regression for discarding it when `run.error` was checked before the
-   * planSink was flushed.
+   * recorder's plans were flushed.
    */
   it("flushes a plan the run already computed before surfacing a later run error", async () => {
     const plan = {
@@ -66,8 +91,8 @@ describe("POST /api/advisor/chat", () => {
       dropped: [],
     };
     streamAdvisorResponse.mockImplementation(
-      async (_messages, _userId, planSink: unknown[]) => {
-        planSink.push(plan);
+      async (_messages, _userId, recorder: AdvisorTurnRecorder) => {
+        recorder.recordPlan(plan);
         return { textStream: emptyStream(), error: new Error("boom") };
       }
     );
@@ -94,6 +119,39 @@ describe("POST /api/advisor/chat", () => {
     const frames = await readFrames(response);
 
     expect(frames.map((frame) => frame.type)).toEqual(["done"]);
+  });
+
+  /**
+   * Regression: the grounding pool used to include every message in the
+   * thread, not just the user's, so the model could "ground" a figure by
+   * having stated it itself in an earlier turn.
+   */
+  it("does not treat a figure from the advisor's own earlier turn as grounding evidence", async () => {
+    streamAdvisorResponse.mockImplementation(
+      async (_messages, _userId, recorder: AdvisorTurnRecorder) => {
+        recorder.recordToolCall("getInvestablePortfolio", {
+          investableValueNis: 5_000,
+        });
+        return {
+          textStream: textStream("You still have 999,999 NIS."),
+          error: undefined,
+        };
+      }
+    );
+
+    const response = await POST(
+      buildRequest([
+        { sender: "advisor", text: "Your portfolio is worth 999,999 NIS." },
+        { sender: "user", text: "Is that still accurate?" },
+      ])
+    );
+    await readFrames(response);
+    await Promise.resolve();
+
+    expect(recordAdvisorTurn).toHaveBeenCalledTimes(1);
+    const record = recordAdvisorTurn.mock.calls[0][0];
+    expect(record.isGrounded).toBe(false);
+    expect(record.ungrounded).toContain("999,999");
   });
 
   // The error frame now goes through `safeEnqueue`, same as every other

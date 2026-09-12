@@ -15,7 +15,7 @@
     "test": "npm run test:unit",
     "test:watch": "vitest",
     "test:run": "vitest run",
-    "test:unit": "vitest run --exclude '**/*.contract.test.ts'",
+    "test:unit": "vitest run --exclude '**/*.contract.test.ts' --exclude '**/*.eval.test.ts'",
     "test:contract": "vitest run contract.test",
     "db:import-sheet": "tsx scripts/importFromSheet.ts",
     "db:add-savings": "tsx scripts/addSavingsHoldings.ts",
@@ -25,7 +25,8 @@
     "db:deploy": "prisma migrate deploy --schema src/prisma/schema.prisma",
     "db:studio": "prisma studio --schema src/prisma/schema.prisma",
     "setup": "npm run db:generate && npm run db:migrate",
-    "postinstall": "prisma generate --schema src/prisma/schema.prisma"
+    "postinstall": "prisma generate --schema src/prisma/schema.prisma",
+    "eval": "vitest run eval.test"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
