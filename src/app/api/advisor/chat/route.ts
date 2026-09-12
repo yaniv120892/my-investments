@@ -78,15 +78,19 @@ export const POST = withUser(async (userId, request) => {
           safeEnqueue(controller, encodeFrame({ type: "delta", value: delta }));
         }
 
+        // Flushed before the error check: a plan a tool call already computed
+        // is real and worth the client having even when a later step (e.g.
+        // the final text) is what actually failed.
+        for (const plan of recorder.plans) {
+          safeEnqueue(controller, encodeFrame({ type: "plan", value: plan }));
+        }
+
         // A failed run closes its stream normally and reports here, so without
         // this a bad API key or a rate limit reads as an empty answer.
         if (run.error) {
           throw run.error;
         }
 
-        for (const plan of recorder.plans) {
-          safeEnqueue(controller, encodeFrame({ type: "plan", value: plan }));
-        }
         safeEnqueue(controller, encodeFrame({ type: "done" }));
       } catch (error) {
         failed = true;

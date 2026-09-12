@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   Box,
   Card,
@@ -27,7 +28,7 @@ interface ContributionPlanTableProps {
   usdToNisRate: number;
 }
 
-export default function ContributionPlanTable({
+function ContributionPlanTable({
   plan,
   displayCurrency,
   usdToNisRate,
@@ -128,7 +129,11 @@ export default function ContributionPlanTable({
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
             Skipped as too small to be worth a ticket:{" "}
             {plan.dropped.map((entry, index) => (
-              <Box component="span" key={entry.label} dir="auto">
+              <Box
+                component="span"
+                key={`${entry.scope}-${entry.label}-${index}`}
+                dir="auto"
+              >
                 {index > 0 ? ", " : ""}
                 {entry.scope === "assetClass"
                   ? getAssetClassLabel(entry.label)
@@ -142,3 +147,7 @@ export default function ContributionPlanTable({
     </Card>
   );
 }
+
+// The chat re-renders on every streamed token; an already-displayed plan
+// does not change until the next `plan` frame replaces it.
+export default memo(ContributionPlanTable);

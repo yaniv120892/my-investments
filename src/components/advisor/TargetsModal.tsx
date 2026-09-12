@@ -17,8 +17,12 @@ import {
 import { AssetClass } from "@prisma/client";
 import { useReplaceTargets } from "@/lib/hooks";
 import { ApiError } from "@/lib/apiError";
+import { describeError } from "@/utils/describeError";
 import { getAssetClassLabel } from "@/utils/format";
-import { isTargetSumBalanced } from "@/lib/targets/targetPercentRules";
+import {
+  isTargetSumBalanced,
+  sumTargetPercent,
+} from "@/lib/targets/targetPercentRules";
 import type { PricedHolding, TargetsResponse } from "@/lib/api";
 
 interface TargetsModalProps {
@@ -44,9 +48,10 @@ export default function TargetsModal({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
 
-  const targetSum = Object.values(classPercents).reduce(
-    (total, value) => total + (Number(value) || 0),
-    0
+  const targetSum = sumTargetPercent(
+    Object.values(classPercents).map((value) => ({
+      targetPercent: Number(value) || 0,
+    }))
   );
   const isBalanced = isTargetSumBalanced(targetSum);
 
@@ -76,7 +81,7 @@ export default function TargetsModal({
         setFormError(error.message);
         return;
       }
-      setFormError("Could not save the targets");
+      setFormError(describeError(error));
     }
   };
 

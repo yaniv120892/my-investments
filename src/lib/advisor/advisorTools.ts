@@ -6,6 +6,7 @@ import { planContribution } from "@/lib/pricing/contributionPlanner";
 import type { ContributionRefusalReason } from "@/lib/pricing/contributionPlanner.types";
 import { targetRepository } from "@/lib/targets/targetRepository";
 import { holdingTrendRepository } from "@/lib/holdings/holdingTrendRepository";
+import { resolveHoldingsByName } from "@/lib/holdings/holdingNameResolver";
 import {
   isTargetSumBalanced,
   sumTargetPercent,
@@ -231,10 +232,14 @@ export function buildAdvisorTools() {
     }),
     execute: async (input, context: ToolContext) => {
       const userId = requireUserId(context);
-      const matches = await holdingTrendRepository.findLiquidHoldingsByName(
+      // The repository's `contains` fetch is a superset; the resolver then
+      // prefers an exact match within it so "VOO" doesn't ambiguous-throw
+      // just because "VOOG" is also a substring match.
+      const candidates = await holdingTrendRepository.findLiquidHoldingsByName(
         userId,
         input.assetName
       );
+      const matches = resolveHoldingsByName(candidates, input.assetName);
 
       if (matches.length === 0) {
         throw new Error(
@@ -331,9 +336,14 @@ function nisFormatter(
 }
 
 /**
- * Exact match first, substring only as a fallback, and a name that matches
- * nothing throws. Silently ignoring a miss is the dangerous case: the model
- * would report a plan as though the exclusion applied when it did not.
+ * A name that matches nothing throws — silently ignoring a miss is the
+ * dangerous case, since the model would report a plan as though the
+ * exclusion applied when it did not. An exact match that hits more than one
+ * holding (the same ticker on two platforms) excludes all of them: the tool
+ * has no per-platform field to ask "which one", so bulk-excluding by name is
+ * the only sensible reading. A substring match that hits more than one
+ * distinct holding is refused by `resolveHoldingsByName` itself, since that
+ * ambiguity *is* resolvable — the caller can type the full name.
  */
 function resolveExcludedHoldingIds(
   holdings: { holdingId: string; assetName: string }[],
@@ -342,21 +352,11 @@ function resolveExcludedHoldingIds(
   const excluded = new Set<string>();
 
   for (const rawName of excludedAssetNames) {
-    const name = rawName.trim().toLowerCase();
-    if (!name) {
+    if (!rawName.trim()) {
       continue;
     }
 
-    const exact = holdings.filter(
-      (holding) => holding.assetName.toLowerCase() === name
-    );
-    const matches =
-      exact.length > 0
-        ? exact
-        : holdings.filter((holding) =>
-            holding.assetName.toLowerCase().includes(name)
-          );
-
+    const matches = resolveHoldingsByName(holdings, rawName);
     if (matches.length === 0) {
       throw new Error(
         `No liquid holding matches that name, so it cannot be excluded (assetName: ${rawName}). Call getInvestablePortfolio for the exact names.`
