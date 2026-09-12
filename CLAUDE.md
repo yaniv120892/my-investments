@@ -355,6 +355,19 @@ job is to keep saying how old each reading is rather than to guess a newer one.
 The snapshot writes one `HoldingSnapshot` row per holding and skips any user
 with a pricing failure entirely, so history never contains a partial day.
 
+A run that writes no rows while holdings exist answers 500, not 200, so a
+scheduled run that priced nobody is recorded as a failed cron rather than a
+successful one carrying `usersSkipped`. A run that skipped one user while
+snapshotting another still answers 200: nothing was lost.
+
+Every run logs exactly one summary line carrying `usersProcessed`, `usersWithHoldings`,
+`usersSkipped`, `snapshotRowsWritten`, and `durationMs` — at error level when it
+wrote nothing despite holdings or threw part-way, at info otherwise. A run that
+throws still reports how far it got, which is why the counts accumulate into a
+summary the handler owns rather than a value the loop returns. Vercel Hobby
+keeps runtime logs for about an hour, so that line is the only evidence a run
+leaves behind.
+
 ## Deployment
 
 Vercel, region `fra1` — Binance answers 451 to US-hosted requests, so a US
@@ -369,6 +382,11 @@ degrades to stateless. `next.config.ts` lists the Mastra packages and `pg` in
 breaks the route. The chat route sets `maxDuration = 60`, which is what the
 Hobby plan allows. Mastra owns the `mastra` Postgres schema and creates it
 lazily on the first advisor request, so Prisma never reports it as drift.
+
+`CRON_SECRET` has to exist on the Vercel project, not merely in the code that
+reads it: Vercel attaches the `Authorization: Bearer` header to a cron
+invocation only when the variable is set, so an unset secret makes every
+scheduled GET 401 before it reaches the handler.
 
 ## Documentation
 
