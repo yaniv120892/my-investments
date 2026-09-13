@@ -309,6 +309,24 @@ identically however the input is ordered.
   answers; it costs money and is non-deterministic, so it is excluded from
   `test:unit`, gates nothing, and skips itself when `OPENAI_API_KEY` is unset.
 
+`.github/workflows/ci.yml` runs `lint`, `prettier`, `typecheck`, `test` and
+`build` on every pull request and on every push to `main`, so the checks the
+pre-push gate asks for also run somewhere they cannot be skipped. `typecheck` is
+a step of its own because `next build` type-checks the app but compiles a broken
+test file clean. The gate needs no secrets: `prisma generate` reads the schema
+file and the unit suite mocks the network, so nothing in it reaches a database
+or a paid API. Vercel's build is not a substitute: its `buildCommand` is
+`db:deploy:if-production && npm run build`, which applies migrations and builds
+but runs no test, lint or type check, so it would happily deploy a branch whose
+tests fail. Nothing in CI runs that `buildCommand`, so a break in the
+`vercel.json` or `scripts/deployMigrations.ts` wiring stays green here and
+surfaces only on the next production deploy.
+
+The check is not _required_ yet. `main` has branch protection, but with no
+`required_status_checks` and `enforce_admins` off, a red gate still permits a
+merge and an admin can still push straight to `main`. Until `Quality gate` is
+added to the branch's required checks it is a signal, not a gate.
+
 ## Database (Prisma)
 
 Postgres via `@prisma/client`. Every query goes through the single client

@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# main opts out of cancellation: every commit there needs its own green gate,
+# and a superseded run leaves one without.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    # Without this a hung step inherits GitHub's six-hour default.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          cache: npm
+
+      # postinstall runs `prisma generate`, which reads the schema file and
+      # needs no database, so the whole gate runs without secrets.
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run prettier
+      # `next build` type-checks the app but compiles a broken test file clean,
+      # so tsc runs on its own rather than folding into build.
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
