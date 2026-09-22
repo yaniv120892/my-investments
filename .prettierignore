@@ -9,6 +9,7 @@ public
 # so a fixture can be diffed against a fresh capture.
 src/lib/providers/__tests__/fixtures
 
-# Rules vendored from claude-config — kept byte-faithful to upstream for the
-# same reason, so re-syncing one is a diff of the rule text and nothing else.
+# Vendored from claude-config — kept byte-faithful to upstream for the same
+# reason, so re-syncing one is a diff of the vendored text and nothing else.
 .claude/rules
+.claude/skills/steward
