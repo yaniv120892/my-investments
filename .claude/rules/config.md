@@ -1,4 +1,5 @@
 ---
+# Vendored from yaniv120892/claude-config rules/config.md at acdb1a5 — edit upstream, then re-copy.
 paths:
   - "**/*.env*"
   - "**/*.tf"
@@ -11,14 +12,6 @@ paths:
   - "**/.gitlab-ci.y*ml"
 description: Configuration and infrastructure files — secret handling and environment wiring.
 ---
-
-<!--
-  Vendored from yaniv120892/claude-config rules/config.md at acdb1a5.
-  That repo is the source of truth: edit there, then re-copy here.
-  This copy exists because a remote session (Claude Code on the web,
-  a routine, a Claude Tag run) has no ~/.claude install and cannot
-  resolve a symlink, and plugins cannot carry paths:-scoped rules.
--->
 
 # Configuration Files
 

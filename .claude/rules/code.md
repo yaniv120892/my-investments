@@ -1,4 +1,5 @@
 ---
+# Vendored from yaniv120892/claude-config rules/code.md at acdb1a5 — edit upstream, then re-copy.
 paths:
   - "**/*.ts"
   - "**/*.tsx"
@@ -16,14 +17,6 @@ paths:
   - "**/*.bash"
 description: Language-agnostic craft rules: comments, naming, control flow, error handling, guards.
 ---
-
-<!--
-  Vendored from yaniv120892/claude-config rules/code.md at acdb1a5.
-  That repo is the source of truth: edit there, then re-copy here.
-  This copy exists because a remote session (Claude Code on the web,
-  a routine, a Claude Tag run) has no ~/.claude install and cannot
-  resolve a symlink, and plugins cannot carry paths:-scoped rules.
--->
 
 # Writing Code — Craft Rules
 
