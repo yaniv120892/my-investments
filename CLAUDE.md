@@ -440,7 +440,7 @@ future work must follow, it does not belong here.
 
 `.claude/` is committed so a session gets the same setup wherever it runs — a
 laptop with `~/.claude` installed, Claude Code on the web, a routine, a Claude
-Tag run. The two halves reach a session by different routes.
+Tag run. These parts reach a session by different routes.
 
 `settings.json` only _references_ the `yaniv120892/claude-config` marketplace
 and names the plugins to enable, so skills, commands and hooks are fetched
@@ -462,5 +462,10 @@ keeps it that way so re-syncing one is a diff of the rule text alone. Upstream
 is the source of truth: change a rule there, then re-copy. The `paths:`
 frontmatter is what keeps them free — they load only when a matching file is
 read, not on every prompt.
+
+`skills/steward/` is copied for a third reason: on a pull-request event a
+remote session reads that skill from the head branch, so the copy committed
+here is the one that takes effect. It is vendored on the same terms as the
+rules, `.prettierignore` included.
 
 `ship.json` is this repo's own, not synced from anywhere.
