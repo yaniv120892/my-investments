@@ -322,18 +322,19 @@ tests fail. Nothing in CI runs that `buildCommand`, so a break in the
 `vercel.json` or `scripts/deployMigrations.ts` wiring stays green here and
 surfaces only on the next production deploy.
 
-`.github/workflows/deps-upgrade.yml` runs daily and opens one
-`deps/<slug>-<version>` pull request per outdated package, a lockstep family
-(`LOCKSTEP_FAMILIES` in claude-config's `deps-discover` action) or a package and
-its `@types` counting as one. The jobs live in `yaniv120892/claude-config`; this
-file only repeats the gate's commands, so the two lists change together. A bump
-that fails one opens its PR as a draft. The flow only opens PRs; merging stays
-with a human.
-
 The check is not _required_ yet. `main` has branch protection, but with no
 `required_status_checks` and `enforce_admins` off, a red gate still permits a
 merge and an admin can still push straight to `main`. Until `Quality gate` is
 added to the branch's required checks it is a signal, not a gate.
+
+`.github/workflows/deps-upgrade.yml` runs daily and opens one
+`deps/<slug>-<version>` pull request per outdated package, a lockstep family
+(`LOCKSTEP_FAMILIES` in claude-config's `deps-discover` action) or a package and
+its `@types` counting as one. The jobs live in `yaniv120892/claude-config`; the
+caller only repeats the `Quality gate` job's commands, so the two lists change
+together. A check the model cannot fix opens the PR as a draft; a failed install,
+or a peer package outside the candidate that must move too, opens none. The flow
+only opens PRs; merging stays with a human.
 
 ## Database (Prisma)
 
