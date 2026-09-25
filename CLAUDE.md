@@ -323,12 +323,11 @@ tests fail. Nothing in CI runs that `buildCommand`, so a break in the
 surfaces only on the next production deploy.
 
 `.github/workflows/deps-upgrade.yml` runs daily and opens one
-`deps/<slug>-<version>` pull request per outdated package, lockstep families
-(`@mui/*`, `prisma` + `@prisma/client`, `next` + `eslint-config-next`, a package
-and its `@types`) counting as one. The jobs live in `yaniv120892/claude-config`
-— a script picks the candidates, a Claude session upgrades each one — and this
-file only lists the gate's commands; a bump that fails one opens its PR as a
-draft. Edit the two lists together.
+`deps/<slug>-<version>` pull request per outdated package, a lockstep family
+(`LOCKSTEP_FAMILIES` in claude-config's `deps-discover` action) or a package and
+its `@types` counting as one. The jobs live in `yaniv120892/claude-config`; this
+file only repeats the gate's commands, so the two lists change together. A bump
+that fails one opens its PR as a draft.
 
 The check is not _required_ yet. `main` has branch protection, but with no
 `required_status_checks` and `enforce_admins` off, a red gate still permits a
