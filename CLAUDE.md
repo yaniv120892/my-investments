@@ -322,6 +322,14 @@ tests fail. Nothing in CI runs that `buildCommand`, so a break in the
 `vercel.json` or `scripts/deployMigrations.ts` wiring stays green here and
 surfaces only on the next production deploy.
 
+`.github/workflows/deps-upgrade.yml` runs daily and opens one
+`deps/<slug>-<version>` pull request per outdated package, lockstep families
+(`@mui/*`, `prisma` + `@prisma/client`, `next` + `eslint-config-next`, a package
+and its `@types`) counting as one. The jobs live in `yaniv120892/claude-config`
+— a script picks the candidates, a Claude session upgrades each one — and this
+file only lists the gate's commands; a bump that fails one opens its PR as a
+draft. Edit the two lists together.
+
 The check is not _required_ yet. `main` has branch protection, but with no
 `required_status_checks` and `enforce_admins` off, a red gate still permits a
 merge and an admin can still push straight to `main`. Until `Quality gate` is
