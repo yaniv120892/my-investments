@@ -327,7 +327,8 @@ surfaces only on the next production deploy.
 (`LOCKSTEP_FAMILIES` in claude-config's `deps-discover` action) or a package and
 its `@types` counting as one. The jobs live in `yaniv120892/claude-config`; this
 file only repeats the gate's commands, so the two lists change together. A bump
-that fails one opens its PR as a draft.
+that fails one opens its PR as a draft. The flow only opens PRs; merging stays
+with a human.
 
 The check is not _required_ yet. `main` has branch protection, but with no
 `required_status_checks` and `enforce_admins` off, a red gate still permits a
