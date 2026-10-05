@@ -431,16 +431,6 @@ any feature branch apply its unmerged migrations to the live database. It keys
 on `VERCEL_ENV`, and a failed migration fails the deploy rather than letting the
 build ship past it.
 
-## Replies to the user
-
-Write chat replies in ASD-STE100 Simplified Technical English: short sentences,
-common words, one idea per sentence, active voice, simple tenses. Start with the
-current state and the next step, and name files and commands exactly. The user
-runs several sessions in parallel and comes back to each one cold. Commit
-messages, PR descriptions and this file keep their own style. The canonical rule
-is in `yaniv120892/claude-config`'s `shared-rules.md`, which a cloud session
-does not load.
-
 ## Documentation
 
 This file is the only design document. Per-feature plans, specs, and handover
@@ -488,3 +478,6 @@ here is the one that takes effect. It is vendored on the same terms as the
 rules, `.prettierignore` included.
 
 `ship.json` is this repo's own, not synced from anywhere.
+
+Chat replies use ASD-STE100 Simplified Technical English: sentences of 20 words
+or fewer, one idea each, active voice, current state and next step first.
